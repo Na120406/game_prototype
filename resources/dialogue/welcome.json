@@ -1,0 +1,19 @@
+{
+  "lines": [
+	{
+	  "speaker": "???",
+	  "text": "You arrived. The village has been waiting.",
+	  "portrait": "neutral"
+	},
+	{
+	  "speaker": "???",
+	  "text": "Strange things happen here. Have you noticed?",
+	  "portrait": "neutral"
+	},
+	{
+	  "speaker": "???",
+	  "text": "Nevermind. You'll see for yourself.",
+	  "portrait": "neutral"
+	}
+  ]
+}
