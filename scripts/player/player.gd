@@ -3,7 +3,7 @@ extends CharacterBody2D
 signal direction_changed(new_dir: Vector2)
 signal state_changed(new_state: String, old_state: String)
 
-enum State { IDLE, WALKING, RUNNING, INTERACTING, SLEEPING, DEAD }
+enum State { IDLE, WALKING, RUNNING, SPRINTING, INTERACTING, SLEEPING, DEAD }
 enum Direction { DOWN, UP, LEFT, RIGHT }
 
 @export var move_speed: float = 100.0
@@ -27,10 +27,12 @@ var _is_sprinting: bool = false
 @onready var footstep_timer: Timer = $FootstepTimer
 
 var _last_position: Vector2 = Vector2.ZERO
+var _current_anim: String = ""
 
 func _ready() -> void:
 	add_to_group("player")
 	GameState.set_flag("player_spawned")
+	_set_state(State.IDLE)
 	print("[Player] Ready at position: %s" % str(position))
 
 func _physics_process(delta: float) -> void:
@@ -46,7 +48,7 @@ func _physics_process(delta: float) -> void:
 	if _is_moving:
 		_update_direction(input_dir)
 
-		var target_speed := move_speed
+		var target_speed: float = move_speed
 		if _is_sprinting:
 			target_speed = sprint_speed
 		elif _is_running:
@@ -55,14 +57,21 @@ func _physics_process(delta: float) -> void:
 		var target_velocity := input_dir * target_speed
 		velocity = velocity.move_toward(target_velocity, acceleration * delta)
 
-		_change_state(State.WALKING if not _is_running else State.RUNNING)
+		var moving_state: State = State.WALKING
+		if _is_sprinting:
+			moving_state = State.SPRINTING
+		elif _is_running:
+			moving_state = State.RUNNING
+		_set_state(moving_state)
 		_update_animation(input_dir)
 	else:
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
-		_change_state(State.IDLE)
-		_update_animation(Vector2.ZERO)
+		if velocity.length() < 1.0:
+			velocity = Vector2.ZERO
+			_set_state(State.IDLE)
+			_update_animation(Vector2.ZERO)
 
-	if _is_moving and _is_running:
+	if _is_moving and (_is_running or _is_sprinting):
 		GameState.drain_energy(delta * GameState.stamina_drain_rate * 0.3)
 
 	move_and_slide()
@@ -70,7 +79,7 @@ func _physics_process(delta: float) -> void:
 func _update_direction(dir: Vector2) -> void:
 	var new_dir: Direction = current_direction
 
-	if abs(dir.x) > abs(dir.y):
+	if absf(dir.x) > absf(dir.y):
 		if dir.x > 0:
 			new_dir = Direction.RIGHT
 			facing_dir = Vector2.RIGHT
@@ -86,43 +95,53 @@ func _update_direction(dir: Vector2) -> void:
 			facing_dir = Vector2.UP
 
 	if new_dir != current_direction:
-		var old_dir := current_direction
 		current_direction = new_dir
 		direction_changed.emit(facing_dir)
+		_update_sprite_flip()
 
 func _update_animation(dir: Vector2) -> void:
-	if animation_player == null or animation_player.has_node("AnimationTree"):
+	if animation_player == null:
 		return
 
-	var anim_name := _get_animation_name(dir)
-	if animation_player.has_animation(anim_name):
-		if animation_player.current_animation != anim_name:
+	var anim_name: String = _get_animation_name(dir)
+	if anim_name != _current_anim:
+		_current_anim = anim_name
+		if animation_player.has_animation(anim_name):
 			animation_player.play(anim_name)
+		else:
+			animation_player.play("idle")
+
+func _update_sprite_flip() -> void:
+	if sprite != null:
+		match current_direction:
+			Direction.LEFT:
+				sprite.flip_h = true
+			Direction.RIGHT:
+				sprite.flip_h = false
 
 func _get_animation_name(dir: Vector2) -> String:
-	var base := "idle"
+	var base: String = "idle"
 	if _is_moving:
-		base = "walk"
 		if _is_sprinting:
 			base = "sprint"
 		elif _is_running:
 			base = "run"
+		else:
+			base = "walk"
 
-	var dir_suffix := ""
 	match current_direction:
-		Direction.DOWN: dir_suffix = "_down"
-		Direction.UP: dir_suffix = "_up"
-		Direction.LEFT: dir_suffix = "_left"
-		Direction.RIGHT: dir_suffix = "_right"
+		Direction.DOWN: return base
+		Direction.UP: return base + "_up"
+		Direction.LEFT: return base
+		Direction.RIGHT: return base
+	return base
 
-	return base + dir_suffix
-
-func _change_state(new_state: State) -> void:
+func _set_state(new_state: State) -> void:
 	if new_state == current_state:
 		return
-	var old_state := current_state
+	var old_state_str: String = State.keys()[current_state]
 	current_state = new_state
-	state_changed.emit(State.keys()[new_state], State.keys()[old_state])
+	state_changed.emit(State.keys()[new_state], old_state_str)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("interact"):
@@ -133,19 +152,22 @@ func _unhandled_input(event: InputEvent) -> void:
 			_exit_interaction()
 
 func _interact() -> void:
-	_change_state(State.INTERACTING)
+	if current_state == State.SLEEPING or current_state == State.DEAD:
+		return
+
+	_set_state(State.INTERACTING)
 
 	if interaction_ray != null:
 		interaction_ray.target_position = facing_dir * interaction_range
 		interaction_ray.force_raycast_update()
 
 		if interaction_ray.is_colliding():
-			var collider := interaction_ray.get_collider()
+			var collider: Object = interaction_ray.get_collider()
 			if collider.has_method("interact"):
 				collider.interact(self)
 
 func _exit_interaction() -> void:
-	_change_state(State.IDLE)
+	_set_state(State.IDLE)
 
 func get_facing_cell() -> Vector2i:
 	var layer: TileMapLayer = get_tree().get_first_node_in_group("world_tiles")

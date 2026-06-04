@@ -11,9 +11,7 @@ func _process(delta: float) -> void:
 	if paused:
 		return
 
-	var previous_time := GameState.current_time
-	var previous_day := GameState.current_day
-
+	var previous_time: float = GameState.current_time
 	GameState.current_time += delta * time_scale * 0.1
 
 	if GameState.current_time >= 22.0:
@@ -28,16 +26,16 @@ func _process(delta: float) -> void:
 		GameState.is_day = true
 		day_changed.emit(GameState.current_day)
 
-	var prev_hour := int(previous_time)
-	var curr_hour := int(GameState.current_time)
+	var prev_hour: int = int(previous_time)
+	var curr_hour: int = int(GameState.current_time)
 	if curr_hour != prev_hour:
 		hour_elapsed.emit(curr_hour)
 
-	if abs(GameState.current_time - previous_time) > 0.001:
+	if absf(GameState.current_time - previous_time) > 0.001:
 		time_changed.emit(GameState.current_time, GameState.is_day)
 
 func set_time(new_time: float) -> void:
-	GameState.current_time = clamp(new_time, 0.0, 24.0)
+	GameState.current_time = clampf(new_time, 0.0, 24.0)
 	GameState.is_day = GameState.current_time >= 6.0 and GameState.current_time < 22.0
 	time_changed.emit(GameState.current_time, GameState.is_day)
 
@@ -46,7 +44,7 @@ func set_day(new_day: int) -> void:
 	day_changed.emit(new_day)
 
 func set_time_scale(scale: float) -> void:
-	time_scale = max(0.0, scale)
+	time_scale = maxf(0.0, scale)
 
 func pause() -> void:
 	paused = true
@@ -64,6 +62,6 @@ func is_dusk() -> bool:
 	return GameState.current_time >= 19.0 and GameState.current_time < 22.0
 
 func get_time_of_day_string() -> String:
-	var hour := int(GameState.current_time)
-	var minute := int((GameState.current_time - hour) * 60)
+	var hour: int = int(GameState.current_time)
+	var minute: int = int((GameState.current_time - hour) * 60.0)
 	return "%02d:%02d" % [hour, minute]

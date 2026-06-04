@@ -90,6 +90,8 @@ limit_left = -640
 limit_top = -540
 limit_right = 640
 limit_bottom = 540
+position_smoothing_enabled = true
+position_smoothing_speed = 10.0
 
 [node name="UI" type="CanvasLayer" parent="."]
 

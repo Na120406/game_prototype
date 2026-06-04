@@ -16,20 +16,20 @@ var dialogue_choices: Array = []
 var dialogue_box_scene: PackedScene
 
 func start_dialogue(dialogue_id: String, npc_name: String) -> void:
-	var path := "%s%s.json" % [DIALOGUE_DATA_PATH, dialogue_id]
+	var path: String = "%s%s.json" % [DIALOGUE_DATA_PATH, dialogue_id]
 	if not FileAccess.file_exists(path):
-		push_error("[DialogueManager] Dialogue not found: %s" % dialogue_id)
+		push_warning("[DialogueManager] Dialogue not found: %s (looked in %s)" % [dialogue_id, path])
 		return
 
-	var file := FileAccess.open(path, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		push_error("[DialogueManager] Cannot read file: %s" % path)
 		return
 
-	var json_str := file.get_as_text()
+	var json_str: String = file.get_as_text()
 	file.close()
 
-	var json := JSON.new()
+	var json: JSON = JSON.new()
 	if json.parse(json_str) != OK:
 		push_error("[DialogueManager] JSON parse error in: %s" % path)
 		return
@@ -66,11 +66,12 @@ func advance_line() -> bool:
 	return true
 
 func has_choices() -> bool:
-	var line := get_current_line()
-	return line.get("choices", []).size() > 0
+	var line: Dictionary = get_current_line()
+	var choices: Array = line.get("choices", [])
+	return choices.size() > 0
 
 func get_choices() -> Array:
-	var line := get_current_line()
+	var line: Dictionary = get_current_line()
 	return line.get("choices", [])
 
 func select_choice(index: int) -> void:

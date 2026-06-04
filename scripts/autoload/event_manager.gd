@@ -19,8 +19,10 @@ func _ready() -> void:
 func trigger_event(event_id: String) -> bool:
 	if event_id in triggered_events:
 		return false
-	if event_id in event_cooldowns and Time.get_ticks_msec() < event_cooldowns[event_id]:
-		return false
+	if event_id in event_cooldowns:
+		var cooldown_ms: int = event_cooldowns[event_id]
+		if Time.get_ticks_msec() < cooldown_ms:
+			return false
 
 	triggered_events.append(event_id)
 	active_events.append(event_id)
@@ -41,14 +43,16 @@ func is_event_triggered(event_id: String) -> bool:
 	return event_id in triggered_events
 
 func reset_area_events(area_id: String) -> void:
-	for event_id in triggered_events:
-		if event_id.begins_with(area_id + "_"):
-			triggered_events.erase(event_id)
+	var prefix: String = area_id + "_"
+	for i: int in range(triggered_events.size() - 1, -1, -1):
+		var event_id: String = triggered_events[i]
+		if event_id.begins_with(prefix):
+			triggered_events.remove_at(i)
 			active_events.erase(event_id)
 
 func spawn_anomaly(anomaly_type: String, position: Vector2) -> void:
 	anomaly_occurrences += 1
-	event_cooldowns["anomaly_last"] = Time.get_ticks_msec() + int(MIN_ANOMALY_INTERVAL * 1000)
+	event_cooldowns["anomaly_last"] = Time.get_ticks_msec() + int(MIN_ANOMALY_INTERVAL * 1000.0)
 	anomaly_occurred.emit(anomaly_type, position)
 	print("[EventManager] Anomaly at %s: %s" % [str(position), anomaly_type])
 

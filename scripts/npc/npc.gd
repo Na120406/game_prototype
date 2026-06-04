@@ -4,7 +4,7 @@ signal npc_state_changed(new_state: String)
 signal npc_dialogue_started()
 signal npc_dialogue_finished()
 
-enum NPCState { IDLE, WALKING, WORKING, RESTING, SPECIAL, SLEEPING }
+enum NPCState { IDLE, WALKING, WORKING, RESTING, SPECIAL, SLEEPING, WAKING }
 
 @export var npc_name: String = "Villager"
 @export var npc_id: String = "villager_01"
@@ -63,9 +63,9 @@ func _update_schedule() -> void:
 func _change_state(new_state: NPCState) -> void:
 	if new_state == current_state:
 		return
-	var old_state_str := NPCState.keys()[current_state]
-	current_state = new_state
-	npc_state_changed.emit(NPCState.keys()[new_state])
+	if new_state != current_state:
+		current_state = new_state
+		npc_state_changed.emit(NPCState.keys()[new_state])
 	_update_npc_animation()
 
 func _execute_schedule_action(action: String) -> void:

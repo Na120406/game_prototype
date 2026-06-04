@@ -39,14 +39,15 @@ func advance_time(hours: float) -> void:
 	print("[GameState] Time: %.0f:00" % current_time)
 
 func drain_energy(amount: float) -> void:
-	energy = max(0.0, energy - amount)
+	energy = maxf(0.0, energy - amount)
 	if energy <= 0.0:
 		print("[GameState] Energy depleted! Forcing sleep...")
 
 func add_item(item_id: String, amount: int = 1) -> bool:
-	for i in range(inventory.size()):
-		if inventory[i].get("id") == item_id:
-			inventory[i]["amount"] += amount
+	for i: int in range(inventory.size()):
+		var existing_id: String = inventory[i].get("id", "")
+		if existing_id == item_id:
+			inventory[i]["amount"] = inventory[i].get("amount", 0) + amount
 			print("[GameState] Added %d x %s (now %d)" % [amount, item_id, inventory[i]["amount"]])
 			return true
 	inventory.append({"id": item_id, "amount": amount})
@@ -54,9 +55,10 @@ func add_item(item_id: String, amount: int = 1) -> bool:
 	return true
 
 func remove_item(item_id: String, amount: int = 1) -> bool:
-	for i in range(inventory.size()):
-		if inventory[i].get("id") == item_id:
-			inventory[i]["amount"] -= amount
+	for i: int in range(inventory.size()):
+		var existing_id: String = inventory[i].get("id", "")
+		if existing_id == item_id:
+			inventory[i]["amount"] = inventory[i].get("amount", 0) - amount
 			if inventory[i]["amount"] <= 0:
 				inventory.remove_at(i)
 			print("[GameState] Removed %d x %s" % [amount, item_id])
@@ -64,22 +66,25 @@ func remove_item(item_id: String, amount: int = 1) -> bool:
 	return false
 
 func has_item(item_id: String, amount: int = 1) -> bool:
-	for item in inventory:
-		if item.get("id") == item_id and item.get("amount", 0) >= amount:
+	for item: Dictionary in inventory:
+		var item_id_found: String = item.get("id", "")
+		var item_amount: int = item.get("amount", 0)
+		if item_id_found == item_id and item_amount >= amount:
 			return true
 	return false
 
 func get_item_count(item_id: String) -> int:
-	for item in inventory:
-		if item.get("id") == item_id:
+	for item: Dictionary in inventory:
+		var item_id_found: String = item.get("id", "")
+		if item_id_found == item_id:
 			return item.get("amount", 0)
 	return 0
 
-func set_flag(flag: String, value = true) -> void:
+func set_flag(flag: String, value: Variant = true) -> void:
 	world_flags[flag] = value
 	print("[GameState] Flag set: %s = %s" % [flag, str(value)])
 
-func get_flag(flag: String, default = false):
+func get_flag(flag: String, default: Variant = false) -> Variant:
 	return world_flags.get(flag, default)
 
 func discover_area(area_id: String) -> bool:
