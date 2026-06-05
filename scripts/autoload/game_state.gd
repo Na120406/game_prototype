@@ -1,5 +1,7 @@
 extends Node
 
+signal inventory_changed
+
 var player_name: String = "Player"
 var current_day: int = 1
 var current_time: float = 6.0
@@ -50,9 +52,11 @@ func add_item(item_id: String, amount: int = 1) -> bool:
 		if existing_id == item_id:
 			inventory[i]["amount"] = inventory[i].get("amount", 0) + amount
 			print("[GameState] Added %d x %s (now %d)" % [amount, item_id, inventory[i]["amount"]])
+			inventory_changed.emit()
 			return true
 	inventory.append({"id": item_id, "amount": amount})
 	print("[GameState] Added %d x %s to inventory" % [amount, item_id])
+	inventory_changed.emit()
 	return true
 
 func remove_item(item_id: String, amount: int = 1) -> bool:
@@ -63,6 +67,7 @@ func remove_item(item_id: String, amount: int = 1) -> bool:
 			if inventory[i]["amount"] <= 0:
 				inventory.remove_at(i)
 			print("[GameState] Removed %d x %s" % [amount, item_id])
+			inventory_changed.emit()
 			return true
 	return false
 

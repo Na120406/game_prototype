@@ -38,6 +38,9 @@ func interact(_player: Node) -> void:
 	print("[Shopkeeper] Interact called (talk #%d)." % talk_count)
 	DialogueManager.start_dialogue(dialogue_id, npc_name)
 
+func is_player_nearby() -> bool:
+	return _player_nearby
+
 func _on_body_entered(body: Node) -> void:
 	if body.is_in_group("player"):
 		_player_nearby = true

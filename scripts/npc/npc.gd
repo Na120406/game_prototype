@@ -17,6 +17,7 @@ var schedule: Array[Dictionary] = []
 var is_interacting: bool = false
 var talk_count: int = 0
 var relationship_value: int = 0
+var _player_nearby: bool = false
 
 @onready var sprite: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
 @onready var animation_player: AnimationPlayer = $AnimationPlayer if has_node("AnimationPlayer") else null
@@ -32,8 +33,21 @@ func _ready() -> void:
 
 func _connect_signals() -> void:
 	if interaction_area != null:
-		interaction_area.body_entered.connect(_on_player_nearby)
-		interaction_area.body_exited.connect(_on_player_left)
+		interaction_area.body_entered.connect(_on_player_entered_area)
+		interaction_area.body_exited.connect(_on_player_exited_area)
+
+func _on_player_entered_area(body: Node) -> void:
+	if body.is_in_group("player"):
+		_player_nearby = true
+		_on_player_nearby(body)
+
+func _on_player_exited_area(body: Node) -> void:
+	if body.is_in_group("player"):
+		_player_nearby = false
+		_on_player_left(body)
+
+func is_player_nearby() -> bool:
+	return _player_nearby
 
 func _build_default_schedule() -> void:
 	schedule = [

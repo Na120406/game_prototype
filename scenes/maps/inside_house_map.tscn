@@ -2,6 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/world/world_transition.gd" id="2_trans"]
+[ext_resource type="Script" path="res://scripts/world/world_ui_manager.gd" id="3_uimgr"]
 [ext_resource type="Script" path="res://scripts/ui/inside_house_hud.gd" id="4_hud"]
 [ext_resource type="Script" path="res://scripts/ui/sleep_prompt.gd" id="5_sleep"]
 [ext_resource type="PackedScene" uid="uid://cbed01" path="res://scenes/world/bed.tscn" id="6_bed"]
@@ -131,6 +132,9 @@ limit_right = 480
 limit_bottom = 270
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+script = ExtResource("3_uimgr")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 script = ExtResource("4_hud")

@@ -80,7 +80,6 @@ func _load_scene(scene_path: String) -> void:
 	root.add_child(new_scene)
 	get_tree().current_scene = new_scene
 
-	# Tìm portal đích bằng portal_id, dùng global_position của nó làm spawn
 	if _pending_portal_id != "":
 		var portal := _find_portal_in_scene(new_scene, _pending_portal_id)
 		if portal != null:

@@ -6,6 +6,8 @@
 size = Vector2(160, 45)
 
 [node name="CounterZone" type="Area2D"]
+collision_layer = 2
+collision_mask = 1
 script = ExtResource("1_cz")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

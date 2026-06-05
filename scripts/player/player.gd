@@ -181,10 +181,28 @@ func _interact() -> void:
 
 	# Fallback: check proximity for interactables
 	if _current_interact_target == null:
+		var apple: Node = _find_nearby_item()
+		if apple != null:
+			_current_interact_target = apple
+			apple.interact(self)
+
+	if _current_interact_target == null:
 		var bed: Node = _find_nearby_bed()
 		if bed != null and bed.has_method("is_player_nearby") and bed.is_player_nearby():
 			bed.interact(self)
 			_current_interact_target = bed
+
+	if _current_interact_target == null:
+		var npc: Node = _find_nearby_npc()
+		if npc != null:
+			npc.interact(self)
+			_current_interact_target = npc
+
+	if _current_interact_target == null:
+		var counter: Node = _find_nearby_counter()
+		if counter != null:
+			counter.interact(self)
+			_current_interact_target = counter
 
 	if _current_interact_target == null:
 		_set_state(State.IDLE)
@@ -194,6 +212,59 @@ func _find_nearby_bed() -> Node:
 	if world == null:
 		return null
 	return world.find_child("Bed", true, false)
+
+func _find_nearby_item() -> Node:
+	var world: Node = get_parent()
+	if world == null:
+		return null
+	var apple: Node = world.find_child("Apple", true, false)
+	if apple != null and apple.has_method("is_player_nearby") and apple.is_player_nearby():
+		return apple
+	return null
+
+func _find_nearby_counter() -> Node:
+	var world: Node = get_parent()
+	if world == null:
+		return null
+	var counter: Node = world.find_child("Counter", true, false)
+	if counter == null:
+		return null
+
+	var is_nearby_area: bool = counter.has_method("is_player_nearby") and counter.is_player_nearby()
+	var dist: float = global_position.distance_to(counter.global_position)
+
+	if is_nearby_area:
+		var npcs: Array[Node] = world.get_tree().get_nodes_in_group("npc")
+		for npc: Node in npcs:
+			if npc.has_method("is_player_nearby") and npc.is_player_nearby():
+				return null
+		return counter
+
+	if dist > interaction_range:
+		return null
+
+	var npcs: Array[Node] = world.get_tree().get_nodes_in_group("npc")
+	for npc: Node in npcs:
+		if npc.has_method("is_player_nearby") and npc.is_player_nearby():
+			return null
+	return counter
+
+func _find_nearby_npc() -> Node:
+	var world: Node = get_parent()
+	if world == null:
+		return null
+	var npcs: Array[Node] = world.get_tree().get_nodes_in_group("npc")
+	var closest: Node = null
+	var closest_dist: float = INF
+	for npc: Node in npcs:
+		if npc.has_method("is_player_nearby") and npc.is_player_nearby():
+			var dist: float = global_position.distance_to(npc.global_position)
+			if dist < closest_dist:
+				closest_dist = dist
+				closest = npc
+	if closest_dist > interaction_range:
+		return null
+	return closest
 
 func _exit_interaction() -> void:
 	if _current_interact_target != null:

@@ -6,7 +6,6 @@
 [ext_resource type="Script" path="res://scripts/world/counter.gd" id="4_cz"]
 [ext_resource type="Script" path="res://scripts/world/world_ui_manager.gd" id="5_uimgr"]
 [ext_resource type="PackedScene" uid="uid://dlg_ui_fixed" path="res://scenes/ui/dialogue_ui.tscn" id="6_dui"]
-[ext_resource type="PackedScene" uid="uid://shop_ui_fixed" path="res://scenes/ui/shop_ui.tscn" id="7_sui"]
 
 [sub_resource type="RectangleShape2D" id="RS_trans"]
 size = Vector2(20, 40)
@@ -19,6 +18,9 @@ size = Vector2(4, 270)
 
 [sub_resource type="RectangleShape2D" id="RS_counter"]
 size = Vector2(160, 45)
+
+[sub_resource type="RectangleShape2D" id="RS_counter_zone"]
+size = Vector2(160, 80)
 
 [node name="InsideShopMap" type="Node2D"]
 
@@ -126,7 +128,6 @@ z_index = 5
 position = Vector2(360, 107)
 script = ExtResource("4_cz")
 linked_npc_path = NodePath("../Shopkeeper")
-shop_ui_path = NodePath("../UI/ShopUI")
 
 [node name="Body" type="ColorRect" parent="Counter"]
 offset_left = -80.0
@@ -145,6 +146,14 @@ color = Color(0.6, 0.45, 0.3, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Counter"]
 shape = SubResource("RS_counter")
+
+[node name="PromptArea" type="Area2D" parent="Counter"]
+position = Vector2(0, 17.5)
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Counter/PromptArea"]
+shape = SubResource("RS_counter_zone")
 
 [node name="Prompt" type="Label" parent="Counter"]
 anchors_preset = 7
@@ -179,5 +188,3 @@ position_smoothing_speed = 8.0
 script = ExtResource("5_uimgr")
 
 [node name="DialogueUI" parent="UI" instance=ExtResource("6_dui")]
-
-[node name="ShopUI" parent="UI" instance=ExtResource("7_sui")]

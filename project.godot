@@ -33,6 +33,7 @@ EventChainEngine="*res://scripts/autoload/event_chain_engine.gd"
 WorldSimulator="*res://scripts/autoload/world_simulator.gd"
 CatchUpSystem="*res://scripts/autoload/catch_up_system.gd"
 QuestSystem="*res://scripts/autoload/quest_system.gd"
+ItemManager="*res://scripts/autoload/item_manager.gd"
 
 [display]
 

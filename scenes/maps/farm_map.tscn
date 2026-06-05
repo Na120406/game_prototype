@@ -1,10 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://dgy10g2koldw6"]
+[gd_scene load_steps=8 format=3 uid="uid://dgy10g2koldw6"]
 
 [ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_ground"]
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="3_trans"]
+[ext_resource type="PackedScene" uid="uid://apple_item_scene" path="res://scenes/world/items/apple.tscn" id="8_apple"]
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_ui.tscn" id="5_dui"]
-[ext_resource type="PackedScene" path="res://scenes/ui/shop_ui.tscn" id="6_sui"]
 [ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="7_uimgr"]
 
 [sub_resource type="TileSetAtlasSource" id="TSA_farm"]
@@ -243,3 +243,8 @@ limit_right = 480
 limit_bottom = 270
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
+
+[node name="Apple" parent="." instance=ExtResource("8_apple")]
+position = Vector2(310, 195)
+
+[node name="UI" type="CanvasLayer" parent="."]

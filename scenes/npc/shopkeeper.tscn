@@ -26,6 +26,8 @@ position = Vector2(0, 1)
 shape = SubResource("RS_body")
 
 [node name="InteractArea" type="Area2D" parent="."]
+collision_layer = 2
+collision_mask = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="InteractArea"]
 shape = SubResource("RS_interact")

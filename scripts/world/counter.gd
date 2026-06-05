@@ -1,7 +1,8 @@
 extends StaticBody2D
 
 @export var linked_npc_path: NodePath
-@export var shop_ui_path: NodePath
+
+var _player_nearby: bool = false
 
 @onready var prompt_label: Label = $Prompt if has_node("Prompt") else null
 @onready var prompt_area: Area2D = $PromptArea if has_node("PromptArea") else null
@@ -14,35 +15,28 @@ func _ready() -> void:
 
 func interact(_player: Node) -> void:
 	if not _is_npc_nearby():
-		print("[Counter] No NPC nearby, cannot open shop.")
 		return
 	var shop_ui: Node = _get_shop_ui()
 	if shop_ui == null:
-		print("[Counter] ShopUI not found.")
 		return
 	shop_ui.open(GameState.gold)
-	print("[Counter] Shop opened.")
+
+func is_player_nearby() -> bool:
+	return _player_nearby
+
+func set_player_nearby(value: bool) -> void:
+	var was_nearby := _player_nearby
+	_player_nearby = value
+	if _player_nearby != was_nearby:
+		_show_prompt(_player_nearby)
 
 func _get_shop_ui() -> Node:
-	if shop_ui_path != null and not shop_ui_path.is_empty() and has_node(shop_ui_path):
-		return get_node(shop_ui_path)
-	var scene: SceneTree = get_tree()
-	if scene == null:
+	var tree := get_tree()
+	if tree == null:
 		return null
-	var root: Node = scene.current_scene
-	if root == null:
-		return null
-	return _find_child(root, "ShopUI")
-
-func _find_child(root: Node, name: String) -> Node:
-	if root == null:
-		return null
-	if root.name == name:
-		return root
-	for child in root.get_children():
-		var result := _find_child(child, name)
-		if result != null:
-			return result
+	var nodes: Array[Node] = tree.get_nodes_in_group("shop_ui")
+	if nodes.size() > 0:
+		return nodes[0]
 	return null
 
 func _is_npc_nearby() -> bool:
@@ -57,22 +51,16 @@ func _is_npc_nearby() -> bool:
 	return player.global_position.distance_to(npc.global_position) < 80.0
 
 func _get_player() -> Node2D:
-	var scene: SceneTree = get_tree()
-	if scene == null:
-		return null
-	var root: Node = scene.current_scene
-	if root == null:
-		return null
-	return _find_child(root, "Player")
-
-func _on_body_entered(body: Node) -> void:
-	if body.is_in_group("player"):
-		_show_prompt(true)
-
-func _on_body_exited(body: Node) -> void:
-	if body.is_in_group("player"):
-		_show_prompt(false)
+	return get_tree().get_first_node_in_group("player") as Node2D
 
 func _show_prompt(visible: bool) -> void:
 	if prompt_label != null:
 		prompt_label.visible = visible
+
+func _on_body_entered(body: Node) -> void:
+	if body.is_in_group("player"):
+		set_player_nearby(true)
+
+func _on_body_exited(body: Node) -> void:
+	if body.is_in_group("player"):
+		set_player_nearby(false)
