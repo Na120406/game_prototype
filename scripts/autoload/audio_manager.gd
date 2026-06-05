@@ -120,7 +120,10 @@ func _fade_in(player: AudioStreamPlayer, duration: float) -> void:
 
 func _fade_out_and_stop(player: AudioStreamPlayer, duration: float) -> void:
 	var tween := create_tween()
-	tween.set_parallel(true)
 	tween.tween_property(player, "volume_db", -60.0, duration)
-	tween.tween_callback(player.stop).set_delay(duration)
-	tween.tween_callback(player.queue_free).set_delay(duration + 0.1)
+	tween.finished.connect(_on_fade_out_complete.bind(player))
+
+func _on_fade_out_complete(player: AudioStreamPlayer) -> void:
+	if is_instance_valid(player):
+		player.stop()
+		player.queue_free()

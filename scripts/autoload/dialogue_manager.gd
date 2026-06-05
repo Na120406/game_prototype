@@ -2,93 +2,165 @@ extends Node
 
 signal dialogue_started(npc_name: String)
 signal dialogue_ended()
-signal dialogue_line_completed(line_index: int)
-signal choice_selected(choice_index: int)
+signal dialogue_closed()
+
+var is_active: bool = false
+
+var _current_dialogue: Dictionary = {}
+var _current_npc: String = ""
+var _current_line: int = 0
+var _pending_action: String = ""
 
 const DIALOGUE_DATA_PATH: String = "res://resources/dialogue/"
 
-var current_dialogue: Dictionary = {}
-var current_npc: String = ""
-var current_line_index: int = 0
-var is_in_dialogue: bool = false
-var dialogue_choices: Array = []
+func _ready() -> void:
+	add_to_group("dialogue_manager")
+	get_tree().node_added.connect(_on_node_added)
+	_connect_to_dialogue_ui()
+	print("[DialogueManager] Ready.")
 
-var dialogue_box_scene: PackedScene
+func _on_node_added(node: Node) -> void:
+	if node.name != "DialogueUI":
+		return
+	var ui: Node = _get_dialogue_ui()
+	if ui == null:
+		return
+	if not ui.dialogue_advance.is_connected(advance):
+		ui.dialogue_advance.connect(advance)
+	if not ui.dialogue_close.is_connected(close):
+		ui.dialogue_close.connect(close)
+	if not ui.dialogue_choice.is_connected(select_choice):
+		ui.dialogue_choice.connect(select_choice)
+	print("[DM] Connected to DialogueUI signals.")
+
+func _connect_to_dialogue_ui() -> void:
+	var ui: Node = _get_dialogue_ui()
+	if ui == null:
+		return
+	if not ui.dialogue_advance.is_connected(advance):
+		ui.dialogue_advance.connect(advance)
+	if not ui.dialogue_close.is_connected(close):
+		ui.dialogue_close.connect(close)
+	if not ui.dialogue_choice.is_connected(select_choice):
+		ui.dialogue_choice.connect(select_choice)
+	print("[DM] Connected to DialogueUI signals.")
 
 func start_dialogue(dialogue_id: String, npc_name: String) -> void:
-	var path: String = "%s%s.json" % [DIALOGUE_DATA_PATH, dialogue_id]
+	if is_active:
+		print("[DM] Already active, ignoring.")
+		return
+
+	_connect_to_dialogue_ui()
+
+	var path := DIALOGUE_DATA_PATH + dialogue_id + ".json"
 	if not FileAccess.file_exists(path):
-		push_warning("[DialogueManager] Dialogue not found: %s (looked in %s)" % [dialogue_id, path])
+		push_error("[DM] File not found: %s" % path)
 		return
 
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		push_error("[DialogueManager] Cannot read file: %s" % path)
+		push_error("[DM] Cannot open: %s" % path)
 		return
 
-	var json_str: String = file.get_as_text()
+	var json_str := file.get_as_text()
 	file.close()
 
-	var json: JSON = JSON.new()
-	if json.parse(json_str) != OK:
-		push_error("[DialogueManager] JSON parse error in: %s" % path)
+	var json := JSON.new()
+	var parse_result := json.parse(json_str)
+	if parse_result != OK:
+		push_error("[DM] JSON parse error: %s" % path)
 		return
 
-	current_dialogue = json.get_data()
-	current_npc = npc_name
-	current_line_index = 0
-	is_in_dialogue = true
+	_current_dialogue = json.get_data()
+	_current_npc = npc_name
+	_current_line = 0
+	_pending_action = ""
+	is_active = true
+
 	dialogue_started.emit(npc_name)
-	print("[DialogueManager] Dialogue started: %s with %s" % [dialogue_id, npc_name])
+	_show_line()
+	print("[DM] Started: '%s'" % dialogue_id)
 
-func get_current_line() -> Dictionary:
-	if not is_in_dialogue:
-		return {}
-
-	var lines: Array = current_dialogue.get("lines", [])
-	if current_line_index >= lines.size():
-		return {}
-
-	return lines[current_line_index]
-
-func advance_line() -> bool:
-	if not is_in_dialogue:
-		return false
-
-	var lines: Array = current_dialogue.get("lines", [])
-	current_line_index += 1
-	dialogue_line_completed.emit(current_line_index - 1)
-
-	if current_line_index >= lines.size():
-		end_dialogue()
-		return false
-
-	return true
-
-func has_choices() -> bool:
-	var line: Dictionary = get_current_line()
-	var choices: Array = line.get("choices", [])
-	return choices.size() > 0
-
-func get_choices() -> Array:
-	var line: Dictionary = get_current_line()
-	return line.get("choices", [])
-
-func select_choice(index: int) -> void:
-	if not is_in_dialogue:
+func _show_line() -> void:
+	var lines: Array = _current_dialogue.get("lines", [])
+	if _current_line >= lines.size():
+		_end()
 		return
-	dialogue_choices.append(index)
-	choice_selected.emit(index)
-	advance_line()
+
+	var line: Dictionary = lines[_current_line]
+	var speaker: String = line.get("speaker", _current_npc)
+	var text: String = line.get("text", "")
+	var choices: Array = line.get("choices", [])
+	var is_last: bool = (_current_line >= lines.size() - 1) and choices.is_empty()
+
+	var ui: Node = _get_dialogue_ui()
+	if ui == null:
+		push_error("[DM] DialogueUI not found!")
+		_end()
+		return
+
+	ui.show_text(speaker, text, choices, is_last)
+
+func advance() -> void:
+	if not is_active:
+		return
+	_current_line += 1
+	_show_line()
+
+func close() -> void:
+	print("[DM] close() called.")
+	_end()
 
 func end_dialogue() -> void:
-	is_in_dialogue = false
-	current_dialogue = {}
-	current_line_index = 0
-	current_npc = ""
-	dialogue_choices.clear()
-	dialogue_ended.emit()
-	print("[DialogueManager] Dialogue ended.")
+	close()
 
-func is_active() -> bool:
-	return is_in_dialogue
+func select_choice(index: int) -> void:
+	if not is_active:
+		return
+	var lines: Array = _current_dialogue.get("lines", [])
+	var choice_data: Array = lines[_current_line].get("choices_data", [])
+	if index >= choice_data.size():
+		return
+	var action: String = choice_data[index].get("action", "")
+	_pending_action = action
+	_current_line += 1
+	_show_line()
+	_execute_action(action)
+
+func _execute_action(action: String) -> void:
+	match action:
+		"close":
+			_end()
+
+func _end() -> void:
+	is_active = false
+	_pending_action = ""
+	var ui: Node = _get_dialogue_ui()
+	if ui != null:
+		ui.hide_dialogue()
+	_current_dialogue = {}
+	_current_line = 0
+	_current_npc = ""
+	dialogue_ended.emit()
+	dialogue_closed.emit()
+	print("[DM] Dialogue ended.")
+
+func _get_dialogue_ui() -> Node:
+	var scene: SceneTree = get_tree()
+	if scene == null:
+		return null
+	var root_scene: Node = scene.current_scene
+	if root_scene == null:
+		return null
+	return _find_child(root_scene, "DialogueUI")
+
+func _find_child(root: Node, name: String) -> Node:
+	if root == null:
+		return null
+	if root.name == name:
+		return root
+	for child in root.get_children():
+		var result: Node = _find_child(child, name)
+		if result != null:
+			return result
+	return null

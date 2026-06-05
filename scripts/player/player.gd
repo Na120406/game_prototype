@@ -11,7 +11,7 @@ enum Direction { DOWN, UP, LEFT, RIGHT }
 @export var sprint_speed: float = 250.0
 @export var acceleration: float = 800.0
 @export var friction: float = 1200.0
-@export var interaction_range: float = 24.0
+@export var interaction_range: float = 80.0
 
 var current_state: State = State.IDLE
 var current_direction: Direction = Direction.DOWN
@@ -21,23 +21,30 @@ var _is_moving: bool = false
 var _is_running: bool = false
 var _is_sprinting: bool = false
 
+var _current_interact_target: Node = null
+var _last_position: Vector2 = Vector2.ZERO
+var _current_anim: String = ""
+
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
 @onready var interaction_ray: RayCast2D = $InteractionRay
 @onready var footstep_timer: Timer = $FootstepTimer
 
-var _last_position: Vector2 = Vector2.ZERO
-var _current_anim: String = ""
-
 func _ready() -> void:
 	add_to_group("player")
 	GameState.set_flag("player_spawned")
 	_set_state(State.IDLE)
+	DialogueManager.dialogue_closed.connect(_on_dialogue_closed)
 	print("[Player] Ready at position: %s" % str(position))
 
 func _physics_process(delta: float) -> void:
 	if current_state == State.SLEEPING or current_state == State.DEAD:
 		velocity = Vector2.ZERO
+		return
+
+	if DialogueManager.is_active:
+		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+		move_and_slide()
 		return
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -145,6 +152,10 @@ func _set_state(new_state: State) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("interact"):
+		if current_state == State.INTERACTING:
+			return
+		if DialogueManager.is_active:
+			return
 		_interact()
 
 	if event.is_action_pressed("ui_cancel"):
@@ -156,6 +167,7 @@ func _interact() -> void:
 		return
 
 	_set_state(State.INTERACTING)
+	_current_interact_target = null
 
 	if interaction_ray != null:
 		interaction_ray.target_position = facing_dir * interaction_range
@@ -164,10 +176,24 @@ func _interact() -> void:
 		if interaction_ray.is_colliding():
 			var collider: Object = interaction_ray.get_collider()
 			if collider.has_method("interact"):
+				_current_interact_target = collider
 				collider.interact(self)
+			elif collider.has_method("_do_interact"):
+				_current_interact_target = collider
+				collider._do_interact()
+
+	if _current_interact_target == null:
+		_set_state(State.IDLE)
 
 func _exit_interaction() -> void:
+	if _current_interact_target != null:
+		if _current_interact_target.has_method("on_dialogue_ended"):
+			_current_interact_target.on_dialogue_ended()
+		_current_interact_target = null
 	_set_state(State.IDLE)
+
+func _on_dialogue_closed() -> void:
+	_exit_interaction()
 
 func get_facing_cell() -> Vector2i:
 	var layer: TileMapLayer = get_tree().get_first_node_in_group("world_tiles")
@@ -177,3 +203,13 @@ func get_facing_cell() -> Vector2i:
 
 func force_position(new_pos: Vector2) -> void:
 	global_position = new_pos
+
+func show_sleep_prompt() -> void:
+	pass
+
+func set_sleeping(sleeping: bool) -> void:
+	if sleeping:
+		_set_state(State.SLEEPING)
+		velocity = Vector2.ZERO
+	else:
+		_set_state(State.IDLE)

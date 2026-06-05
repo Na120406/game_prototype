@@ -71,6 +71,8 @@ func show_notification(text: String, duration: float = 2.0) -> void:
 	add_child(notification)
 
 	var tween := create_tween()
-	tween.set_parallel(true)
-	tween.tween_property(notification, "modulate:a", 0.0, duration).from(1.0)
-	tween.tween_callback(notification.queue_free).set_delay(duration)
+	tween.tween_property(notification, "modulate:a", 0.0, duration)
+	tween.finished.connect(_on_notification_fade_done.bind(notification))
+
+func _on_notification_fade_done(notification: Label) -> void:
+	notification.queue_free()

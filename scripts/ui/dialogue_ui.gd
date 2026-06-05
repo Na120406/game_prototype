@@ -1,119 +1,140 @@
 extends Control
 
-signal dialogue_started()
-signal dialogue_ended()
-signal choice_made(choice_index: int)
+signal dialogue_advance()
+signal dialogue_close()
+signal dialogue_choice(index: int)
 
-@export var dialogue_speed: float = 30.0
-@export var auto_advance_delay: float = 3.0
+@export var text_speed: float = 50.0
 
-var is_visible_panel: bool = false
-var current_speaker: String = ""
-var current_text: String = ""
-var displayed_char_count: int = 0
-var is_typing: bool = false
-var choices: Array = []
-var choice_buttons: Array = []
+var _speaker: String = ""
+var _full_text: String = ""
+var _current_char: int = 0
+var _is_typing: bool = false
+var _choices: Array = []
+var _choice_btns: Array = []
+var _is_last_line: bool = false
 
-@onready var panel: PanelContainer = $PanelContainer
-@onready var name_label: Label = $PanelContainer/VBox/NameLabel
-@onready var text_label: RichTextLabel = $PanelContainer/VBox/TextLabel
-@onready var continue_indicator: TextureRect = $PanelContainer/VBox/ContinueIndicator
-@onready var choices_container: VBoxContainer = $PanelContainer/VBox/ChoicesContainer
+var _name_lbl: Label
+var _text_lbl: RichTextLabel
+var _choices_box: VBoxContainer
+var _type_timer: Timer
 
 func _ready() -> void:
 	visible = false
-	panel.custom_minimum_size.y = 60
-	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	print("[DialogueUI] Ready.")
+	_name_lbl = find_child("Name", true, false)
+	_text_lbl = find_child("Text", true, false)
+	_choices_box = find_child("Choices", true, false)
+	_type_timer = find_child("TypeTimer", true, false)
 
-func _process(delta: float) -> void:
-	if is_typing:
-		_update_typing(delta)
+	if _text_lbl != null:
+		_text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+	if _choices_box != null:
+		_choices_box.visible = false
+	if _type_timer != null:
+		_type_timer.timeout.connect(_on_type_timer_timeout)
 
 func _input(event: InputEvent) -> void:
-	if not is_visible_panel:
+	if not visible:
 		return
 
-	if event.is_action_pressed("interact") or event.is_action_pressed("ui_accept"):
-		if is_typing:
-			_complete_text_instantly()
-		else:
-			_advance_dialogue()
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			get_viewport().set_input_as_handled()
+			_click_action()
+		return
 
-func show_dialogue(speaker: String, text: String, dialogue_choices: Array = []) -> void:
-	current_speaker = speaker
-	current_text = text
-	choices = dialogue_choices
+	if event.is_action_pressed("interact"):
+		get_viewport().set_input_as_handled()
+		_click_action()
 
-	name_label.text = speaker
-	choices_container.visible = false
-	continue_indicator.visible = false
+func _click_action() -> void:
+	if _is_typing:
+		_skip_typing()
+	elif _choices.size() > 0:
+		pass
+	elif _is_last_line:
+		dialogue_close.emit()
+	else:
+		dialogue_advance.emit()
+
+func _skip_typing() -> void:
+	_is_typing = false
+	_current_char = _full_text.length()
+	if _type_timer != null:
+		_type_timer.stop()
+	if _text_lbl != null:
+		_text_lbl.text = _full_text
+	_on_text_done()
+
+func show_text(speaker: String, text: String, choices: Array = [], is_last: bool = false) -> void:
+	_speaker = speaker
+	_full_text = text
+	_choices = choices
+	_is_last_line = is_last
+	_current_char = 0
+	_is_typing = true
+
+	if _name_lbl != null:
+		_name_lbl.text = speaker
+	if _text_lbl != null:
+		_text_lbl.text = ""
+	if _choices_box != null:
+		_choices_box.visible = false
+
+	for btn in _choice_btns:
+		btn.queue_free()
+	_choice_btns.clear()
 
 	visible = true
-	is_visible_panel = true
-	panel.visible = true
-	text_label.text = ""
+	if _type_timer != null:
+		_type_timer.start(1.0 / text_speed)
 
-	displayed_char_count = 0
-	is_typing = true
-	dialogue_started.emit()
-
-func _update_typing(delta: float) -> void:
-	var chars_to_add := dialogue_speed * delta
-	displayed_char_count = min(displayed_char_count + int(chars_to_add), current_text.length())
-	text_label.text = current_text.substr(0, displayed_char_count)
-
-	if displayed_char_count >= current_text.length():
-		is_typing = false
-		continue_indicator.visible = true
-
-		if choices.size() > 0:
-			_show_choices()
-
-func _complete_text_instantly() -> void:
-	if choices.size() > 0:
+func _on_type_timer_timeout() -> void:
+	if not _is_typing:
+		if _type_timer != null:
+			_type_timer.stop()
 		return
+	_current_char += 1
+	if _current_char >= _full_text.length():
+		_current_char = _full_text.length()
+		_is_typing = false
+		if _type_timer != null:
+			_type_timer.stop()
+		if _text_lbl != null:
+			_text_lbl.text = _full_text
+		_on_text_done()
+	else:
+		if _text_lbl != null:
+			_text_lbl.text = _full_text.substr(0, _current_char)
 
-	text_label.text = current_text
-	displayed_char_count = current_text.length()
-	is_typing = false
-	continue_indicator.visible = true
-
-func _advance_dialogue() -> void:
-	if choices.size() > 0:
-		return
-
-	hide_dialogue()
+func _on_text_done() -> void:
+	if _choices.size() > 0:
+		_show_choices()
 
 func _show_choices() -> void:
-	for child in choices_container.get_children():
-		child.queue_free()
-	choice_buttons.clear()
+	if _choices_box == null:
+		return
+	_choices_box.visible = true
+	for i in range(_choices.size()):
+		var btn := Button.new()
+		btn.text = _choices[i].get("text", "?")
+		btn.pressed.connect(_on_choice_pressed.bind(i))
+		_choices_box.add_child(btn)
+		_choice_btns.append(btn)
 
-	choices_container.visible = true
-
-	for i in range(choices.size()):
-		var choice_text: String = choices[i].get("text", "")
-		var button := Button.new()
-		button.text = choice_text
-		button.pressed.connect(_on_choice_selected.bind(i))
-		choices_container.add_child(button)
-		choice_buttons.append(button)
-
-	continue_indicator.visible = false
-
-func _on_choice_selected(index: int) -> void:
-	choice_made.emit(index)
-	hide_dialogue()
+func _on_choice_pressed(idx: int) -> void:
+	for btn in _choice_btns:
+		btn.disabled = true
+	dialogue_choice.emit(idx)
+	visible = false
 
 func hide_dialogue() -> void:
 	visible = false
-	is_visible_panel = false
-	panel.visible = false
-
-	for child in choices_container.get_children():
-		child.queue_free()
-	choice_buttons.clear()
-	choices.clear()
-	dialogue_ended.emit()
+	_is_typing = false
+	if _type_timer != null:
+		_type_timer.stop()
+	_choices.clear()
+	for btn in _choice_btns:
+		btn.queue_free()
+	_choice_btns.clear()

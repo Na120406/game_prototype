@@ -1,0 +1,103 @@
+[gd_scene load_steps=2 format=3 uid="uid://shop_ui_fixed"]
+
+[ext_resource type="Script" path="res://scripts/ui/shop_ui.gd" id="1_sui"]
+
+[node name="ShopUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_sui")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.5)
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -110.0
+offset_right = 160.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelBG" type="ColorRect" parent="Panel"]
+layout_mode = 2
+color = Color(0.1, 0.07, 0.13, 0.98)
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TitleBar" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Panel/VBox/TitleBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
+theme_override_font_sizes/font_size = 13
+text = "SHOP"
+
+[node name="Spacer" type="Control" parent="Panel/VBox/TitleBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CloseBtn" type="Button" parent="Panel/VBox/TitleBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+theme_override_font_sizes/font_size = 11
+text = "✕"
+flat = true
+
+[node name="GoldLabel" type="Label" parent="Panel/VBox/TitleBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.3, 1)
+theme_override_font_sizes/font_size = 11
+text = "Gold: 100"
+horizontal_alignment = 2
+
+[node name="Separator" type="HSeparator" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="ItemsScroll" type="ScrollContainer" parent="Panel/VBox"]
+custom_minimum_size = Vector2(0, 140)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ItemsList" type="VBoxContainer" parent="Panel/VBox/ItemsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Footer" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="CloseBtn" type="Button" parent="Panel/VBox/Footer"]
+custom_minimum_size = Vector2(80, 28)
+layout_mode = 2
+text = "Leave"
+
+[node name="Spacer" type="Control" parent="Panel/VBox/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="StatusLabel" type="Label" parent="Panel/VBox/Footer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 0.8)
+theme_override_font_sizes/font_size = 9
+text = "Talk to buy"
+horizontal_alignment = 2

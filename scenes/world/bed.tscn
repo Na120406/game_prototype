@@ -1,0 +1,72 @@
+[gd_scene load_steps=3 format=3 uid="uid://cbed01"]
+
+[ext_resource type="Script" path="res://scripts/world/bed.gd" id="1_bed"]
+
+[sub_resource type="RectangleShape2D" id="RS_top_bottom"]
+size = Vector2(40, 6)
+
+[node name="Bed" type="StaticBody2D"]
+position = Vector2(360, 110)
+script = ExtResource("1_bed")
+
+[node name="Frame" type="ColorRect" parent="."]
+z_index = 1
+offset_left = -22.0
+offset_top = -14.0
+offset_right = 22.0
+offset_bottom = 14.0
+color = Color(0.55, 0.4, 0.25, 1)
+
+[node name="Mattress" type="ColorRect" parent="."]
+z_index = 2
+offset_left = -18.0
+offset_top = -10.0
+offset_right = 18.0
+offset_bottom = 10.0
+color = Color(0.65, 0.55, 0.45, 1)
+
+[node name="Pillow" type="ColorRect" parent="."]
+z_index = 3
+offset_left = 8.0
+offset_top = -8.0
+offset_right = 18.0
+offset_bottom = 8.0
+color = Color(0.8, 0.75, 0.7, 1)
+
+[node name="Blanket" type="ColorRect" parent="."]
+z_index = 3
+offset_left = -18.0
+offset_top = -6.0
+offset_right = 8.0
+offset_bottom = 8.0
+color = Color(0.3, 0.25, 0.45, 1)
+
+[node name="CollisionTop" type="CollisionShape2D" parent="."]
+position = Vector2(0, -14)
+shape = SubResource("RS_top_bottom")
+
+[node name="CollisionBottom" type="CollisionShape2D" parent="."]
+position = Vector2(0, 14)
+shape = SubResource("RS_top_bottom")
+
+[node name="InteractArea" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractArea"]
+shape = SubResource("RS_top_bottom")
+
+[node name="Prompt" type="Label" parent="."]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -14.0
+offset_top = 4.0
+offset_right = 14.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 6
+text = "E"
+horizontal_alignment = 1

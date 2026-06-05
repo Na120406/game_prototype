@@ -1,0 +1,48 @@
+[gd_scene load_steps=3 format=4]
+
+[ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_icon"]
+[ext_resource type="Script" path="res://scripts/npc/shopkeeper.gd" id="2_script"]
+
+[sub_resource type="RectangleShape2D" id="RS_body"]
+size = Vector2(14, 14)
+
+[sub_resource type="RectangleShape2D" id="RS_interact"]
+size = Vector2(28, 28)
+
+[node name="Shopkeeper" type="CharacterBody2D"]
+z_index = 5
+script = ExtResource("2_script")
+npc_name = "Old Merchant"
+npc_id = "shopkeeper"
+dialogue_id = "shopkeeper"
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+position = Vector2(0, -4)
+scale = Vector2(0.2, 0.2)
+texture = ExtResource("1_icon")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 1)
+shape = SubResource("RS_body")
+
+[node name="InteractArea" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="InteractArea"]
+shape = SubResource("RS_interact")
+
+[node name="Prompt" type="Label" parent="."]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -14.0
+offset_top = 4.0
+offset_right = 14.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 6
+text = "E"
+horizontal_alignment = 1

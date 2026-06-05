@@ -1,0 +1,183 @@
+[gd_scene load_steps=7 format=4 uid="uid://bwakjyivdpisv"]
+
+[ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/npc/shopkeeper.tscn" id="2_shopkeeper"]
+[ext_resource type="Script" path="res://scripts/world/world_transition.gd" id="4_trans"]
+[ext_resource type="Script" path="res://scripts/world/counter.gd" id="4_cz"]
+[ext_resource type="Script" path="res://scripts/world/world_ui_manager.gd" id="5_uimgr"]
+[ext_resource type="PackedScene" uid="uid://dlg_ui_fixed" path="res://scenes/ui/dialogue_ui.tscn" id="6_dui"]
+[ext_resource type="PackedScene" uid="uid://shop_ui_fixed" path="res://scenes/ui/shop_ui.tscn" id="7_sui"]
+
+[sub_resource type="RectangleShape2D" id="RS_trans"]
+size = Vector2(20, 40)
+
+[sub_resource type="RectangleShape2D" id="RS_wall_h"]
+size = Vector2(480, 4)
+
+[sub_resource type="RectangleShape2D" id="RS_wall_v"]
+size = Vector2(4, 270)
+
+[sub_resource type="RectangleShape2D" id="RS_counter"]
+size = Vector2(160, 45)
+
+[node name="InsideShopMap" type="Node2D"]
+
+[node name="Floor" type="ColorRect" parent="."]
+z_index = 0
+offset_right = 480.0
+offset_bottom = 270.0
+color = Color(0.4, 0.3, 0.22, 1)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="WallTop" type="StaticBody2D" parent="./Walls"]
+position = Vector2(240, 2)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="./Walls/WallTop"]
+shape = SubResource("RS_wall_h")
+
+[node name="WallBottom" type="StaticBody2D" parent="./Walls"]
+position = Vector2(240, 268)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="./Walls/WallBottom"]
+shape = SubResource("RS_wall_h")
+
+[node name="WallLeft" type="StaticBody2D" parent="./Walls"]
+position = Vector2(2, 135)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="./Walls/WallLeft"]
+shape = SubResource("RS_wall_v")
+
+[node name="WallRight" type="StaticBody2D" parent="./Walls"]
+position = Vector2(478, 135)
+[node name="CollisionShape2D" type="CollisionShape2D" parent="./Walls/WallRight"]
+shape = SubResource("RS_wall_v")
+
+[node name="Shelf" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 160.0
+offset_bottom = 90.0
+color = Color(0.45, 0.35, 0.22, 1)
+
+[node name="ShelfItem1" type="ColorRect" parent="Shelf"]
+z_index = 1
+offset_left = 10.0
+offset_top = 8.0
+offset_right = 30.0
+offset_bottom = 30.0
+color = Color(0.7, 0.6, 0.4, 1)
+
+[node name="ShelfItem2" type="ColorRect" parent="Shelf"]
+z_index = 1
+offset_left = 40.0
+offset_top = 8.0
+offset_right = 60.0
+offset_bottom = 30.0
+color = Color(0.6, 0.5, 0.35, 1)
+
+[node name="ShelfItem3" type="ColorRect" parent="Shelf"]
+z_index = 1
+offset_left = 70.0
+offset_top = 8.0
+offset_right = 90.0
+offset_bottom = 30.0
+color = Color(0.5, 0.55, 0.4, 1)
+
+[node name="Rug" type="ColorRect" parent="."]
+z_index = 0
+offset_left = 180.0
+offset_top = 140.0
+offset_right = 300.0
+offset_bottom = 220.0
+color = Color(0.4, 0.3, 0.25, 0.8)
+
+[node name="ToTown" type="Area2D" parent="."]
+position = Vector2(20, 135)
+script = ExtResource("4_trans")
+target_scene = "res://scenes/maps/town_map.tscn"
+portal_id = "portal_shop"
+prompt = "E"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ToTown"]
+shape = SubResource("RS_trans")
+
+[node name="Prompt" type="Label" parent="ToTown"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -10.0
+offset_top = 4.0
+offset_right = 10.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 6
+text = "E"
+horizontal_alignment = 1
+
+[node name="Shopkeeper" parent="." instance=ExtResource("2_shopkeeper")]
+z_index = 7
+position = Vector2(360, 68)
+
+[node name="Counter" type="StaticBody2D" parent="."]
+z_index = 5
+position = Vector2(360, 107)
+script = ExtResource("4_cz")
+linked_npc_path = NodePath("../Shopkeeper")
+shop_ui_path = NodePath("../UI/ShopUI")
+
+[node name="Body" type="ColorRect" parent="Counter"]
+offset_left = -80.0
+offset_top = -22.0
+offset_right = 80.0
+offset_bottom = 23.0
+color = Color(0.5, 0.38, 0.25, 1)
+
+[node name="Top" type="ColorRect" parent="Counter"]
+z_index = 1
+offset_left = -85.0
+offset_top = -27.0
+offset_right = 85.0
+offset_bottom = -22.0
+color = Color(0.6, 0.45, 0.3, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Counter"]
+shape = SubResource("RS_counter")
+
+[node name="Prompt" type="Label" parent="Counter"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -18.0
+offset_top = 4.0
+offset_right = 18.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+z_index = 10
+position = Vector2(100, 135)
+
+[node name="Camera2D" type="Camera2D" parent="Player"]
+limit_left = 0
+limit_top = 0
+limit_right = 480
+limit_bottom = 270
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+script = ExtResource("5_uimgr")
+
+[node name="DialogueUI" parent="UI" instance=ExtResource("6_dui")]
+
+[node name="ShopUI" parent="UI" instance=ExtResource("7_sui")]

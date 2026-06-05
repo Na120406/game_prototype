@@ -42,14 +42,10 @@ func _examine() -> void:
 	has_been_examined = true
 	print("[WorldObject] Examining: %s — %s" % [object_name, description])
 
-	var dialogue_line := {
-		"speaker": object_name,
-		"text": description,
-		"portrait": "object"
-	}
-	if DialogueManager.is_active():
+	if DialogueManager.is_active:
+		DialogueManager.close()
+	else:
 		DialogueManager.start_dialogue("examine_generic", object_name)
-	DialogueManager.end_dialogue()
 
 	examine_finished.emit()
 

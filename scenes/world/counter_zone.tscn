@@ -1,0 +1,29 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/counter_zone.gd" id="1_cz"]
+
+[sub_resource type="RectangleShape2D" id="RS_counter_zone"]
+size = Vector2(160, 45)
+
+[node name="CounterZone" type="Area2D"]
+script = ExtResource("1_cz")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RS_counter_zone")
+
+[node name="Prompt" type="Label" parent="."]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -14.0
+offset_top = 4.0
+offset_right = 14.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1

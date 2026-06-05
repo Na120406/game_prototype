@@ -19,6 +19,7 @@ var lore_fragments_found: int = 0
 
 var weather_type: String = "clear"
 var is_day: bool = true
+var gold: int = 100
 
 func _ready() -> void:
 	print("[GameState] Initialized — Day %d, %.0f:00" % [current_day, current_time])
@@ -106,4 +107,5 @@ func reset() -> void:
 	lore_fragments_found = 0
 	weather_type = "clear"
 	is_day = true
+	gold = 100
 	print("[GameState] Game state reset.")

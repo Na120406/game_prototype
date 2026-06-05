@@ -104,8 +104,9 @@ func interact(player: Node) -> void:
 	print("[NPC] %s interacted with player (talk count: %d)." % [npc_name, talk_count])
 
 	DialogueManager.start_dialogue(dialogue_id, npc_name)
+	DialogueManager.dialogue_ended.connect(_on_dm_ended, CONNECT_ONE_SHOT)
 
-	await DialogueManager.dialogue_ended
+func _on_dm_ended() -> void:
 	is_interacting = false
 	npc_dialogue_finished.emit()
 
