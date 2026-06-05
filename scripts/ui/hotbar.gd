@@ -22,12 +22,16 @@ var _item_colors: Dictionary = {
 	"rope": Color(0.6, 0.45, 0.3, 1),
 }
 
+const _STYLE_SELECTED_COLOR := Color(1.0, 0.85, 0.3, 1.0)
+const _STYLE_UNSELECTED_COLOR := Color(0.5, 0.4, 0.3, 0.6)
+const _STYLE_ITEM_COLOR := Color(0.8, 0.65, 0.3, 0.9)
+
 func _ready() -> void:
 	add_to_group("hotbar")
 	_setup_slots()
 	_refresh()
 	GameState.inventory_changed.connect(_on_inventory_changed)
-	print("[Hotbar] Ready.")
+	_apply_selection_style(_selected_index)
 
 func _setup_slots() -> void:
 	var slot_names: Array[String] = ["Slot0", "Slot1", "Slot2"]
@@ -36,7 +40,27 @@ func _setup_slots() -> void:
 		var slot: Node = get_node_or_null("SlotsContainer/" + slot_names[i])
 		if slot == null:
 			continue
-		_slot_panels.append(slot as PanelContainer)
+		var panel: PanelContainer = slot as PanelContainer
+		_slot_panels.append(panel)
+
+		var original_style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
+		var copy_style := StyleBoxFlat.new()
+		if original_style != null:
+			copy_style.bg_color = original_style.bg_color
+			copy_style.border_color = original_style.border_color
+			copy_style.border_width_left = original_style.border_width_left
+			copy_style.border_width_top = original_style.border_width_top
+			copy_style.border_width_right = original_style.border_width_right
+			copy_style.border_width_bottom = original_style.border_width_bottom
+			copy_style.corner_radius_top_left = original_style.corner_radius_top_left
+			copy_style.corner_radius_top_right = original_style.corner_radius_top_right
+			copy_style.corner_radius_bottom_right = original_style.corner_radius_bottom_right
+			copy_style.corner_radius_bottom_left = original_style.corner_radius_bottom_left
+			copy_style.content_margin_left = original_style.content_margin_left
+			copy_style.content_margin_top = original_style.content_margin_top
+			copy_style.content_margin_right = original_style.content_margin_right
+			copy_style.content_margin_bottom = original_style.content_margin_bottom
+		panel.add_theme_stylebox_override("panel", copy_style)
 
 		var icon_lbl := Label.new()
 		icon_lbl.name = "IconLabel"
@@ -66,36 +90,35 @@ func _setup_slots() -> void:
 		count_lbl.add_theme_color_override("font_color", Color(1, 0.9, 0.5, 1))
 		slot.add_child(count_lbl)
 		_slot_labels.append(count_lbl)
-		_apply_selection_style(i)
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			_change_selection(-1)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_change_selection(1)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_change_selection(-1)
 
 func _change_selection(direction: int) -> void:
+	var prev := _selected_index
 	_selected_index = wrapi(_selected_index + direction, 0, NUM_SLOTS)
-	for i: int in range(NUM_SLOTS):
-		_apply_selection_style(i)
-	_refresh()
+	_apply_selection_style(prev)
+	_apply_selection_style(_selected_index)
 
 func _apply_selection_style(slot_index: int) -> void:
-	var panel: PanelContainer = _slot_panels[slot_index] if slot_index < _slot_panels.size() else null
-	if panel == null:
+	if slot_index < 0 or slot_index >= _slot_panels.size():
 		return
-	var style: StyleBoxFlat = panel.get_theme_stylebox("panel")
+	var panel: PanelContainer = _slot_panels[slot_index]
+	var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
 	if style == null:
 		return
 	if slot_index == _selected_index:
-		style.border_color = Color(1, 0.85, 0.3, 1)
+		style.border_color = _STYLE_SELECTED_COLOR
 		style.border_width_left = 2
 		style.border_width_top = 2
 		style.border_width_right = 2
 		style.border_width_bottom = 2
 	else:
-		style.border_color = Color(0.5, 0.4, 0.3, 0.6)
+		style.border_color = _STYLE_UNSELECTED_COLOR
 		style.border_width_left = 1
 		style.border_width_top = 1
 		style.border_width_right = 1
@@ -109,12 +132,11 @@ func _refresh() -> void:
 		_update_slot(i)
 
 func _update_slot(slot_index: int) -> void:
-	var icon_lbl: Label = _slot_icons[slot_index] if slot_index < _slot_icons.size() else null
-	var count_lbl: Label = _slot_labels[slot_index] if slot_index < _slot_labels.size() else null
-	var panel: PanelContainer = _slot_panels[slot_index] if slot_index < _slot_panels.size() else null
-
-	if icon_lbl == null or count_lbl == null or panel == null:
+	if slot_index >= _slot_icons.size() or slot_index >= _slot_labels.size() or slot_index >= _slot_panels.size():
 		return
+	var icon_lbl: Label = _slot_icons[slot_index]
+	var count_lbl: Label = _slot_labels[slot_index]
+	var panel: PanelContainer = _slot_panels[slot_index]
 
 	var inv_idx: int = _scroll_offset + slot_index
 	if inv_idx < GameState.inventory.size():
@@ -132,13 +154,13 @@ func _update_slot(slot_index: int) -> void:
 		else:
 			count_lbl.visible = false
 
-		var style: StyleBoxFlat = panel.get_theme_stylebox("panel")
+		var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
 		if style != null:
-			style.border_color = Color(0.8, 0.65, 0.3, 0.9)
+			style.border_color = _STYLE_ITEM_COLOR
 	else:
 		icon_lbl.text = ""
 		icon_lbl.visible = false
 		count_lbl.visible = false
-		var style: StyleBoxFlat = panel.get_theme_stylebox("panel")
+		var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
 		if style != null:
-			style.border_color = Color(0.5, 0.4, 0.3, 0.6)
+			style.border_color = _STYLE_UNSELECTED_COLOR

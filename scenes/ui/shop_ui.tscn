@@ -1,50 +1,47 @@
-[gd_scene load_steps=6 format=3 uid="uid://shop_ui_fixed"]
+[gd_scene load_steps=6 format=3 uid="uid://smg6d4a464ac"]
 
-[ext_resource type="Script" path="res://scripts/ui/shop_ui.gd" id="1_sui"]
+[ext_resource type="Script" uid="uid://cvwdm54o2j4qs" path="res://scripts/ui/shop_ui.gd" id="1_sui"]
 
 [sub_resource type="StyleBoxFlat" id="SB_win"]
 content_margin_left = 0.0
 content_margin_top = 0.0
 content_margin_right = 0.0
 content_margin_bottom = 0.0
-bg_color = Color(0.10, 0.07, 0.13, 1.0)
+bg_color = Color(0.1, 0.07, 0.13, 1)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.55, 0.42, 0.28, 1.0)
+border_color = Color(0.55, 0.42, 0.28, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="SB_title_bar"]
-bg_color = Color(0.18, 0.12, 0.22, 1.0)
-border_width_left = 0
-border_width_top = 0
-border_width_right = 0
+bg_color = Color(0.18, 0.12, 0.22, 1)
 border_width_bottom = 1
 border_color = Color(0.45, 0.32, 0.22, 0.8)
 
 [sub_resource type="StyleBoxFlat" id="SB_tab_active"]
-bg_color = Color(0.22, 0.16, 0.28, 1.0)
+bg_color = Color(0.22, 0.16, 0.28, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.72, 0.52, 0.22, 1.0)
+border_color = Color(0.72, 0.52, 0.22, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
 [sub_resource type="StyleBoxFlat" id="SB_tab_inactive"]
-bg_color = Color(0.08, 0.05, 0.12, 1.0)
+bg_color = Color(0.08, 0.05, 0.12, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.28, 0.20, 0.16, 0.5)
+border_color = Color(0.28, 0.2, 0.16, 0.5)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
@@ -68,7 +65,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0, 0, 0, 0.55)
 
 [node name="Win" type="PanelContainer" parent="."]
 layout_mode = 1
@@ -104,7 +100,7 @@ size_flags_horizontal = 3
 
 [node name="Title" type="Label" parent="Win/Col/TitleBar/HB"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.50, 1)
+theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
 theme_override_font_sizes/font_size = 12
 text = "SHOP"
 
@@ -136,12 +132,12 @@ theme_override_constants/separation = 0
 custom_minimum_size = Vector2(99, 24)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(1, 0.85, 0.50, 1)
-theme_override_colors/font_hover_color = Color(1, 0.95, 0.60, 1)
+theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.6, 1)
 theme_override_font_sizes/font_size = 12
 theme_override_styles/normal = SubResource("SB_tab_active")
-theme_override_styles/hover = SubResource("SB_tab_active")
 theme_override_styles/pressed = SubResource("SB_tab_active")
+theme_override_styles/hover = SubResource("SB_tab_active")
 text = "  BUY  "
 
 [node name="VSep" type="VSeparator" parent="Win/Col/Tabs"]
@@ -152,12 +148,12 @@ theme_override_constants/separation = 0
 custom_minimum_size = Vector2(99, 24)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.60, 0.60, 0.60, 1)
-theme_override_colors/font_hover_color = Color(0.90, 0.90, 0.90, 1)
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+theme_override_colors/font_hover_color = Color(0.9, 0.9, 0.9, 1)
 theme_override_font_sizes/font_size = 12
 theme_override_styles/normal = SubResource("SB_tab_inactive")
-theme_override_styles/hover = SubResource("SB_tab_active")
 theme_override_styles/pressed = SubResource("SB_tab_active")
+theme_override_styles/hover = SubResource("SB_tab_active")
 text = "  SELL  "
 
 [node name="ItemsScroll" type="ScrollContainer" parent="Win/Col"]
@@ -181,7 +177,7 @@ theme_override_constants/separation = 4
 
 [node name="HintLabel" type="Label" parent="Win/Col"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.50, 0.50, 0.50, 0.7)
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 0.7)
 theme_override_font_sizes/font_size = 8
 text = "Press E to close"
 horizontal_alignment = 1
