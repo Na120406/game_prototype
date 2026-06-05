@@ -1,6 +1,10 @@
 extends Control
 
 signal sleep_chosen()
+signal sleep_started()
+signal sleep_cancelled()
+
+var _is_open: bool = false
 
 func _ready() -> void:
 	visible = false
@@ -27,29 +31,31 @@ func _find_vbox() -> Control:
 	return panel.find_child("VBox", true, false)
 
 func show_prompt() -> void:
+	_is_open = true
 	visible = true
 	var panel := _find_panel()
 	if panel != null:
 		panel.visible = true
-	var vbox := _find_vbox()
-	if vbox != null:
-		var yes_btn: Button = vbox.find_child("YesBtn", true, false)
-		if yes_btn != null:
-			yes_btn.grab_focus()
+	accept_event()
 
 func hide_prompt() -> void:
+	_is_open = false
 	visible = false
 	var panel := _find_panel()
 	if panel != null:
 		panel.visible = false
 
 func _input(event: InputEvent) -> void:
-	var panel := _find_panel()
-	if panel == null or not panel.visible:
+	if not _is_open:
 		return
 	if event.is_action_pressed("ui_cancel"):
 		hide_prompt()
-		get_viewport().set_input_as_handled()
+		sleep_cancelled.emit()
+		accept_event()
+		return
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed("interact"):
+		accept_event()
+		_on_yes()
 
 func _on_yes() -> void:
 	hide_prompt()
@@ -57,3 +63,4 @@ func _on_yes() -> void:
 
 func _on_no() -> void:
 	hide_prompt()
+	sleep_cancelled.emit()

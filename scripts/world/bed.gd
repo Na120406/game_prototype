@@ -2,64 +2,49 @@ extends StaticBody2D
 
 signal sleep_requested()
 
-var _player_nearby: bool = false
+const INTERACT_DISTANCE: float = 50.0
 
 @onready var prompt: Label = $Prompt
 
+var _player: Node = null
+var _player_nearby: bool = false
+
 func _ready() -> void:
-	_interact_area().body_entered.connect(_on_body_entered)
-	_interact_area().body_exited.connect(_on_body_exited)
-	_show_prompt(false)
+	prompt.visible = false
+	_player = get_tree().get_first_node_in_group("player")
+	if _player == null:
+		_player = _find_player_in_tree()
 
-func _interact_area() -> Area2D:
-	return $InteractArea
-
-func _get_player() -> Node2D:
-	var scene: SceneTree = get_tree()
-	if scene == null:
-		return null
-	var root: Node = scene.current_scene
+func _find_player_in_tree() -> Node:
+	var root: Node = get_tree().root
 	if root == null:
 		return null
-	return _find_child(root, "Player")
+	return _find_child_by_group(root, "player")
 
-func _find_child(root: Node, name: String) -> Node:
-	if root == null:
+func _find_child_by_group(node: Node, group: String) -> Node:
+	if node == null:
 		return null
-	if root.name == name:
-		return root
-	for child in root.get_children():
-		var result := _find_child(child, name)
-		if result != null:
-			return result
+	if node.is_in_group(group):
+		return node
+	for child in node.get_children():
+		var found := _find_child_by_group(child, group)
+		if found != null:
+			return found
 	return null
 
-func _on_body_entered(body: Node) -> void:
-	if body.is_in_group("player"):
-		_player_nearby = true
-		_show_prompt(true)
+func is_player_nearby() -> bool:
+	if _player == null:
+		_player = get_tree().get_first_node_in_group("player")
+	if _player == null:
+		return false
+	var dist := global_position.distance_to(_player.global_position)
+	return dist <= INTERACT_DISTANCE
 
-func _on_body_exited(body: Node) -> void:
-	if body.is_in_group("player"):
-		_player_nearby = false
-		_show_prompt(false)
+func _process(_delta: float) -> void:
+	var nearby := is_player_nearby()
+	if nearby != _player_nearby:
+		_player_nearby = nearby
+		prompt.visible = nearby
 
-func _show_prompt(visible: bool) -> void:
-	if prompt != null:
-		prompt.visible = visible
-
-func _input(event: InputEvent) -> void:
-	if not _player_nearby:
-		return
-	if not visible:
-		return
-	if event.is_action_pressed("interact"):
-		get_viewport().set_input_as_handled()
-		_show_sleep_prompt()
-
-func _show_sleep_prompt() -> void:
-	var player: Node2D = _get_player()
-	if player == null:
-		return
-	if player.has_method("show_sleep_prompt"):
-		player.show_sleep_prompt()
+func interact(_player_ref: Node) -> void:
+	sleep_requested.emit()

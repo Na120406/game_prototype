@@ -1,11 +1,39 @@
 extends CanvasLayer
 
 var _sleep_prompt: Node
+var _bed: Node
 
 func _ready() -> void:
 	_create_day_info()
 	_create_map_label()
-	_connect_bed()
+	_sleep_prompt = $SleepPrompt
+	if _sleep_prompt != null:
+		_sleep_prompt.sleep_chosen.connect(_on_sleep_chosen)
+	_setup_bed()
+
+func _setup_bed() -> void:
+	var world: Node = get_parent()
+	if world == null:
+		return
+	var bed_node: Node = world.find_child("Bed", true, false)
+	var player_node: Node = world.find_child("Player", true, false)
+	if bed_node != null:
+		_bed = bed_node
+		if _bed.has_signal("sleep_requested"):
+			_bed.sleep_requested.connect(_on_bed_sleep_requested)
+	if _sleep_prompt != null and player_node != null:
+		if _sleep_prompt.has_signal("sleep_started"):
+			_sleep_prompt.sleep_started.connect(_on_sleep_started.bind(player_node))
+		if _sleep_prompt.has_signal("sleep_cancelled"):
+			_sleep_prompt.sleep_cancelled.connect(_on_sleep_cancelled.bind(player_node))
+
+func _on_sleep_started(player: Node) -> void:
+	if player != null and player.has_method("on_sleep_prompt_shown"):
+		player.on_sleep_prompt_shown()
+
+func _on_sleep_cancelled(player: Node) -> void:
+	if player != null and player.has_method("on_sleep_prompt_closed"):
+		player.on_sleep_prompt_closed()
 
 func _create_day_info() -> void:
 	var panel := PanelContainer.new()
@@ -63,29 +91,6 @@ func _create_map_label() -> void:
 	lbl.text = "INSIDE HOUSE"
 	add_child(lbl)
 
-func _connect_bed() -> void:
-	var bed := _find_node(get_tree().current_scene, "Bed")
-	if bed != null:
-		bed.sleep_requested.connect(_on_bed_sleep_requested)
-
-	var sp := _get_sleep_prompt()
-	if sp != null:
-		sp.sleep_chosen.connect(_on_sleep_chosen)
-
-func _find_node(root: Node, name: String) -> Node:
-	if root == null:
-		return null
-	if root.name == name:
-		return root
-	for child in root.get_children():
-		var found := _find_node(child, name)
-		if found != null:
-			return found
-	return null
-
-func _get_sleep_prompt() -> Node:
-	return find_child("SleepPrompt", true, false)
-
 func _process(_delta: float) -> void:
 	var lbl: Label = find_child("DayLabel", true, false)
 	if lbl != null:
@@ -94,12 +99,14 @@ func _process(_delta: float) -> void:
 			lbl.text = new_text
 
 func _on_bed_sleep_requested() -> void:
-	var sp := _get_sleep_prompt()
-	if sp != null and sp.has_method("show_prompt"):
-		sp.show_prompt()
+	if _sleep_prompt != null and _sleep_prompt.has_method("show_prompt"):
+		_sleep_prompt.show_prompt()
 
 func _on_sleep_chosen() -> void:
-	var player := _find_node(get_tree().current_scene, "Player")
+	var world: Node = get_parent()
+	var player: Node = null
+	if world != null:
+		player = world.find_child("Player", true, false)
 	if player != null and player.has_method("set_sleeping"):
 		player.set_sleeping(true)
 	TimeManager.pause()

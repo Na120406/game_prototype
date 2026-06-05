@@ -2,7 +2,10 @@
 
 [ext_resource type="Script" path="res://scripts/world/bed.gd" id="1_bed"]
 
-[sub_resource type="RectangleShape2D" id="RS_top_bottom"]
+[sub_resource type="RectangleShape2D" id="RS_interact"]
+size = Vector2(60, 50)
+
+[sub_resource type="RectangleShape2D" id="RS_wall"]
 size = Vector2(40, 6)
 
 [node name="Bed" type="StaticBody2D"]
@@ -43,16 +46,19 @@ color = Color(0.3, 0.25, 0.45, 1)
 
 [node name="CollisionTop" type="CollisionShape2D" parent="."]
 position = Vector2(0, -14)
-shape = SubResource("RS_top_bottom")
+shape = SubResource("RS_wall")
 
 [node name="CollisionBottom" type="CollisionShape2D" parent="."]
 position = Vector2(0, 14)
-shape = SubResource("RS_top_bottom")
+shape = SubResource("RS_wall")
 
 [node name="InteractArea" type="Area2D" parent="."]
+collision_layer = 2
+collision_mask = 1
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="InteractArea"]
-shape = SubResource("RS_top_bottom")
+position = Vector2(0, 8)
+shape = SubResource("RS_interact")
 
 [node name="Prompt" type="Label" parent="."]
 anchors_preset = 7

@@ -169,21 +169,31 @@ func _interact() -> void:
 	_set_state(State.INTERACTING)
 	_current_interact_target = null
 
+	# Try raycast first
 	if interaction_ray != null:
 		interaction_ray.target_position = facing_dir * interaction_range
 		interaction_ray.force_raycast_update()
-
 		if interaction_ray.is_colliding():
 			var collider: Object = interaction_ray.get_collider()
 			if collider.has_method("interact"):
 				_current_interact_target = collider
 				collider.interact(self)
-			elif collider.has_method("_do_interact"):
-				_current_interact_target = collider
-				collider._do_interact()
+
+	# Fallback: check proximity for interactables
+	if _current_interact_target == null:
+		var bed: Node = _find_nearby_bed()
+		if bed != null and bed.has_method("is_player_nearby") and bed.is_player_nearby():
+			bed.interact(self)
+			_current_interact_target = bed
 
 	if _current_interact_target == null:
 		_set_state(State.IDLE)
+
+func _find_nearby_bed() -> Node:
+	var world: Node = get_parent()
+	if world == null:
+		return null
+	return world.find_child("Bed", true, false)
 
 func _exit_interaction() -> void:
 	if _current_interact_target != null:
@@ -206,6 +216,12 @@ func force_position(new_pos: Vector2) -> void:
 
 func show_sleep_prompt() -> void:
 	pass
+
+func on_sleep_prompt_shown() -> void:
+	_set_state(State.INTERACTING)
+
+func on_sleep_prompt_closed() -> void:
+	_set_state(State.IDLE)
 
 func set_sleeping(sleeping: bool) -> void:
 	if sleeping:
