@@ -34,6 +34,9 @@ WorldSimulator="*res://scripts/autoload/world_simulator.gd"
 CatchUpSystem="*res://scripts/autoload/catch_up_system.gd"
 QuestSystem="*res://scripts/autoload/quest_system.gd"
 ItemManager="*res://scripts/autoload/item_manager.gd"
+ItemDB="*res://resources/items/item_database.gd"
+ItemHandler="*res://scripts/autoload/item_handler.gd"
+ToolHandler="*res://scripts/autoload/tool_handler.gd"
 
 [display]
 

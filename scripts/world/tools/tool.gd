@@ -20,13 +20,12 @@ func _ready() -> void:
 
 func equip() -> void:
 	is_equipped = true
-	GameState.equipped_tool = tool_id
+	get_node("/root/ToolHandler").equip(tool_id)
 	print("[Tool] Equipped: %s" % tool_name)
 
 func unequip() -> void:
 	is_equipped = false
-	if GameState.equipped_tool == tool_id:
-		GameState.equipped_tool = "none"
+	get_node("/root/ToolHandler").unequip()
 	print("[Tool] Unequipped: %s" % tool_name)
 
 func use(target_pos: Vector2 = Vector2.ZERO) -> bool:

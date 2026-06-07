@@ -43,6 +43,7 @@ func prepare_save_data() -> Dictionary:
 			"world_flags": GameState.world_flags.duplicate(true),
 			"discovered_areas": GameState.discovered_areas.duplicate(true),
 		},
+		"farm_cells": _get_farm_cells_data(),
 	}
 
 func apply_save_data(data: Dictionary) -> void:
@@ -56,6 +57,19 @@ func apply_save_data(data: Dictionary) -> void:
 	FamilyRegistry.load_families(data.get("family_data", {}))
 	WeatherSystem.force_weather(data.get("weather", "clear"))
 	WeatherSystem.current_season = data.get("season", "spring")
+	_apply_farm_cells_data(data.get("farm_cells", {}))
 
 func _migrate_save_data(_data: Dictionary, _from_version: int) -> void:
 	print("[CatchUpSystem] Migrating save data from v%d to v%d" % [_from_version, _save_data_version])
+
+func _get_farm_cells_data() -> Dictionary:
+	var farm: Node = get_tree().get_first_node_in_group("farm_manager")
+	if farm != null and farm.has_method("serialize"):
+		return farm.serialize()
+	return {}
+
+func _apply_farm_cells_data(data: Dictionary) -> void:
+	var farm: Node = get_tree().get_first_node_in_group("farm_manager")
+	if farm != null and farm.has_method("deserialize"):
+		farm.deserialize(data)
+		print("[CatchUpSystem] Farm cells restored.")

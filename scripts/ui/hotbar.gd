@@ -7,20 +7,6 @@ var _slot_labels: Array[Label] = []
 var _slot_icons: Array[Label] = []
 var _scroll_offset: int = 0
 var _selected_index: int = 0
-var _item_icons: Dictionary = {
-	"apple": "A",
-	"seed_turnip": "T",
-	"water_can": "W",
-	"health_potion": "H",
-	"rope": "R",
-}
-var _item_colors: Dictionary = {
-	"apple": Color(0.85, 0.2, 0.15, 1),
-	"seed_turnip": Color(0.6, 0.8, 0.4, 1),
-	"water_can": Color(0.3, 0.5, 0.8, 1),
-	"health_potion": Color(0.8, 0.2, 0.6, 1),
-	"rope": Color(0.6, 0.45, 0.3, 1),
-}
 
 const _STYLE_SELECTED_COLOR := Color(1.0, 0.85, 0.3, 1.0)
 const _STYLE_UNSELECTED_COLOR := Color(0.5, 0.4, 0.3, 0.6)
@@ -34,7 +20,7 @@ func _ready() -> void:
 	_apply_selection_style(_selected_index)
 
 func _setup_slots() -> void:
-	var slot_names: Array[String] = ["Slot0", "Slot1", "Slot2"]
+	var slot_names := ["Slot0", "Slot1", "Slot2"]
 
 	for i: int in range(NUM_SLOTS):
 		var slot: Node = get_node_or_null("SlotsContainer/" + slot_names[i])
@@ -42,6 +28,9 @@ func _setup_slots() -> void:
 			continue
 		var panel: PanelContainer = slot as PanelContainer
 		_slot_panels.append(panel)
+		panel.gui_input.connect(_on_slot_input.bind(i))
+		panel.mouse_entered.connect(_on_slot_hover.bind(i))
+		panel.mouse_exited.connect(_on_slot_leave)
 
 		var original_style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
 		var copy_style := StyleBoxFlat.new()
@@ -144,9 +133,18 @@ func _update_slot(slot_index: int) -> void:
 		var item_id: String = item.get("id", "")
 		var amount: int = item.get("amount", 1)
 
-		icon_lbl.text = _item_icons.get(item_id, "?")
-		icon_lbl.add_theme_color_override("font_color", _item_colors.get(item_id, Color(1, 1, 1, 1)))
-		icon_lbl.visible = true
+		var item_data: ItemData = null
+		var db = get_node("/root/ItemDB")
+		if db != null:
+			item_data = db.get_item(item_id)
+		if item_data != null:
+			icon_lbl.text = item_data.icon
+			icon_lbl.add_theme_color_override("font_color", item_data.item_color)
+			icon_lbl.visible = true
+		else:
+			icon_lbl.text = "?"
+			icon_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+			icon_lbl.visible = true
 
 		if amount > 1:
 			count_lbl.text = str(amount)
@@ -164,3 +162,41 @@ func _update_slot(slot_index: int) -> void:
 		var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
 		if style != null:
 			style.border_color = _STYLE_UNSELECTED_COLOR
+
+func _on_slot_input(event: InputEvent, slot_index: int) -> void:
+	if not (event is InputEventMouseButton and event.pressed):
+		return
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
+
+	var inv_idx: int = _scroll_offset + slot_index
+	if inv_idx >= GameState.inventory.size():
+		return
+
+	var item: Dictionary = GameState.inventory[inv_idx]
+	var item_id: String = item.get("id", "")
+	if item_id == "":
+		return
+
+	if get_node("/root/ItemHandler").use_item(item_id):
+		GameState.inventory_changed.emit()
+
+func _on_slot_hover(slot_index: int) -> void:
+	var inv_idx: int = _scroll_offset + slot_index
+	if inv_idx >= GameState.inventory.size():
+		return
+	var item: Dictionary = GameState.inventory[inv_idx]
+	var item_id: String = item.get("id", "")
+	if item_id == "":
+		return
+
+	var shop_ui: Control = get_tree().get_first_node_in_group("shop_ui")
+	if shop_ui != null and shop_ui.has_method("_show_tooltip_for_hotbar"):
+		shop_ui._show_tooltip_for_hotbar(item_id)
+
+func _on_slot_leave() -> void:
+	var shop_ui: Control = get_tree().get_first_node_in_group("shop_ui")
+	if shop_ui != null and shop_ui.has_method("_hide_tooltip"):
+		shop_ui._hide_tooltip()
+	if shop_ui != null and shop_ui.has_method("_reset_hotbar_hover"):
+		shop_ui._reset_hotbar_hover()

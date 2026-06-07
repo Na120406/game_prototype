@@ -15,7 +15,7 @@ var is_paused: bool = false
 @onready var fps_label: Label = $VBox/FPSLabel
 
 func _ready() -> void:
-	pause_mode = Node.PAUSE_MODE_PROCESS
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = true
 
 	TimeManager.time_changed.connect(_on_time_changed)
@@ -42,7 +42,7 @@ func _process(_delta: float) -> void:
 
 func _update_hud() -> void:
 	energy_bar.value = GameState.energy
-	tool_label.text = "Tool: %s" % GameState.equipped_tool.to_upper()
+	tool_label.text = "Tool: %s" % get_node("/root/ToolHandler").get_equipped().to_upper()
 
 	var player := get_tree().get_first_node_in_group("player")
 	if player != null and show_coords:
@@ -67,7 +67,7 @@ func show_notification(text: String, duration: float = 2.0) -> void:
 	notification.text = text
 	notification.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	notification.position = Vector2(0, 20)
-	notification.set_anchors_preset(Control.PRESET_CENTER_X)
+	notification.set_anchors_preset(Control.PRESET_CENTER)
 	add_child(notification)
 
 	var tween := create_tween()

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/items/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "seed_potato"
+display_name = "Potato Seeds"
+description = "Seeds for potatoes. Plant in autumn. Grows in 7 days."
+icon = "P"
+item_color = Color(0.75, 0.55, 0.3, 1)
+stack_size = 99
+item_type = 2
+item_category = 1
+effect_type = 5
+buy_price = 18
+sell_price = 9
+energy_restore = 0.0
+health_restore = 0.0
+crop_to_spawn = ""
+grow_days = 7
+harvest_item_id = "potato"
+grow_season = "autumn"

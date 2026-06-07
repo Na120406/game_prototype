@@ -19,9 +19,13 @@ var world_flags: Dictionary = {}
 var discovered_areas: Array[String] = []
 var lore_fragments_found: int = 0
 
+var health: float = 100.0
+var max_health: float = 100.0
+
 var weather_type: String = "clear"
 var is_day: bool = true
 var gold: int = 100
+var farm_cells_data: Dictionary = {}
 
 func _ready() -> void:
 	print("[GameState] Initialized — Day %d, %.0f:00" % [current_day, current_time])
@@ -41,10 +45,14 @@ func advance_time(hours: float) -> void:
 		advance_day()
 	print("[GameState] Time: %.0f:00" % current_time)
 
-func drain_energy(amount: float) -> void:
-	energy = maxf(0.0, energy - amount)
+func modify_energy(amount: float) -> void:
+	energy = clampf(energy + amount, 0.0, max_energy)
 	if energy <= 0.0:
 		print("[GameState] Energy depleted! Forcing sleep...")
+
+func modify_health(amount: float) -> void:
+	health = clampf(health + amount, 0.0, max_health)
+	print("[GameState] Health: %.0f / %.0f" % [health, max_health])
 
 func add_item(item_id: String, amount: int = 1) -> bool:
 	for i: int in range(inventory.size()):
@@ -104,6 +112,7 @@ func reset() -> void:
 	current_day = 1
 	current_time = 6.0
 	energy = max_energy
+	health = max_health
 	is_sleeping = false
 	is_paused = false
 	inventory.clear()

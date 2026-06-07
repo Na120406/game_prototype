@@ -181,8 +181,7 @@ limit_left = 0
 limit_top = 0
 limit_right = 480
 limit_bottom = 270
-position_smoothing_enabled = true
-position_smoothing_speed = 8.0
+position_smoothing_enabled = false
 
 [node name="UI" type="CanvasLayer" parent="."]
 script = ExtResource("5_uimgr")

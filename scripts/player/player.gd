@@ -234,7 +234,7 @@ func _find_nearby_counter() -> Node:
 	var dist: float = global_position.distance_to(counter.global_position)
 
 	if is_nearby_area:
-		var npcs: Array[Node] = world.get_tree().get_nodes_in_group("npc")
+		var npcs: Array = world.get_tree().get_nodes_in_group("npc")
 		for npc: Node in npcs:
 			if npc.has_method("is_player_nearby") and npc.is_player_nearby():
 				return null
@@ -243,7 +243,7 @@ func _find_nearby_counter() -> Node:
 	if dist > interaction_range:
 		return null
 
-	var npcs: Array[Node] = world.get_tree().get_nodes_in_group("npc")
+	var npcs: Array = world.get_tree().get_nodes_in_group("npc")
 	for npc: Node in npcs:
 		if npc.has_method("is_player_nearby") and npc.is_player_nearby():
 			return null
@@ -253,7 +253,7 @@ func _find_nearby_npc() -> Node:
 	var world: Node = get_parent()
 	if world == null:
 		return null
-	var npcs: Array[Node] = world.get_tree().get_nodes_in_group("npc")
+	var npcs: Array = world.get_tree().get_nodes_in_group("npc")
 	var closest: Node = null
 	var closest_dist: float = INF
 	for npc: Node in npcs:

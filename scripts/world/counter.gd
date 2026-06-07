@@ -34,7 +34,7 @@ func _get_shop_ui() -> Node:
 	var tree := get_tree()
 	if tree == null:
 		return null
-	var nodes: Array[Node] = tree.get_nodes_in_group("shop_ui")
+	var nodes: Array = tree.get_nodes_in_group("shop_ui")
 	if nodes.size() > 0:
 		return nodes[0]
 	return null
