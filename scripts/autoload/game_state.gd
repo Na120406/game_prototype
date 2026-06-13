@@ -11,6 +11,7 @@ var stamina_drain_rate: float = 5.0
 
 var is_sleeping: bool = false
 var is_paused: bool = false
+var game_interacting: bool = false
 
 var inventory: Array[Dictionary] = []
 var equipped_tool: String = "none"

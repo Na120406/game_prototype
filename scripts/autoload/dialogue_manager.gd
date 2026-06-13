@@ -76,7 +76,7 @@ func start_dialogue(dialogue_id: String, npc_name: String) -> void:
 	_current_line = 0
 	_pending_action = ""
 	is_active = true
-
+	GameState.game_interacting = true
 	dialogue_started.emit(npc_name)
 	_show_line()
 	print("[DM] Started: '%s'" % dialogue_id)
@@ -134,6 +134,7 @@ func _execute_action(action: String) -> void:
 
 func _end() -> void:
 	is_active = false
+	GameState.game_interacting = false
 	_pending_action = ""
 	var ui: Node = _get_dialogue_ui()
 	if ui != null:

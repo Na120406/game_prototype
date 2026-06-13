@@ -258,6 +258,7 @@ func open(gold: int = 100) -> void:
 	_refresh_shop()
 	_try_hide_hotbar()
 	visible = true
+	GameState.game_interacting = true
 
 func _refresh_tabs() -> void:
 	if _current_tab == 0:
@@ -494,5 +495,6 @@ func close() -> void:
 	_hover_timer = 0.0
 	_hide_tooltip()
 	visible = false
+	GameState.game_interacting = false
 	_try_show_hotbar()
 	shop_closed.emit()

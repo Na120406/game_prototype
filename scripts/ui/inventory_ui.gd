@@ -19,6 +19,7 @@ var _tooltip_panel: Panel = null
 var _tooltip_timer: Timer = null
 var _pending_tooltip_slot: int = -1
 var _game_paused_before: bool = false
+var _hotbar_ref: Control = null
 
 func _ready() -> void:
 	add_to_group("inventory_ui")
@@ -120,6 +121,8 @@ func _build_tooltip() -> void:
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_inventory"):
+		if GameState.game_interacting:
+			return
 		_toggle()
 		get_viewport().set_input_as_handled()
 		return
@@ -150,12 +153,17 @@ func _open() -> void:
 	visible = true
 	_refresh()
 	_hide_tooltip()
+	_hotbar_ref = get_tree().get_first_node_in_group("hotbar")
+	if _hotbar_ref != null:
+		_hotbar_ref.visible = false
 
 func _close() -> void:
 	visible = false
 	GameState.is_paused = _game_paused_before
 	_hide_tooltip()
 	_clear_hover()
+	if _hotbar_ref != null:
+		_hotbar_ref.visible = true
 
 func _refresh() -> void:
 	for i: int in range(TOTAL_SLOTS):

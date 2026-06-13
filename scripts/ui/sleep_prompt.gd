@@ -33,6 +33,7 @@ func _find_vbox() -> Control:
 func show_prompt() -> void:
 	_is_open = true
 	visible = true
+	GameState.game_interacting = true
 	var panel := _find_panel()
 	if panel != null:
 		panel.visible = true
@@ -41,6 +42,7 @@ func show_prompt() -> void:
 func hide_prompt() -> void:
 	_is_open = false
 	visible = false
+	GameState.game_interacting = false
 	var panel := _find_panel()
 	if panel != null:
 		panel.visible = false

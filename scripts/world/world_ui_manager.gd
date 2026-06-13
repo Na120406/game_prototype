@@ -91,6 +91,7 @@ func _spawn_hotbar() -> Node:
 	if scene_res:
 		_hotbar = scene_res.instantiate()
 		_hotbar.name = "Hotbar"
+		_hotbar.add_to_group("hotbar")
 		_ui_layer.add_child(_hotbar)
 		print("[WorldUIManager] Hotbar spawned!")
 	return _hotbar
