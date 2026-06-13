@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/items/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = "turnip_harvest"
+display_name = "Turnip"
+description = "A crisp turnip pulled from the earth. Can be sold or used for cooking."
+icon = "T"
+item_color = Color(0.6, 0.8, 0.4, 1)
+stack_size = 99
+item_type = 5
+item_category = 0
+effect_type = 0
+buy_price = 0
+sell_price = 7
+energy_restore = 0.0
+health_restore = 0.0
+crop_to_spawn = ""
+grow_days = 0
+harvest_item_id = ""
+grow_season = "spring"

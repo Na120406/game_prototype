@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://dlg_ui_fixed"]
+[gd_scene load_steps=1 format=3 uid="uid://dlg_ui_fixed"]
 
 [ext_resource type="Script" path="res://scripts/ui/dialogue_ui.gd" id="1_dui"]
 

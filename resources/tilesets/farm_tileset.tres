@@ -1,0 +1,213 @@
+[gd_resource type="Resource" script_class="TileSet" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_farm"]
+
+[resource]
+resource_name = "FarmTiles"
+tile_shape = 1
+tile_size = Vector2i(16, 16)
+texture_proximity = false
+texture_filter = 0
+rendering_priority = 0
+
+# --- Soil layer (atlas coords) ---
+# row 0: grass, soil (empty), soil (plowed), soil (watered)
+# row 1: crops stages 0-2
+# row 2: crops stages 3-5, wilted
+0:0/0 = 0
+0:0/0/tile_shape = 1
+0:0/0/tile_offset = Vector2i(0, 0)
+0:0/0/terrain_set = 0
+0:0/0/terrain = -1
+0:0/0/probability = 1.0
+0:0/0/custom_data_0 = &"soil_state"
+0:0/0/custom_data_0/node_type = 3
+0:0/0/custom_data_0/type = 3
+0:0/0/custom_data_1 = &"crop_stage"
+0:0/0/custom_data_1/node_type = 3
+0:0/0/custom_data_1/type = 2
+
+1:0/0 = 0
+1:0/0/tile_shape = 1
+1:0/0/tile_offset = Vector2i(0, 0)
+1:0/0/terrain_set = 0
+1:0/0/terrain = -1
+1:0/0/probability = 1.0
+1:0/0/custom_data_0 = 1
+1:0/0/custom_data_1 = -1
+
+2:0/0 = 0
+2:0/0/tile_shape = 1
+2:0/0/tile_offset = Vector2i(0, 0)
+2:0/0/terrain_set = 0
+2:0/0/terrain = -1
+2:0/0/probability = 1.0
+2:0/0/custom_data_0 = 2
+2:0/0/custom_data_1 = -1
+
+3:0/0 = 0
+3:0/0/tile_shape = 1
+3:0/0/tile_offset = Vector2i(0, 0)
+3:0/0/terrain_set = 0
+3:0/0/terrain = -1
+3:0/0/probability = 1.0
+3:0/0/custom_data_0 = 3
+3:0/0/custom_data_1 = -1
+
+# --- Crop stage 0 (seeded) — row 1 ---
+0:1/0 = 0
+0:1/0/tile_shape = 1
+0:1/0/tile_offset = Vector2i(0, 0)
+0:1/0/terrain_set = 0
+0:1/0/terrain = -1
+0:1/0/probability = 1.0
+0:1/0/custom_data_0 = 3
+0:1/0/custom_data_1 = 0
+
+1:1/0 = 0
+1:1/0/tile_shape = 1
+1:1/0/tile_offset = Vector2i(0, 0)
+1:1/0/terrain_set = 0
+1:1/0/terrain = -1
+1:1/0/probability = 1.0
+1:1/0/custom_data_0 = 3
+1:1/0/custom_data_1 = 0
+
+2:1/0 = 0
+2:1/0/tile_shape = 1
+2:1/0/tile_offset = Vector2i(0, 0)
+2:1/0/terrain_set = 0
+2:1/0/terrain = -1
+2:1/0/probability = 1.0
+2:1/0/custom_data_0 = 3
+2:1/0/custom_data_1 = 0
+
+3:1/0 = 0
+3:1/0/tile_shape = 1
+3:1/0/tile_offset = Vector2i(0, 0)
+3:1/0/terrain_set = 0
+3:1/0/terrain = -1
+3:1/0/probability = 1.0
+3:1/0/custom_data_0 = 3
+3:1/0/custom_data_1 = 0
+
+# --- Crop stage 1 (sprouted) — row 2 ---
+0:2/0 = 0
+0:2/0/tile_shape = 1
+0:2/0/tile_offset = Vector2i(0, 0)
+0:2/0/terrain_set = 0
+0:2/0/terrain = -1
+0:2/0/probability = 1.0
+0:2/0/custom_data_0 = 3
+0:2/0/custom_data_1 = 1
+
+1:2/0 = 0
+1:2/0/tile_shape = 1
+1:2/0/tile_offset = Vector2i(0, 0)
+1:2/0/terrain_set = 0
+1:2/0/terrain = -1
+1:2/0/probability = 1.0
+1:2/0/custom_data_0 = 3
+1:2/0/custom_data_1 = 1
+
+2:2/0 = 0
+2:2/0/tile_shape = 1
+2:2/0/tile_offset = Vector2i(0, 0)
+2:2/0/terrain_set = 0
+2:2/0/terrain = -1
+2:2/0/probability = 1.0
+2:2/0/custom_data_0 = 3
+2:2/0/custom_data_1 = 1
+
+3:2/0 = 0
+3:2/0/tile_shape = 1
+3:2/0/tile_offset = Vector2i(0, 0)
+3:2/0/terrain_set = 0
+3:2/0/terrain = -1
+3:2/0/probability = 1.0
+3:2/0/custom_data_0 = 3
+3:2/0/custom_data_1 = 1
+
+# --- Crop stage 2 (growing) --- row 3 ---
+0:3/0 = 0
+0:3/0/tile_shape = 1
+0:3/0/tile_offset = Vector2i(0, 0)
+0:3/0/terrain_set = 0
+0:3/0/terrain = -1
+0:3/0/probability = 1.0
+0:3/0/custom_data_0 = 3
+0:3/0/custom_data_1 = 2
+
+1:3/0 = 0
+1:3/0/tile_shape = 1
+1:3/0/tile_offset = Vector2i(0, 0)
+1:3/0/terrain_set = 0
+1:3/0/terrain = -1
+1:3/0/probability = 1.0
+1:3/0/custom_data_0 = 3
+1:3/0/custom_data_1 = 2
+
+2:3/0 = 0
+2:3/0/tile_shape = 1
+2:3/0/tile_offset = Vector2i(0, 0)
+2:3/0/terrain_set = 0
+2:3/0/terrain = -1
+2:3/0/probability = 1.0
+2:3/0/custom_data_0 = 3
+2:3/0/custom_data_1 = 2
+
+3:3/0 = 0
+3:3/0/tile_shape = 1
+3:3/0/tile_offset = Vector2i(0, 0)
+3:3/0/terrain_set = 0
+3:3/0/terrain = -1
+3:3/0/probability = 1.0
+3:3/0/custom_data_0 = 3
+3:3/0/custom_data_1 = 2
+
+# --- Crop stage 3 (mature) --- row 4 ---
+0:4/0 = 0
+0:4/0/tile_shape = 1
+0:4/0/tile_offset = Vector2i(0, 0)
+0:4/0/terrain_set = 0
+0:4/0/terrain = -1
+0:4/0/probability = 1.0
+0:4/0/custom_data_0 = 3
+0:4/0/custom_data_1 = 3
+
+1:4/0 = 0
+1:4/0/tile_shape = 1
+1:4/0/tile_offset = Vector2i(0, 0)
+1:4/0/terrain_set = 0
+1:4/0/terrain = -1
+1:4/0/probability = 1.0
+1:4/0/custom_data_0 = 3
+1:4/0/custom_data_1 = 3
+
+2:4/0 = 0
+2:4/0/tile_shape = 1
+2:4/0/tile_offset = Vector2i(0, 0)
+2:4/0/terrain_set = 0
+2:4/0/terrain = -1
+2:4/0/probability = 1.0
+2:4/0/custom_data_0 = 3
+2:4/0/custom_data_1 = 3
+
+3:4/0 = 0
+3:4/0/tile_shape = 1
+3:4/0/tile_offset = Vector2i(0, 0)
+3:4/0/terrain_set = 0
+3:4/0/terrain = -1
+3:4/0/probability = 1.0
+3:4/0/custom_data_0 = 3
+3:4/0/custom_data_1 = 3
+
+# --- Crop wilted --- row 5 ---
+0:5/0 = 0
+0:5/0/tile_shape = 1
+0:5/0/tile_offset = Vector2i(0, 0)
+0:5/0/terrain_set = 0
+0:5/0/terrain = -1
+0:5/0/probability = 1.0
+0:5/0/custom_data_0 = 3
+0:5/0/custom_data_1 = -1

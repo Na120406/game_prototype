@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://bxv7h8y2fqk1m"]
+
+[ext_resource type="Script" path="res://scripts/world/farm/farm_plot.gd" id="1_fplot"]
+[ext_resource type="TileSet" path="res://resources/tilesets/farm_tileset.tres" id="2_tiles"]
+
+[node name="FarmPlot" type="TileMapLayer"]
+tile_set = ExtResource("2_tiles")
+use_parent_transform = 1
+script = ExtResource("1_fplot")

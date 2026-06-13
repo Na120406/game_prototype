@@ -8,6 +8,8 @@ var _slot_icons: Array[Label] = []
 var _scroll_offset: int = 0
 var _selected_index: int = 0
 
+signal selected_item_changed(item_id: String, item_data: ItemData)
+
 const _STYLE_SELECTED_COLOR := Color(1.0, 0.85, 0.3, 1.0)
 const _STYLE_UNSELECTED_COLOR := Color(0.5, 0.4, 0.3, 0.6)
 const _STYLE_ITEM_COLOR := Color(0.8, 0.65, 0.3, 0.9)
@@ -87,11 +89,31 @@ func _input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_change_selection(-1)
 
+func get_selected_item() -> Dictionary:
+	var inv_idx: int = _scroll_offset + _selected_index
+	if inv_idx < GameState.inventory.size():
+		return GameState.inventory[inv_idx]
+	return {}
+
+func get_selected_item_id() -> String:
+	var item: Dictionary = get_selected_item()
+	return item.get("id", "")
+
+func get_selected_item_data() -> ItemData:
+	var item_id: String = get_selected_item_id()
+	if item_id == "":
+		return null
+	var db = get_node_or_null("/root/ItemDB")
+	if db != null:
+		return db.get_item(item_id)
+	return null
+
 func _change_selection(direction: int) -> void:
 	var prev := _selected_index
 	_selected_index = wrapi(_selected_index + direction, 0, NUM_SLOTS)
 	_apply_selection_style(prev)
 	_apply_selection_style(_selected_index)
+	_emit_selected_changed()
 
 func _apply_selection_style(slot_index: int) -> void:
 	if slot_index < 0 or slot_index >= _slot_panels.size():
@@ -115,6 +137,7 @@ func _apply_selection_style(slot_index: int) -> void:
 
 func _on_inventory_changed() -> void:
 	_refresh()
+	_emit_selected_changed()
 
 func _refresh() -> void:
 	for i: int in range(NUM_SLOTS):
@@ -178,8 +201,19 @@ func _on_slot_input(event: InputEvent, slot_index: int) -> void:
 	if item_id == "":
 		return
 
+	_scroll_offset = 0
+	_apply_selection_style(_selected_index)
+	_selected_index = slot_index
+	_apply_selection_style(_selected_index)
+
 	if get_node("/root/ItemHandler").use_item(item_id):
 		GameState.inventory_changed.emit()
+	_emit_selected_changed()
+
+func _emit_selected_changed() -> void:
+	var item_id: String = get_selected_item_id()
+	var data: ItemData = get_selected_item_data()
+	selected_item_changed.emit(item_id, data)
 
 func _on_slot_hover(slot_index: int) -> void:
 	var inv_idx: int = _scroll_offset + slot_index

@@ -38,7 +38,7 @@ func use(target_pos: Vector2 = Vector2.ZERO) -> bool:
 		return false
 
 	is_using = true
-	GameState.drain_energy(stamina_cost)
+	GameState.modify_energy(-stamina_cost)
 	tool_used.emit(tool_name)
 
 	if animation_player != null and animation_player.has_animation("use"):

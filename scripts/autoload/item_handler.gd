@@ -97,7 +97,15 @@ func _on_item_planted(seed_id: String, harvest_id: String) -> void:
 		print("[ItemHandler] No player found, cannot determine plant cell.")
 		return
 
-	var cell: Vector2i = player.get_facing_cell()
+	var farm_plot: Node = get_tree().get_first_node_in_group("farm_plot")
+	var cell: Vector2i
+	if farm_plot != null and farm_plot.has_method("get_player_facing_cell"):
+		cell = farm_plot.get_player_facing_cell(player)
+	elif player.has_method("get_facing_cell"):
+		cell = player.get_facing_cell()
+	else:
+		cell = player.get_facing_cell()
+
 	if farm.plant_from_seed(cell, seed_id):
 		print("[ItemHandler] Seed %s planted at cell %s" % [seed_id, str(cell)])
 	else:

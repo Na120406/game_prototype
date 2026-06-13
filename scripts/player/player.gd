@@ -79,7 +79,7 @@ func _physics_process(delta: float) -> void:
 			_update_animation(Vector2.ZERO)
 
 	if _is_moving and (_is_running or _is_sprinting):
-		GameState.drain_energy(delta * GameState.stamina_drain_rate * 0.3)
+		GameState.modify_energy(-delta * GameState.stamina_drain_rate * 0.3)
 
 	move_and_slide()
 
