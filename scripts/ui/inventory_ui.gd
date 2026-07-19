@@ -14,7 +14,7 @@ var _slot_icons: Array[Label] = []
 var _slot_counts: Array[Label] = []
 var _slot_item_ids: Array[String] = []
 var _hovered_slot: int = -1
-var _tooltip: Label = null
+var _tooltip: RichTextLabel = null
 var _tooltip_panel: Panel = null
 var _tooltip_timer: Timer = null
 var _pending_tooltip_slot: int = -1
@@ -106,12 +106,24 @@ func _build_tooltip() -> void:
 	_tooltip_panel.visible = false
 	add_child(_tooltip_panel)
 
-	_tooltip = Label.new()
+	_tooltip = RichTextLabel.new()
 	_tooltip.name = "TooltipLabel"
-	_tooltip.add_theme_font_size_override("font_size", 7)
-	_tooltip.add_theme_color_override("font_color", Color(0.95, 0.92, 0.85, 1))
+	_tooltip.add_theme_font_size_override("normal_font_size", 7)
+	_tooltip.add_theme_color_override("default_color", Color(0.95, 0.92, 0.85, 1))
 	_tooltip.text = ""
+	_tooltip.bbcode_enabled = true
+	_tooltip.fit_content = true
+	_tooltip.scroll_active = false
+	_tooltip.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_tooltip_panel.add_child(_tooltip)
+
+	# Thêm padding để text không đè viền panel
+	var tooltip_style := StyleBoxEmpty.new()
+	tooltip_style.content_margin_left = 4
+	tooltip_style.content_margin_top = 1.5
+	tooltip_style.content_margin_right = 4
+	tooltip_style.content_margin_bottom = 10
+	_tooltip.add_theme_stylebox_override("normal", tooltip_style)
 
 	_tooltip_timer = Timer.new()
 	_tooltip_timer.wait_time = 0.3

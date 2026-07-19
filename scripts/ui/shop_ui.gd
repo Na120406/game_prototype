@@ -1,4 +1,14 @@
 extends Control
+# =============================================================================
+# SHOP UI (Giao diện Cửa hàng)
+# =============================================================================
+# Chức năng: Hiển thị giao diện mua/bán vật phẩm
+#
+# Bug đã fix:
+#   - Tooltip không bị stuck sau khi đóng shop
+#   - Tooltip không hiện ở scene khác
+#   - Thêm kiểm tra an toàn trước khi xử lý
+# =============================================================================
 
 signal shop_closed()
 
@@ -8,20 +18,33 @@ var _player_gold: int = 100
 var _hotbar: Control = null
 var _current_tab: int = 0
 
+# =============================================================================
+# TOOLTIP STATE - CÁC BIẾN THEO DÕI TOOLTIP
+# =============================================================================
+
 var _tooltip_panel: Control = null
 var _tooltip_name: Label = null
 var _tooltip_desc: Label = null
 var _tooltip_detail: Label = null
 var _tooltip_layer: CanvasLayer = null
+
+# Theo dõi item đang hover trong shop
 var _last_hover_item_id: String = ""
 var _row_item_cache: Array[ItemData] = []
 var _hover_timer: float = 0.0
 var _pending_item_data: ItemData = null
 
+# Trạng thái shop có đang mở không
+var _shop_is_visible: bool = false
+
+# Hotbar hover state (cho hotbar khi shop đóng)
 var _hotbar_last_id: String = ""
 var _hotbar_pending_id: String = ""
 var _hotbar_hover_timer: float = 0.0
 const HOTBAR_HOVER_DELAY: float = 1.5
+
+# Cờ báo tooltip đang hiện (dùng cho cả shop và hotbar)
+var _tooltip_is_shown: bool = false
 
 @onready var items_scroll: ScrollContainer = $Win/Col/ItemsScroll
 @onready var items_list: VBoxContainer = $Win/Col/ItemsScroll/Margin/ItemsList
@@ -31,6 +54,8 @@ const HOTBAR_HOVER_DELAY: float = 1.5
 func _ready() -> void:
 	add_to_group("shop_ui")
 	visible = false
+	_shop_is_visible = false
+	
 	buy_tab.pressed.connect(_on_tab_buy)
 	sell_tab.pressed.connect(_on_tab_sell)
 	shop_closed.connect(_on_shop_closed)
@@ -40,6 +65,19 @@ func _ready() -> void:
 	items_scroll.get_v_scroll_bar().visible = false
 	items_scroll.get_h_scroll_bar().visible = false
 	print("[ShopUI] Ready.")
+
+
+# =============================================================================
+# HÀM DỌN DẸP KHI THOÁT (_exit_tree)
+# =============================================================================
+
+func _exit_tree() -> void:
+	_cleanup_tooltip()
+
+
+# =============================================================================
+# HÀM TẠO TOOLTIP (_create_tooltip)
+# =============================================================================
 
 func _create_tooltip() -> void:
 	_tooltip_panel = PanelContainer.new()
@@ -96,8 +134,55 @@ func _create_tooltip() -> void:
 
 	get_tree().root.add_child(_tooltip_layer)
 
+
+# =============================================================================
+# HÀM DỌN DẸP TOOLTIP (_cleanup_tooltip)
+# =============================================================================
+
+func _cleanup_tooltip() -> void:
+	# Reset tất cả state
+	_last_hover_item_id = ""
+	_pending_item_data = null
+	_hover_timer = 0.0
+	_tooltip_is_shown = false
+	
+	# Reset hotbar state
+	_hotbar_last_id = ""
+	_hotbar_pending_id = ""
+	_hotbar_hover_timer = 0.0
+	
+	# Xóa tooltip layer hoàn toàn
+	if _tooltip_layer != null:
+		_tooltip_layer.queue_free()
+		_tooltip_layer = null
+		_tooltip_panel = null
+		_tooltip_name = null
+		_tooltip_desc = null
+		_tooltip_detail = null
+
+
+# =============================================================================
+# HÀM RESET STATE (_reset_all_state)
+# =============================================================================
+# Reset tất cả state liên quan đến tooltip
+
+func _reset_all_state() -> void:
+	_last_hover_item_id = ""
+	_pending_item_data = null
+	_hover_timer = 0.0
+	_tooltip_is_shown = false
+	_hotbar_last_id = ""
+	_hotbar_pending_id = ""
+	_hotbar_hover_timer = 0.0
+	_row_item_cache.clear()
+
+
+# =============================================================================
+# HÀM HIỂN THỊ TOOLTIP (_show_tooltip)
+# =============================================================================
+
 func _show_tooltip(item_data: ItemData) -> void:
-	if item_data == null:
+	if item_data == null or _tooltip_panel == null:
 		return
 
 	_tooltip_name.text = item_data.get_display_name()
@@ -142,9 +227,22 @@ func _show_tooltip(item_data: ItemData) -> void:
 
 	_tooltip_panel.global_position = Vector2(tooltip_x, tooltip_y)
 	_tooltip_panel.visible = true
+	_tooltip_is_shown = true
+
+
+# =============================================================================
+# HÀM ẨN TOOLTIP (_hide_tooltip)
+# =============================================================================
 
 func _hide_tooltip() -> void:
-	_tooltip_panel.visible = false
+	if _tooltip_panel != null:
+		_tooltip_panel.visible = false
+	_tooltip_is_shown = false
+
+
+# =============================================================================
+# HÀM CẬP NHẬT VỊ TRÍ TOOLTIP CHO HOTBAR (_show_tooltip_for_hotbar)
+# =============================================================================
 
 func _show_tooltip_for_hotbar(item_id: String) -> void:
 	if item_id.is_empty():
@@ -155,32 +253,55 @@ func _show_tooltip_for_hotbar(item_id: String) -> void:
 		_hotbar_hover_timer = 0.0
 		_hide_tooltip()
 
+
+# =============================================================================
+# HÀM CẬP NHẬT MỖI FRAME (_process)
+# =============================================================================
+# KIỂM TRA: Chỉ xử lý tooltip khi tooltip layer còn tồn tại
+
 func _process(_delta: float) -> void:
+	# =================================================================
+	# SỬA LỖI: Kiểm tra tooltip layer còn tồn tại không
+	# Nếu đã bị xóa (scene chuyển), không làm gì
+	# =================================================================
+	if _tooltip_layer == null or _tooltip_panel == null:
+		return
+
 	var mouse_pos := get_global_mouse_position()
 	var item_data := _get_item_data_at_mouse(mouse_pos)
 
-	if item_data != null:
-		if item_data.item_id != _last_hover_item_id:
-			_last_hover_item_id = item_data.item_id
-			_pending_item_data = item_data
-			_hover_timer = 0.0
-			if _tooltip_panel.visible:
-				_hide_tooltip()
-		elif _pending_item_data != null:
-			_hover_timer += _delta
-			if _hover_timer >= 1.5:
-				_show_tooltip(_pending_item_data)
+	# =================================================================
+	# XỬ LÝ TOOLTIP SHOP
+	# =================================================================
+	if _shop_is_visible and visible:
+		if item_data != null:
+			if item_data.item_id != _last_hover_item_id:
+				_last_hover_item_id = item_data.item_id
+				_pending_item_data = item_data
+				_hover_timer = 0.0
+				if _tooltip_panel.visible:
+					_hide_tooltip()
+			elif _pending_item_data != null:
+				_hover_timer += _delta
+				if _hover_timer >= 1.5:
+					_show_tooltip(_pending_item_data)
+					_pending_item_data = null
+			elif _tooltip_panel.visible:
+				_update_tooltip_position(mouse_pos)
+		else:
+			if _last_hover_item_id != "" or _pending_item_data != null:
+				_last_hover_item_id = ""
 				_pending_item_data = null
-		elif _tooltip_panel.visible:
-			_update_tooltip_position(mouse_pos)
-	else:
-		if _last_hover_item_id != "" or _pending_item_data != null:
-			_last_hover_item_id = ""
-			_pending_item_data = null
-			_hover_timer = 0.0
-			_hide_tooltip()
-
-	if _hotbar_pending_id != "":
+				_hover_timer = 0.0
+				_hide_tooltip()
+	
+	# =================================================================
+	# XỬ LÝ TOOLTIP HOTBAR (khi shop đóng)
+	# =================================================================
+	# Chỉ xử lý hotbar tooltip khi:
+	# - Shop không visible (đã đóng)
+	# - Có pending item từ hotbar
+	elif not visible and _hotbar_pending_id != "":
 		_hotbar_hover_timer += _delta
 		if _hotbar_hover_timer >= HOTBAR_HOVER_DELAY:
 			var db = get_node("/root/ItemDB")
@@ -189,16 +310,30 @@ func _process(_delta: float) -> void:
 				if data != null:
 					_show_tooltip(data)
 			_hotbar_pending_id = ""
-	elif _hotbar_last_id != "" and not _tooltip_panel.visible:
+	elif not visible and _hotbar_last_id != "" and not _tooltip_panel.visible:
 		_hotbar_last_id = ""
 		_hotbar_hover_timer = 0.0
+
+
+# =============================================================================
+# HÀM RESET HOTBAR HOVER (_reset_hotbar_hover)
+# =============================================================================
 
 func _reset_hotbar_hover() -> void:
 	_hotbar_last_id = ""
 	_hotbar_pending_id = ""
 	_hotbar_hover_timer = 0.0
 
+
+# =============================================================================
+# HÀM LẤY ITEM DATA TẠI VỊ TRÍ CHUỘT (_get_item_data_at_mouse)
+# =============================================================================
+
 func _get_item_data_at_mouse(mouse_pos: Vector2) -> ItemData:
+	# Chỉ kiểm tra khi shop đang visible
+	if not visible:
+		return null
+		
 	for i in items_list.get_child_count():
 		var row: Control = items_list.get_child(i)
 		if not row is HBoxContainer:
@@ -211,7 +346,15 @@ func _get_item_data_at_mouse(mouse_pos: Vector2) -> ItemData:
 				return _row_item_cache[i]
 	return null
 
+
+# =============================================================================
+# HÀM CẬP NHẬT VỊ TRỊ TOOLTIP (_update_tooltip_position)
+# =============================================================================
+
 func _update_tooltip_position(mouse_pos: Vector2) -> void:
+	if _tooltip_panel == null:
+		return
+		
 	var tooltip_w: float = _tooltip_panel.size.x
 	var tooltip_h: float = _tooltip_panel.size.y
 	var screen_size := get_tree().root.get_visible_rect().size
@@ -229,6 +372,11 @@ func _update_tooltip_position(mouse_pos: Vector2) -> void:
 
 	_tooltip_panel.global_position = Vector2(tooltip_x, tooltip_y)
 
+
+# =============================================================================
+# HÀM XỬ LÝ INPUT (_input)
+# =============================================================================
+
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
@@ -236,8 +384,18 @@ func _input(event: InputEvent) -> void:
 		close()
 		get_viewport().set_input_as_handled()
 
+
+# =============================================================================
+# HÀM XỬ LÝ ĐÓNG SHOP (_on_shop_closed)
+# =============================================================================
+
 func _on_shop_closed() -> void:
 	_try_show_hotbar()
+
+
+# =============================================================================
+# HÀM THỬ ẨN HOTBAR (_try_hide_hotbar)
+# =============================================================================
 
 func _try_hide_hotbar() -> void:
 	if _hotbar == null:
@@ -245,11 +403,21 @@ func _try_hide_hotbar() -> void:
 	if _hotbar != null:
 		_hotbar.visible = false
 
+
+# =============================================================================
+# HÀM THỬ HIỆN HOTBAR (_try_show_hotbar)
+# =============================================================================
+
 func _try_show_hotbar() -> void:
 	if _hotbar == null:
 		_hotbar = get_tree().get_first_node_in_group("hotbar")
 	if _hotbar != null:
 		_hotbar.visible = true
+
+
+# =============================================================================
+# HÀM MỞ SHOP (open)
+# =============================================================================
 
 func open(gold: int = 100) -> void:
 	_player_gold = gold
@@ -257,8 +425,18 @@ func open(gold: int = 100) -> void:
 	_refresh_tabs()
 	_refresh_shop()
 	_try_hide_hotbar()
+	
+	# Reset state khi mở shop
+	_reset_all_state()
+	
+	_shop_is_visible = true
 	visible = true
 	GameState.game_interacting = true
+
+
+# =============================================================================
+# HÀM REFRESH TABS (_refresh_tabs)
+# =============================================================================
 
 func _refresh_tabs() -> void:
 	if _current_tab == 0:
@@ -271,6 +449,11 @@ func _refresh_tabs() -> void:
 		_apply_tab_active(sell_tab, true)
 		buy_tab.text = "  BUY  "
 		sell_tab.text = "> SELL <"
+
+
+# =============================================================================
+# HÀM ÁP DỤNG TAB ACTIVE (_apply_tab_active)
+# =============================================================================
 
 func _apply_tab_active(btn: Button, active: bool) -> void:
 	if btn == null:
@@ -286,6 +469,11 @@ func _apply_tab_active(btn: Button, active: bool) -> void:
 		btn.add_theme_stylebox_override("hover", btn.get_theme_stylebox("hover"))
 		btn.add_theme_stylebox_override("pressed", btn.get_theme_stylebox("hover"))
 
+
+# =============================================================================
+# HÀM XỬ LÝ TAB BUY (_on_tab_buy)
+# =============================================================================
+
 func _on_tab_buy() -> void:
 	if _current_tab == 0:
 		return
@@ -293,12 +481,22 @@ func _on_tab_buy() -> void:
 	_refresh_tabs()
 	_refresh_shop()
 
+
+# =============================================================================
+# HÀM XỬ LÝ TAB SELL (_on_tab_sell)
+# =============================================================================
+
 func _on_tab_sell() -> void:
 	if _current_tab == 1:
 		return
 	_current_tab = 1
 	_refresh_tabs()
 	_refresh_shop()
+
+
+# =============================================================================
+# HÀM LÀM MỚI SHOP (_refresh_shop)
+# =============================================================================
 
 func _refresh_shop() -> void:
 	for child in items_list.get_children():
@@ -310,6 +508,11 @@ func _refresh_shop() -> void:
 	else:
 		_refresh_sell_list()
 
+
+# =============================================================================
+# HÀM LÀM MỚI DANH SÁCH MUA (_refresh_buy_list)
+# =============================================================================
+
 func _refresh_buy_list() -> void:
 	var db = get_node("/root/ItemDB")
 	if db == null:
@@ -318,6 +521,11 @@ func _refresh_buy_list() -> void:
 	for item_data: ItemData in buyable_items:
 		items_list.add_child(_make_buy_row(item_data))
 		_row_item_cache.append(item_data)
+
+
+# =============================================================================
+# HÀM LÀM MỚI DANH SÁCH BÁN (_refresh_sell_list)
+# =============================================================================
 
 func _refresh_sell_list() -> void:
 	var has_items: bool = false
@@ -332,12 +540,17 @@ func _refresh_sell_list() -> void:
 
 	if not has_items:
 		var empty_lbl := Label.new()
-		empty_lbl.text = "No items to sell"
+		empty_lbl.text = " No items to sell"
 		empty_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1))
 		empty_lbl.add_theme_font_size_override("font_size", 10)
 		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		items_list.add_child(empty_lbl)
 		_row_item_cache.append(null)
+
+
+# =============================================================================
+# HÀM TẠO HÀNG MUA (_make_buy_row)
+# =============================================================================
 
 func _make_buy_row(item_data: ItemData) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -389,6 +602,11 @@ func _make_buy_row(item_data: ItemData) -> HBoxContainer:
 	row.add_child(action_zone)
 
 	return row
+
+
+# =============================================================================
+# HÀM TẠO HÀNG BÁN (_make_sell_row)
+# =============================================================================
 
 func _make_sell_row(item_id: String, amount: int) -> Array:
 	var row := HBoxContainer.new()
@@ -462,6 +680,11 @@ func _make_sell_row(item_id: String, amount: int) -> Array:
 
 	return [row, item_data]
 
+
+# =============================================================================
+# HÀM LẤY GIÁ BÁN (_get_sell_price)
+# =============================================================================
+
 func _get_sell_price(item_id: String) -> int:
 	var db = get_node("/root/ItemDB")
 	if db != null:
@@ -469,6 +692,11 @@ func _get_sell_price(item_id: String) -> int:
 		if item_data != null:
 			return item_data.get_sell_price()
 	return 5
+
+
+# =============================================================================
+# HÀM THỬ MUA (_try_buy)
+# =============================================================================
 
 func _try_buy(item_data: ItemData) -> void:
 	if _player_gold < item_data.buy_price:
@@ -478,6 +706,11 @@ func _try_buy(item_data: ItemData) -> void:
 	GameState.gold = _player_gold
 	GameState.add_item(item_data.item_id, 1)
 	_refresh_shop()
+
+
+# =============================================================================
+# HÀM THỬ BÁN (_try_sell)
+# =============================================================================
 
 func _try_sell(item_id: String) -> void:
 	var amount: int = GameState.get_item_count(item_id)
@@ -489,11 +722,25 @@ func _try_sell(item_id: String) -> void:
 	GameState.gold = _player_gold
 	_refresh_shop()
 
+
+# =============================================================================
+# HÀM ĐÓNG SHOP (close)
+# =============================================================================
+
 func close() -> void:
+	# Đánh dấu shop không còn mở
+	_shop_is_visible = false
+	
+	# Reset tất cả state liên quan đến shop
 	_last_hover_item_id = ""
 	_pending_item_data = null
 	_hover_timer = 0.0
+	_row_item_cache.clear()
+	
+	# Ẩn tooltip
 	_hide_tooltip()
+	
+	# Đóng shop UI
 	visible = false
 	GameState.game_interacting = false
 	_try_show_hotbar()

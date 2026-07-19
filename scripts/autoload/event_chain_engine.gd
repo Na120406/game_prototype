@@ -1,4 +1,29 @@
 extends Node
+# =============================================================================
+# EVENT CHAIN ENGINE (Máy Sự kiện Liên kết)
+# =============================================================================
+# Chức năng: Quản lý chuỗi sự kiện phức tạp trong game
+#
+# Event Chain là gì?
+#   - Một chuỗi sự kiện có nhiều bước (steps)
+#   - Mỗi bước có thể có hành động và hệ quả
+#   - Có thể rẽ nhánh dựa trên điều kiện
+#   - Kết quả có thể: SAFE, INJURED, DEAD, MISSED, DELAYED
+#
+# Ví dụ chain "shopkeeper_mountain":
+#   1. Step 0: NPC rời nhà (delay 0)
+#   2. Step 1: NPC leo núi (delay 2)
+#   3. Step 2: Resolve outcome - tung xíu xem kết quả (delay 5)
+#   4. Step 3: NPC về hoặc không (delay 10)
+#
+# CÁCH SỬ DỤNG:
+#   EventChainEngine.trigger_chain("shopkeeper_mountain", context) - bắt đầu chain
+#   EventChainEngine.is_chain_active("shopkeeper_mountain") - kiểm tra đang chạy
+# =============================================================================
+
+# =============================================================================
+# TÍN HIỆU (SIGNALS)
+# =============================================================================
 
 signal event_chain_started(chain_id: String, root_event: String)
 signal event_chain_step(chain_id: String, step_index: int, step_data: Dictionary)
@@ -7,22 +32,74 @@ signal event_chain_aborted(chain_id: String, reason: String)
 signal branch_triggered(chain_id: String, branch_id: String, branch_data: Dictionary)
 signal player_intervention_detected(chain_id: String, intervention_type: String)
 
-enum ChainState { DORMANT, ACTIVE, PAUSED, COMPLETED, ABORTED }
-enum Outcome { NONE, SAFE, INJURED, DEAD, MISSED, DELAYED }
 
+# =============================================================================
+# ENUM - TRẠNG THÁI CHAIN
+# =============================================================================
+
+enum ChainState {
+	DORMANT,   # Chưa kích hoạt
+	ACTIVE,    # Đang chạy
+	PAUSED,    # Tạm dừng
+	COMPLETED, # Hoàn thành
+	ABORTED    # Bị hủy
+}
+
+enum Outcome {
+	NONE,     # Không có
+	SAFE,     # An toàn
+	INJURED,  # Bị thương
+	DEAD,     # Chết
+	MISSED,   # Bỏ lỡ
+	DELAYED   # Bị trì hoãn
+}
+
+
+# =============================================================================
+# HẰNG SỐ
+# =============================================================================
+
+# Số bước tối đa trong một chain
 const MAX_CHAIN_LENGTH: int = 20
 
+
+# =============================================================================
+# CÁC BIẾN THEO DÕI
+# =============================================================================
+
+# Các chain đang chạy
 var active_chains: Dictionary = {}
+
+# Các chain đã hoàn thành
 var completed_chains: Array[String] = []
+
+# Định nghĩa tất cả chain
 var chain_definitions: Dictionary = {}
+
+# Các sự kiện đã lên lịch
 var scheduled_events: Array[Dictionary] = []
+
+
+# =============================================================================
+# HÀM KHỞI TẠO (_ready)
+# =============================================================================
 
 func _ready() -> void:
 	_build_chain_library()
 	print("[EventChainEngine] Ready — %d chain definitions loaded." % chain_definitions.size())
 
+
+# =============================================================================
+# HÀM CẬP NHẬT MỖI FRAME (_process)
+# =============================================================================
+
 func _process(_delta: float) -> void:
 	_process_scheduled_events()
+
+
+# =============================================================================
+# HÀM XỬ LÝ SỰ KIỆN ĐÃ LÊN LỊCH (_process_scheduled_events)
+# =============================================================================
 
 func _process_scheduled_events() -> void:
 	var to_remove: Array[int] = []
@@ -35,65 +112,77 @@ func _process_scheduled_events() -> void:
 	for i: int in range(to_remove.size() - 1, -1, -1):
 		scheduled_events.remove_at(to_remove[i])
 
+
+# =============================================================================
+# HÀM XÂY DỰNG THƯ VIỆN CHAIN (_build_chain_library)
+# =============================================================================
+# Định nghĩa tất cả chain trong game
+
 func _build_chain_library() -> void:
 	chain_definitions = {
+		# =================================================================
+		# CHAIN: SHOPKEEPER MOUNTAIN (Chuyến đi núi của ông chủ cửa hàng)
+		# =================================================================
 		"shopkeeper_mountain": {
 			"id": "shopkeeper_mountain",
 			"name": "Shopkeeper's Mountain Trip",
 			"trigger_condition": "npc_schedule_mountain_day",
-			"weather_sensitive": true,
+			"weather_sensitive": true,  # Thời tiết ảnh hưởng
 			"base_risk": 0.0,
 			"root_event": "shopkeeper_ascending",
+			# Các kết quả có thể xảy ra
 			"outcomes": {
 				"safe": {
-					"weight": 0.70,
+					"weight": 0.70,           # 70% khả năng
 					"roll_threshold": 0.70,
-					"consequences": [],
+					"consequences": [],         # Không có hệ quả
 					"message": "Shopkeeper returned safely.",
 				},
 				"delayed": {
-					"weight": 0.10,
+					"weight": 0.10,           # 10% khả năng
 					"roll_threshold": 0.80,
-					"consequences": ["shop_late_open"],
+					"consequences": ["shop_late_open"],  # Cửa hàng mở muộn
 					"message": "Shopkeeper returned late.",
 				},
 				"injured": {
-					"weight": 0.15,
+					"weight": 0.15,           # 15% khả năng
 					"roll_threshold": 0.95,
 					"consequences": ["shopkeeper_injured", "shop_closed_days"],
 					"message": "Shopkeeper was injured on the mountain.",
 				},
 				"dead": {
-					"weight": 0.05,
+					"weight": 0.05,            # 5% khả năng
 					"roll_threshold": 1.0,
 					"consequences": ["shopkeeper_dead", "shop_closes", "funeral_scheduled", "son_takes_over"],
 					"message": "Shopkeeper did not return.",
 				},
 			},
+			# Các nhánh điều kiện
 			"branches": {
 				"injured_player_escorted": {
-					"condition": "player_escorted",
+					"condition": "player_escorted",     # Có player hộ tống
 					"modifiers": {
-						"injured_weight": -0.08,
-						"dead_weight": -0.03,
-						"safe_weight": 0.11,
+						"injured_weight": -0.08,         # Giảm khả năng bị thương
+						"dead_weight": -0.03,             # Giảm khả năng chết
+						"safe_weight": 0.11,               # Tăng khả năng an toàn
 					},
 				},
 				"injured_bad_weather": {
-					"condition": "weather_storm",
+					"condition": "weather_storm",        # Trời bão
 					"modifiers": {
 						"injured_weight": 0.15,
 						"dead_weight": 0.1,
 					},
 				},
 				"dead_bad_weather": {
-					"condition": "weather_heavy_rain",
+					"condition": "weather_heavy_rain",   # Mưa to
 					"modifiers": {
 						"injured_weight": 0.2,
 						"dead_weight": 0.2,
 					},
 				},
 			},
+			# Các bước trong chain
 			"chain_steps": [
 				{"delay": 0, "step": "npc_departed", "action": "npc_leaves_home"},
 				{"delay": 2, "step": "npc_ascending", "action": "npc_on_mountain"},
@@ -101,6 +190,10 @@ func _build_chain_library() -> void:
 				{"delay": 10, "step": "return_process", "action": "npc_returns_or_not"},
 			],
 		},
+		
+		# =================================================================
+		# CHAIN: FESTIVAL DAY (Ngày lễ hội)
+		# =================================================================
 		"festival_day": {
 			"id": "festival_day",
 			"name": "Village Festival",
@@ -135,6 +228,10 @@ func _build_chain_library() -> void:
 				{"delay": 8, "step": "outcome_resolved", "action": "resolve_outcome"},
 			],
 		},
+		
+		# =================================================================
+		# CHAIN: HARVEST BLIGHT (Bệnh cây trồng)
+		# =================================================================
 		"harvest_blight": {
 			"id": "harvest_blight",
 			"name": "Crop Blight",
@@ -171,6 +268,11 @@ func _build_chain_library() -> void:
 		},
 	}
 
+
+# =============================================================================
+# HÀM KÍCH HOẠT CHAIN (trigger_chain)
+# =============================================================================
+
 func trigger_chain(chain_id: String, context: Dictionary = {}) -> bool:
 	if not chain_definitions.has(chain_id):
 		push_error("[EventChainEngine] Unknown chain: %s" % chain_id)
@@ -198,6 +300,11 @@ func trigger_chain(chain_id: String, context: Dictionary = {}) -> bool:
 	print("[EventChainEngine] Chain started: %s" % chain_id)
 	return true
 
+
+# =============================================================================
+# HÀM LÊN LỊCH CÁC BƯỚC (_schedule_chain_steps)
+# =============================================================================
+
 func _schedule_chain_steps(chain_id: String, def: Dictionary) -> void:
 	var steps: Array = def.get("chain_steps", [])
 	for step_data: Dictionary in steps:
@@ -208,6 +315,11 @@ func _schedule_chain_steps(chain_id: String, def: Dictionary) -> void:
 			"delay": step_data.get("delay", 0),
 			"executed": false,
 		})
+
+
+# =============================================================================
+# HÀM THỰC HIỆN SỰ KIỆN ĐÃ LÊN LỊCH (_execute_scheduled_event)
+# =============================================================================
 
 func _execute_scheduled_event(ev: Dictionary) -> void:
 	var chain_id: String = ev.get("chain_id", "")
@@ -238,24 +350,34 @@ func _execute_scheduled_event(ev: Dictionary) -> void:
 	if chain["current_step"] >= chain_steps.size():
 		_complete_chain(chain_id)
 
+
+# =============================================================================
+# HÀM TÍNH TOÁN KẾT QUẢ (_resolve_outcome)
+# =============================================================================
+
 func _resolve_outcome(chain_id: String) -> void:
 	var def: Dictionary = chain_definitions[chain_id]
 	var chain: Dictionary = active_chains[chain_id]
 	var context: Dictionary = chain.get("context", {})
 
+	# Lấy trọng số các kết quả
 	var outcome_weights: Dictionary = {}
 	var outcomes: Dictionary = def.get("outcomes", {})
 	for key: String in outcomes:
 		var weight: float = outcomes[key].get("weight", 0.0)
 		outcome_weights[key] = weight
 
+	# Áp dụng các modifier từ nhánh
 	outcome_weights = _apply_branch_modifiers(chain_id, outcome_weights)
+	
+	# Normalize trọng số để tổng = 1.0
 	var total: float = 0.0
 	for w: float in outcome_weights.values():
 		total += w
 	for key: String in outcome_weights:
 		outcome_weights[key] = outcome_weights[key] / total
 
+	# Tung xíu để chọn kết quả
 	var roll: float = randf()
 	var cumulative: float = 0.0
 	var chosen_outcome: String = "safe"
@@ -272,13 +394,20 @@ func _resolve_outcome(chain_id: String) -> void:
 	var outcome_data: Dictionary = def["outcomes"][chosen_outcome]
 	print("[EventChainEngine] Chain '%s' outcome: %s (roll=%.2f)" % [chain_id, chosen_outcome, roll])
 
+	# Áp dụng hệ quả
 	var consequences: Array = outcome_data.get("consequences", [])
 	for consequence_id: String in consequences:
 		_apply_consequence(consequence_id, chain_id, context)
 		chain["consequences_applied"].append(consequence_id)
 
+	# Kích hoạt event
 	var event_id: String = chain_id + "_" + chosen_outcome
 	EventManager.trigger_event(event_id)
+
+
+# =============================================================================
+# HÀM ÁP DỤNG MODIFIER NHÁNH (_apply_branch_modifiers)
+# =============================================================================
 
 func _apply_branch_modifiers(chain_id: String, weights: Dictionary) -> Dictionary:
 	var def: Dictionary = chain_definitions[chain_id]
@@ -304,6 +433,11 @@ func _apply_branch_modifiers(chain_id: String, weights: Dictionary) -> Dictionar
 
 	return modified
 
+
+# =============================================================================
+# HÀM KIỂM TRA ĐIỀU KIỆN NHÁNH (_check_branch_condition)
+# =============================================================================
+
 func _check_branch_condition(condition: String, context: Dictionary) -> bool:
 	match condition:
 		"player_escorted":
@@ -319,8 +453,18 @@ func _check_branch_condition(condition: String, context: Dictionary) -> bool:
 			return context.get("has_escort", false)
 	return false
 
+
+# =============================================================================
+# HÀM ÁP DỤNG HIỆU ỨNG BƯỚC (_apply_step_effect)
+# =============================================================================
+
 func _apply_step_effect(chain_id: String, step: String, description: String) -> void:
 	print("[EventChainEngine] Chain '%s' step '%s': %s" % [chain_id, step, description])
+
+
+# =============================================================================
+# HÀM XỬ LÝ TRẢ VỀ CỦA NPC (_finalize_npc_return)
+# =============================================================================
 
 func _finalize_npc_return(chain_id: String) -> void:
 	var chain: Dictionary = active_chains[chain_id]
@@ -337,6 +481,11 @@ func _finalize_npc_return(chain_id: String) -> void:
 			var npc_id: String = context.get("npc_id", "")
 			var family_id: String = context.get("family_id", "")
 			FamilyRegistry.mark_family_member_dead(npc_id, family_id)
+
+
+# =============================================================================
+# HÀM ÁP DỤNG HỆ QUẢ (_apply_consequence)
+# =============================================================================
 
 func _apply_consequence(consequence_id: String, chain_id: String, context: Dictionary) -> void:
 	match consequence_id:
@@ -369,6 +518,11 @@ func _apply_consequence(consequence_id: String, chain_id: String, context: Dicti
 			GameState.set_flag("strange_events_active", true)
 			WeatherSystem.trigger_anomaly_weather()
 
+
+# =============================================================================
+# HÀM GHI NHẬN CAN THIỆP (register_player_intervention)
+# =============================================================================
+
 func register_player_intervention(chain_id: String, intervention_type: String) -> void:
 	if not active_chains.has(chain_id):
 		return
@@ -377,13 +531,28 @@ func register_player_intervention(chain_id: String, intervention_type: String) -
 	player_intervention_detected.emit(chain_id, intervention_type)
 	print("[EventChainEngine] Player intervention in chain '%s': %s" % [chain_id, intervention_type])
 
+
+# =============================================================================
+# HÀM DỪNG CHAIN (pause_chain)
+# =============================================================================
+
 func pause_chain(chain_id: String) -> void:
 	if active_chains.has(chain_id):
 		active_chains[chain_id]["state"] = ChainState.PAUSED
 
+
+# =============================================================================
+# HÀM TIẾP TỤC CHAIN (resume_chain)
+# =============================================================================
+
 func resume_chain(chain_id: String) -> void:
 	if active_chains.has(chain_id):
 		active_chains[chain_id]["state"] = ChainState.ACTIVE
+
+
+# =============================================================================
+# HÀM HỦY CHAIN (abort_chain)
+# =============================================================================
 
 func abort_chain(chain_id: String, reason: String) -> void:
 	if active_chains.has(chain_id):
@@ -391,6 +560,11 @@ func abort_chain(chain_id: String, reason: String) -> void:
 		event_chain_aborted.emit(chain_id, reason)
 		active_chains.erase(chain_id)
 		print("[EventChainEngine] Chain aborted: %s (%s)" % [chain_id, reason])
+
+
+# =============================================================================
+# HÀM HOÀN THÀNH CHAIN (_complete_chain)
+# =============================================================================
 
 func _complete_chain(chain_id: String) -> void:
 	if active_chains.has(chain_id):
@@ -400,6 +574,11 @@ func _complete_chain(chain_id: String) -> void:
 		event_chain_completed.emit(chain_id)
 		print("[EventChainEngine] Chain completed: %s" % chain_id)
 
+
+# =============================================================================
+# HÀM LẤY TRẠNG THÁI CHAIN (get_chain_state)
+# =============================================================================
+
 func get_chain_state(chain_id: String) -> int:
 	if not active_chains.has(chain_id):
 		if chain_id in completed_chains:
@@ -407,16 +586,36 @@ func get_chain_state(chain_id: String) -> int:
 		return ChainState.DORMANT
 	return active_chains[chain_id]["state"]
 
+
+# =============================================================================
+# HÀM KIỂM TRA CHAIN ĐANG CHẠY (is_chain_active)
+# =============================================================================
+
 func is_chain_active(chain_id: String) -> bool:
 	return active_chains.has(chain_id)
+
+
+# =============================================================================
+# HÀM LẤY THÔNG TIN CHAIN (get_chain_info)
+# =============================================================================
 
 func get_chain_info(chain_id: String) -> Dictionary:
 	if active_chains.has(chain_id):
 		return active_chains[chain_id]
 	return {}
 
+
+# =============================================================================
+# HÀM KIỂM TRA KẾT QUẢ ĐÃ XẢY RA (is_outcome_triggered)
+# =============================================================================
+
 func is_outcome_triggered(chain_id: String, outcome: String) -> bool:
 	return GameState.get_flag("%s_%s" % [chain_id, outcome])
+
+
+# =============================================================================
+# HÀM MÔ PHỎNG CHAIN (simulate_chain)
+# =============================================================================
 
 func simulate_chain(chain_id: String, context: Dictionary, days_to_simulate: int) -> Dictionary:
 	if not chain_definitions.has(chain_id):
@@ -447,11 +646,26 @@ func simulate_chain(chain_id: String, context: Dictionary, days_to_simulate: int
 		"message": outcome_data.get("message", ""),
 	}
 
+
+# =============================================================================
+# HÀM LẤY TẤT CẢ CHAIN ĐANG CHẠY (get_all_active_chains)
+# =============================================================================
+
 func get_all_active_chains() -> Array:
 	return active_chains.keys()
 
+
+# =============================================================================
+# HÀM LẤY CHAIN ĐÃ HOÀN THÀNH (get_completed_chains)
+# =============================================================================
+
 func get_completed_chains() -> Array:
 	return completed_chains.duplicate()
+
+
+# =============================================================================
+# HÀM LẤY ĐỊNH NGHĨA CHAIN (get_chain_definition)
+# =============================================================================
 
 func get_chain_definition(chain_id: String) -> Dictionary:
 	return chain_definitions.get(chain_id, {})

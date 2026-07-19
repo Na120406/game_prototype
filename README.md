@@ -10,63 +10,83 @@ A narrative exploration game with ambient psychological horror elements. Built w
 
 **Phase 1: Foundation** — In Progress
 
+## Development Framework
+
+This project uses **Claude-Code-Game-Studios** principles for organized development:
+
+### Available Skills
+
+| Skill | Purpose | When to Use |
+|-------|---------|-------------|
+| `/godot` | Godot 4 best practices | Engine-specific questions |
+| `/game-design` | Game mechanics & systems | Design decisions |
+| `/code-review` | Quality code review | Before commits |
+| `/testing` | Test setup & patterns | Unit/integration tests |
+
+### Available Agents
+
+| Agent | Role | For |
+|-------|------|-----|
+| `godot-specialist` | Godot engine expert | Architecture, APIs, optimization |
+| `game-designer` | Systems & mechanics | Design review |
+| `godot-gdscript-specialist` | GDScript patterns | Code quality |
+| `narrative-director` | Story & lore | Narrative consistency |
+
+### Coding Standards
+
+See `.cursor/rules/` for path-scoped standards:
+- `godot/gameplay-code.md` — Gameplay logic rules
+- `godot/ui-code.md` — UI code rules
+- `godot/engine-code.md` — Engine/core rules
+- `narrative.md` — Story/lore rules
+
+### Document Templates
+
+See `docs/templates/` for:
+- `gdd-template.md` — Game Design Document
+- `character-sheet-template.md` — NPC design
+- `test-plan-template.md` — Test planning
+
 ## Folder Structure
 
 ```
 game-demo/
-├── res://
-│   ├── scenes/              # Godot scene files (.tscn)
-│   │   ├── player/           # Player-related scenes
-│   │   ├── world/            # World, tilemaps, environment scenes
-│   │   ├── npc/             # NPC scenes
-│   │   └── ui/              # UI scenes (HUD, menus, dialogue)
-│   │
-│   ├── scripts/             # GDScript files
-│   │   ├── autoload/        # Singletons (global systems)
-│   │   │   ├── game_state.gd     # Global game data (day, energy, inventory)
-│   │   │   ├── audio_manager.gd  # Audio playback & management
-│   │   │   ├── time_manager.gd   # Day/night cycle
-│   │   │   ├── event_manager.gd  # World events & anomalies
-│   │   │   ├── camera_manager.gd # Camera effects (shake, zoom)
-│   │   │   ├── scene_manager.gd  # Scene transitions
-│   │   │   └── dialogue_manager.gd # Dialogue system
-│   │   │
-│   │   ├── player/          # Player scripts
-│   │   │   └── player.gd    # Player movement, states, interaction
-│   │   │
-│   │   ├── world/           # World scripts
-│   │   │   ├── interactable.gd    # World objects player can interact with
-│   │   │   ├── farm/
-│   │   │   │   └── farm_manager.gd # Crop growth, farming logic
-│   │   │   ├── tools/
-│   │   │   │   └── tool.gd        # Tool usage & stamina
-│   │   │   └── atmosphere/
-│   │   │       └── atmosphere_manager.gd # Lighting, weather, mood
-│   │   │
-│   │   ├── npc/             # NPC scripts
-│   │   │   └── npc.gd       # NPC behavior, schedules, dialogue
-│   │   │
-│   │   ├── ui/              # UI scripts
-│   │   │   ├── dialogue_ui.gd    # Dialogue box display
-│   │   │   └── hud.gd            # Heads-up display
-│   │   │
-│   │   └── utils/           # Utility scripts
-│   │       ├── save_manager.gd   # Save/load system
-│   │       └── util.gd           # Helper functions
-│   │
-│   ├── assets/              # Game assets (to be created)
-│   │   ├── sprites/         # Pixel art sprites & tilesets
-│   │   ├── audio/
-│   │   │   ├── sfx/         # Sound effects
-│   │   │   ├── music/       # Background music
-│   │   │   └── ambient/     # Ambient soundscapes
-│   │   └── fonts/           # Pixel fonts
-│   │
-│   └── resources/           # Custom Godot resources
-│       └── dialogue/        # JSON dialogue data files
+├── .cursor/                    # Cursor AI configuration
+│   ├── agents/                 # Specialized agent definitions
+│   │   ├── godot-specialist.md
+│   │   ├── game-designer.md
+│   │   └── ...
+│   ├── rules/                  # Coding standards (path-scoped)
+│   │   └── godot/
+│   │       ├── gameplay-code.md
+│   │       ├── ui-code.md
+│   │       └── engine-code.md
+│   └── skills/                 # Skill definitions
+│       ├── godot/
+│       ├── game-design/
+│       ├── code-review/
+│       └── testing/
 │
-├── project.godot            # Godot project configuration
-└── .godot/                  # Godot engine metadata
+├── design/                     # Game design documents
+│   ├── gdd/                    # Game Design Documents
+│   └── narrative/              # Story, lore, characters
+│
+├── docs/
+│   └── templates/              # Document templates
+│       ├── gdd-template.md
+│       └── ...
+│
+├── production/                  # Production tracking
+│   └── session-state/          # Session notes
+│
+├── res://                      # Godot resources
+│   ├── scenes/                # Godot scene files (.tscn)
+│   ├── scripts/               # GDScript files
+│   ├── assets/                # Game assets
+│   └── resources/             # Custom Godot resources
+│
+├── project.godot               # Godot project configuration
+└── TODO.md                     # Project task tracker
 ```
 
 ## Autoloads (Global Singletons)
