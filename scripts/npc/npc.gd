@@ -19,17 +19,60 @@ var talk_count: int = 0
 var relationship_value: int = 0
 var _player_nearby: bool = false
 
-@onready var sprite: Sprite2D = $Sprite2D if has_node("Sprite2D") else null
-@onready var animation_player: AnimationPlayer = $AnimationPlayer if has_node("AnimationPlayer") else null
-@onready var interaction_area: Area2D = $InteractionArea if has_node("InteractionArea") else null
-@onready var navigation_agent: NavigationAgent2D = $NavigationAgent2D if has_node("NavigationAgent2D") else null
+var sprite: Sprite2D = null
+var animation_player: AnimationPlayer = null
+var interaction_area: Area2D = null
+var navigation_agent: NavigationAgent2D = null
+var prompt_label: Label = null
+
+@export var prompt_offset_y: float = -32.0
 
 func _ready() -> void:
 	add_to_group("npc")
 	add_to_group("npc_" + npc_id)
+	_resolve_node_refs()
+	_ensure_prompt_label()
 	_build_default_schedule()
 	_connect_signals()
 	print("[NPC] %s (%s) ready." % [npc_name, npc_id])
+
+
+func _resolve_node_refs() -> void:
+	if has_node("Sprite2D"):
+		sprite = $Sprite2D
+	if has_node("AnimationPlayer"):
+		animation_player = $AnimationPlayer
+	if has_node("InteractionArea"):
+		interaction_area = $InteractionArea
+	if has_node("NavigationAgent2D"):
+		navigation_agent = $NavigationAgent2D
+
+
+func _ensure_prompt_label() -> void:
+	if has_node("Prompt"):
+		prompt_label = $Prompt
+	else:
+		prompt_label = Label.new()
+		prompt_label.name = "Prompt"
+		add_child(prompt_label)
+
+	# Thuần text trắng cỡ nhỏ
+	prompt_label.anchor_left = 0.0
+	prompt_label.anchor_top = 0.0
+	prompt_label.anchor_right = 0.0
+	prompt_label.anchor_bottom = 0.0
+	prompt_label.offset_left = -12.0
+	prompt_label.offset_top = prompt_offset_y
+	prompt_label.offset_right = 12.0
+	prompt_label.offset_bottom = prompt_offset_y + 8.0
+
+	prompt_label.text = "[E]"
+	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	prompt_label.add_theme_font_size_override("font_size", 6)
+	prompt_label.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	prompt_label.z_index = 20
+	prompt_label.visible = false
 
 func _connect_signals() -> void:
 	if interaction_area != null:
@@ -127,10 +170,35 @@ func _on_dm_ended() -> void:
 func _on_player_nearby(_body: Node) -> void:
 	if sprite != null:
 		sprite.modulate = Color(1.1, 1.1, 1.0)
+	if prompt_label != null:
+		prompt_label.text = "[E]"
+		prompt_label.visible = true
+	_register_with_manager(true)
+
 
 func _on_player_left(_body: Node) -> void:
 	if sprite != null:
 		sprite.modulate = Color.WHITE
+	if prompt_label != null:
+		prompt_label.visible = false
+	_register_with_manager(false)
+
+
+func _register_with_manager(nearby: bool) -> void:
+	var mgr := _get_prompt_manager()
+	if mgr == null:
+		return
+	if nearby:
+		mgr.register_nearby(self)
+	else:
+		mgr.unregister_nearby(self)
+
+
+func _get_prompt_manager() -> Node:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	return tree.root.get_node_or_null("InteractionPromptManager")
 
 func set_relationship(delta: int) -> void:
 	relationship_value = clamp(relationship_value + delta, -100, 100)

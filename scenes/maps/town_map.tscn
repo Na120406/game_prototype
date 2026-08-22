@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" path="res://scripts/world/world_transition.gd" id="3_trans"]
 [ext_resource type="Script" path="res://scripts/world/world_ui_manager.gd" id="4_uimgr"]
+[ext_resource type="Script" path="res://scripts/world/scene_root.gd" id="5_sceneroot"]
 [ext_resource type="PackedScene" uid="uid://inv_ui_01" path="res://scenes/ui/inventory_ui.tscn" id="10_inv"]
 
 [sub_resource type="TileSetAtlasSource" id="TSA_town"]
@@ -96,7 +97,7 @@ position = Vector2(95, 105)
 script = ExtResource("3_trans")
 target_scene = "res://scenes/maps/inside_shop_map.tscn"
 portal_id = "portal_shop"
-prompt = "E"
+prompt = "[E]"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ShopDoor"]
 shape = SubResource("RS_door")
@@ -106,20 +107,13 @@ modulate = Color(0.3, 0.18, 0.06, 1)
 scale = Vector2(30, 25)
 
 [node name="Prompt" type="Label" parent="ShopDoor"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
+anchors_preset = -1
 offset_left = -10.0
-offset_top = 4.0
+offset_top = -10.0
 offset_right = 10.0
-offset_bottom = 12.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+offset_bottom = -2.0
 theme_override_font_sizes/font_size = 6
-text = "E"
+text = "[E]"
 horizontal_alignment = 1
 
 [node name="Well" type="ColorRect" parent="."]
@@ -159,30 +153,29 @@ position = Vector2(20, 135)
 script = ExtResource("3_trans")
 target_scene = "res://scenes/maps/farm_map.tscn"
 portal_id = "portal_town"
-prompt = "E"
+prompt = "[E]"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="FromFarm"]
 shape = SubResource("RS_trans")
 
 [node name="Prompt" type="Label" parent="FromFarm"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
+anchors_preset = -1
 offset_left = -10.0
-offset_top = 4.0
+offset_top = -10.0
 offset_right = 10.0
-offset_bottom = 12.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+offset_bottom = -2.0
 theme_override_font_sizes/font_size = 6
-text = "E"
+text = "[E]"
 horizontal_alignment = 1
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 z_index = 10
+position = Vector2(240, 135)
+
+[node name="SceneRoot" type="Node" parent="."]
+script = ExtResource("5_sceneroot")
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
 position = Vector2(240, 135)
 
 [node name="Camera2D" type="Camera2D" parent="Player"]

@@ -50,6 +50,20 @@ var _pending_portal_id: String = ""
 # Tween cho animation fade
 var _transition_tween: Tween
 
+# Player position cuối cùng ở mỗi scene trước khi rời đi, key = scene path.
+# Dùng để khi quay lại scene này player spawn ở đúng vị trí đã rời.
+# KHÔNG lưu khi spawn từ portal (vì chưa đi loanh quanh được) → xem _is_via_portal.
+var _last_player_positions: Dictionary = {}
+
+# Lưu vị trí player khi đã "thực sự" di chuyển trong scene (không phải teleport do portal).
+# Set true bởi player.gd qua notify_moved() mỗi frame khi pos thay đổi.
+# SceneManager chỉ capture khi flag này true.
+var _player_has_moved: bool = false
+
+# Đánh dấu lần chuyển scene gần nhất qua portal_id != "".
+# Để _pick_spawn_position skip nhánh "saved position" và dùng portal trước.
+var _is_via_portal: bool = false
+
 
 # =============================================================================
 # HÀM KHỞI TẠO (_ready)
@@ -59,7 +73,14 @@ func _ready() -> void:
 	print("[SceneManager] Ready — portal transition system active.")
 	# Persist in-memory farm data whenever the scene changes
 	scene_changed.connect(_on_scene_changed)
+	# Reset hoàn toàn khi SceneTree sẵn sàng
+	get_tree().tree_changed.connect(_on_tree_changed)
 
+# Reset toàn bộ state khi tree thay đổi (game start/restart)
+func _on_tree_changed() -> void:
+	pass  # Có thể mở rộng nếu cần
+
+# Farm snapshot để persist giữa các scene
 var _farm_snapshot: Dictionary = {}
 
 
@@ -84,6 +105,18 @@ func change_scene(scene_path: String, portal_id: String = "", use_transition: bo
 	# Lưu thông tin scene
 	current_scene_path = scene_path
 	_pending_portal_id = portal_id
+	_is_via_portal = portal_id != ""
+
+	# Chụp pos player hiện tại TRƯỚC khi load scene mới (chỉ khi player thực sự di chuyển,
+	# không phải vừa teleport từ portal sang).
+	_capture_current_player_position()
+	_player_has_moved = false
+
+	# Reset hoàn toàn farm snapshot khi chuyển scene KHÔNG phải farm
+	# Để tránh state cũ ảnh hưởng
+	if not scene_path.contains("farm"):
+		_farm_snapshot.clear()
+		print("[SceneManager] Cleared farm snapshot for non-farm scene")
 
 	# Chuyển scene
 	if use_transition:
@@ -92,6 +125,38 @@ func change_scene(scene_path: String, portal_id: String = "", use_transition: bo
 	else:
 		# Không fade: load trực tiếp
 		_load_scene(scene_path)
+
+
+# =============================================================================
+# PUBLIC API — để player thông báo khi thực sự di chuyển (không phải teleport)
+# =============================================================================
+
+func notify_player_moved() -> void:
+	_player_has_moved = true
+
+
+# =============================================================================
+# PLAYER POSITION CAPTURE / RESTORE
+# =============================================================================
+
+func _capture_current_player_position() -> void:
+	if not _player_has_moved:
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var player := tree.get_first_node_in_group("player")
+	if player == null or not (player is Node2D):
+		return
+	var cur_scene := tree.current_scene
+	if cur_scene == null:
+		return
+	# Key = scene path tuyệt đối của scene đang rời đi
+	var key := cur_scene.scene_file_path
+	if key == "":
+		return
+	_last_player_positions[key] = (player as Node2D).global_position
+	print("[SceneManager] Saved player pos for %s: %s" % [key, str(_last_player_positions[key])])
 
 
 # =============================================================================
@@ -184,7 +249,7 @@ func _cleanup_transition() -> void:
 # Load và chuyển sang scene mới
 
 func _load_scene(scene_path: String) -> void:
-	# Snapshot farm state from current scene BEFORE removing it
+	# Snapshot farm state from current scene BEFORE removing it (nếu có farm)
 	_persist_farm_state()
 
 	# Load scene từ file
@@ -219,25 +284,91 @@ func _load_scene(scene_path: String) -> void:
 	_restore_farm_state_for_new_scene(new_scene)
 
 	# =================================================================
-	# ĐẶT PLAYER TẠI PORTAL
+	# ĐẶT PLAYER THEO PRIORITY:
+	#   1) Saved position (player thực sự di chuyển ở scene này trước đó)
+	#   2) Portal target (nếu vừa chuyển qua portal)
+	#   3) Bed (nếu flag knockout_spawn_at_bed)
+	#   4) PlayerSpawn Marker2D (F5 playtest trực tiếp scene này)
+	#   5) Scene-default position từ .tscn (giữ nguyên pos gốc)
 	# =================================================================
+	var player: Node = get_tree().get_first_node_in_group("player")
+	if player == null:
+		push_error("[SceneManager] No player found in scene!")
+		return
+
+	if not player.has_method("force_position"):
+		push_error("[SceneManager] Player missing force_position method!")
+		return
+
+	var spawn_pos := _pick_spawn_position(new_scene, scene_path)
+	player.force_position(spawn_pos)
+	_is_via_portal = false
+	print("[SceneManager] Spawned player at %s" % str(spawn_pos))
+
+	# Sau khi spawn, reset flag: player mới ở scene mới, phải di chuyển thật thì mới capture lại.
+	# Nhưng KHÔNG clear saved-pos: ta vẫn muốn giữ pos cuối lần trước ở scene này.
+	_player_has_moved = false
+
+	# Xóa farm snapshot nếu đây là scene đầu tiên (F5) hoặc scene không phải farm
+	_farm_snapshot.clear()
+	print("[SceneManager] Cleared farm snapshot for fresh load")
+
+
+# =============================================================================
+# HÀM PICK SPAWN POSITION
+# =============================================================================
+# Áp dụng priority: saved > portal > bed > PlayerSpawn marker > scene-default.
+
+func _pick_spawn_position(new_scene: Node, scene_path: String) -> Vector2:
+	# Ưu tiên 0: Bed nếu flag knockout đang active (giữ behavior cũ)
+	if GameState.get_flag("knockout_spawn_at_bed", false):
+		GameState.set_flag("knockout_spawn_at_bed", false)
+		var bed := _find_bed_in_scene(new_scene)
+		if bed != null:
+			print("[SceneManager] Spawn: knockout at bed")
+			return bed.global_position + Vector2(0, 16)
+
+	# Ưu tiên 1: Portal target nếu vừa chuyển qua portal
 	if _pending_portal_id != "":
-		# Tìm portal trong scene mới
 		var portal := _find_portal_in_scene(new_scene, _pending_portal_id)
 		if portal != null:
-			# Tìm player
-			var player: Node = get_tree().get_first_node_in_group("player")
-			if player != null and player.has_method("force_position"):
-				# Di chuyển player đến vị trí portal
-				player.force_position(portal.global_position)
-				print("[SceneManager] Spawned at portal '%s': %s" % [_pending_portal_id, str(portal.global_position)])
+			print("[SceneManager] Spawn: portal '%s'" % _pending_portal_id)
+			_pending_portal_id = ""
+			return portal.global_position
 		else:
 			push_warning("[SceneManager] Portal '%s' not found in %s" % [_pending_portal_id, scene_path])
-	else:
-		print("[SceneManager] No portal_id — using scene default spawn")
+			_pending_portal_id = ""
 
-	# Reset portal ID
-	_pending_portal_id = ""
+	# Ưu tiên 2: Saved position (chỉ khi KHÔNG qua portal → đây là A→B→A flow)
+	if not _is_via_portal and _last_player_positions.has(scene_path):
+		var saved: Vector2 = _last_player_positions[scene_path]
+		print("[SceneManager] Spawn: saved pos for %s" % scene_path)
+		return saved
+
+	# Ưu tiên 3: PlayerSpawn Marker2D (F5 playtest trực tiếp)
+	var marker := _find_player_spawn_marker(new_scene)
+	if marker != null:
+		print("[SceneManager] Spawn: PlayerSpawn marker")
+		return marker.global_position
+
+	# Ưu tiên 4: Scene-default pos — giữ pos hiện tại của player trong scene .tscn
+	var player := get_tree().get_first_node_in_group("player")
+	if player != null and player is Node2D:
+		print("[SceneManager] Spawn: scene-default")
+		return (player as Node2D).global_position
+	print("[SceneManager] Spawn: scene-default zero (player missing)")
+	return Vector2.ZERO
+
+
+func _find_player_spawn_marker(scene: Node) -> Node2D:
+	# Tìm Marker2D tên "PlayerSpawn" hoặc bất kỳ Node2D nào trong group "player_spawn"
+	for child in scene.find_children("*", "Marker2D", true, false):
+		if child.name == "PlayerSpawn":
+			return child
+	for child in scene.find_children("*", "Node2D", true, false):
+		if child.is_in_group("player_spawn"):
+			return child
+	return null
 
 
 # =============================================================================
@@ -255,6 +386,9 @@ func _find_portal_in_scene(scene: Node, portal_id: String) -> Node:
 		if area.get("portal_id") != null and area.get("portal_id") == portal_id:
 			return area
 	return null
+
+func _find_bed_in_scene(scene: Node) -> Node:
+	return scene.find_child("Bed", true, false)
 
 
 # =============================================================================
@@ -295,22 +429,34 @@ func _persist_farm_state() -> void:
 	print("[SceneManager] Persisted %d farm cells." % int(_farm_snapshot.get("cells", []).size()))
 
 func _restore_farm_state_for_new_scene(new_scene: Node) -> void:
-	# Wait one frame so child nodes finish _ready and join groups
-	await get_tree().process_frame
-	var farm: Node = new_scene.get_tree().get_first_node_in_group("farm_manager")
-	if farm == null or not farm.has_method("deserialize"):
-		return
+	# Chỉ restore farm state nếu scene mới CÓ farm manager VÀ có farm snapshot
 	if _farm_snapshot.is_empty():
 		return
+
+	# Đợi một frame để các node con hoàn thành _ready
+	await get_tree().process_frame
+
+	var farm: Node = new_scene.get_tree().get_first_node_in_group("farm_manager")
+	if farm == null:
+		print("[SceneManager] No farm_manager in this scene, skipping farm restore")
+		return
+
+	if not farm.has_method("deserialize"):
+		push_error("[SceneManager] farm_manager missing deserialize method!")
+		return
+
 	farm.deserialize(_farm_snapshot)
+	print("[SceneManager] Restored %d farm cells." % int(_farm_snapshot.get("cells", []).size()))
+
 	# Trigger crop visual manager rebuild
 	var crop_visuals: Node = new_scene.get_tree().get_first_node_in_group("crop_visual_manager")
-	if crop_visuals != null and crop_visuals.has_method("on_farm_data_loaded"):
-		crop_visuals.on_farm_data_loaded()
-	elif crop_visuals != null and crop_visuals.has_method("rebuild_all"):
-		crop_visuals.rebuild_all()
+	if crop_visuals != null:
+		if crop_visuals.has_method("on_farm_data_loaded"):
+			crop_visuals.on_farm_data_loaded()
+		elif crop_visuals.has_method("rebuild_all"):
+			crop_visuals.rebuild_all()
+
 	# Trigger soil visual refresh
 	var plot: Node = new_scene.get_tree().get_first_node_in_group("farm_plot")
-	if plot != null and plot.has_method("_refresh_soil_visuals"):
-		plot.call("_refresh_soil_visuals")
-	print("[SceneManager] Restored %d farm cells." % int(_farm_snapshot.get("cells", []).size()))
+	if plot != null and plot.has_method("refresh_soil_visuals"):
+		plot.refresh_soil_visuals()

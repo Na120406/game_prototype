@@ -2,25 +2,28 @@
 
 [ext_resource type="Script" path="res://scripts/ui/inventory_ui.gd" id="1_inv"]
 
-[node name="InventoryUI" type="Control"]
-layout_mode = 3
+[node name="InventoryUI" type="CanvasLayer"]
+layer = 100
+script = ExtResource("1_inv")
+
+[node name="Root" type="Control" parent="."]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("1_inv")
+mouse_filter = 2
 
-[node name="BGOverlay" type="ColorRect" parent="."]
+[node name="BGOverlay" type="ColorRect" parent="Root"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 color = Color(0.02, 0.01, 0.04, 0.75)
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="Panel" type="PanelContainer" parent="Root"]
+layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -33,45 +36,45 @@ offset_bottom = 56.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="BG" type="ColorRect" parent="Panel"]
+[node name="BG" type="ColorRect" parent="Root/Panel"]
 layout_mode = 2
 color = Color(0.06, 0.04, 0.1, 0.97)
 
-[node name="Border" type="ColorRect" parent="Panel"]
+[node name="Border" type="ColorRect" parent="Root/Panel"]
 layout_mode = 2
 color = Color(0.45, 0.35, 0.2, 1)
 
-[node name="VBox" type="VBoxContainer" parent="Panel"]
+[node name="VBox" type="VBoxContainer" parent="Root/Panel"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Header" type="HBoxContainer" parent="Panel/VBox"]
+[node name="Header" type="HBoxContainer" parent="Root/Panel/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="Panel/VBox/Header"]
+[node name="Title" type="Label" parent="Root/Panel/VBox/Header"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
 theme_override_font_sizes/font_size = 8
 text = "INVENTORY"
 
-[node name="Spacer" type="Control" parent="Panel/VBox/Header"]
+[node name="Spacer" type="Control" parent="Root/Panel/VBox/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="TabHint" type="Label" parent="Panel/VBox/Header"]
+[node name="TabHint" type="Label" parent="Root/Panel/VBox/Header"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.5, 0.45, 0.4, 1)
 theme_override_font_sizes/font_size = 6
 text = "[TAB]"
 
-[node name="GridContainer" type="GridContainer" parent="Panel/VBox"]
+[node name="GridContainer" type="GridContainer" parent="Root/Panel/VBox"]
 layout_mode = 2
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 columns = 4
 
-[node name="ClickCatcher" type="Control" parent="."]
+[node name="ClickCatcher" type="Control" parent="Root"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

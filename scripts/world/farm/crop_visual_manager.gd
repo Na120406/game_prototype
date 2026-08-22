@@ -1,23 +1,42 @@
 extends Node2D
+# =============================================================================
+# CROP VISUAL MANAGER - Hiển thị crop sprites trên farm
+# =============================================================================
+# v3: Renders each crop as a colored ColorRect scaled by growth_progress.
+# Uses FarmEnums for all shared enum definitions.
+# =============================================================================
 
-const CELL_SIZE: Vector2 = Vector2(8, 8)
+signal crop_visual_changed(cell: Vector2i)
+
+const CELL_SIZE: Vector2 = Vector2(16, 16)
 const FARM_ZONE := Rect2(24, 274, 592, 302)
-const SEED_COLOR := Color(0.35, 0.75, 0.3, 1.0)
 
-var _sprites: Dictionary = {}  # cell_key -> Sprite2D
+var _sprites: Dictionary = {}
 var _farm_manager: Node = null
-var _plot: Node = null
 var _update_timer: float = 0.0
 var _last_day: int = -1
-var _plot_world_offset: Vector2 = Vector2.ZERO
-var _white_tex: ImageTexture = null
+
+# Sử dụng FarmEnums (load trực tiếp để tránh phụ thuộc autoload)
+const FarmEnumsRef = preload("res://scripts/autoload/farm_enums.gd")
+const CropState = FarmEnumsRef.CropState
+const CropType = FarmEnumsRef.CropType
+
+# Base color per crop type (dùng FarmEnums keys)
+const CROP_COLORS: Dictionary = {
+	CropType.WHEAT:   Color(0.85, 0.75, 0.35),
+	CropType.CORN:    Color(0.95, 0.85, 0.30),
+	CropType.TOMATO:  Color(0.85, 0.30, 0.30),
+	CropType.POTATO:  Color(0.70, 0.55, 0.35),
+	CropType.TURNIP:  Color(0.65, 0.80, 0.45),
+	CropType.MYSTERY_PLANT: Color(0.65, 0.45, 0.85),
+}
+
+const WILTED_COLOR := Color(0.75, 0.20, 0.20)
+const SEEDED_MIN_SIZE := 4.0
 
 func _ready() -> void:
 	add_to_group("crop_visual_manager")
-	_white_tex = _make_white_texture()
-	# Wait one frame so FarmManager and FarmPlot have entered the scene tree
 	call_deferred("_initialize")
-	# Also try again on next physics frame in case deferred was too early
 	await get_tree().physics_frame
 	if _farm_manager == null:
 		_initialize()
@@ -25,78 +44,121 @@ func _ready() -> void:
 func _initialize() -> void:
 	if _farm_manager == null:
 		_farm_manager = get_tree().get_first_node_in_group("farm_manager")
-	if _plot == null:
-		_plot = get_tree().get_first_node_in_group("farm_plot")
-	# farm_plot._cell_to_world returns absolute world coords = FARM_ZONE.position + cell*16.
-	# We use the same formula directly, so no offset needed.
-	_plot_world_offset = Vector2.ZERO
 	if _farm_manager == null:
 		push_warning("[CropVisual] No FarmManager found!")
 		return
-	# Avoid double-connecting
 	if not _farm_manager.crop_planted.is_connected(_on_crop_planted):
 		_farm_manager.crop_planted.connect(_on_crop_planted)
 	if not _farm_manager.crop_growed.is_connected(_on_crop_growed):
 		_farm_manager.crop_growed.connect(_on_crop_growed)
 	if not _farm_manager.crop_harvested.is_connected(_on_crop_harvested):
 		_farm_manager.crop_harvested.connect(_on_crop_harvested)
-	print("[CropVisual] Ready, plot_offset=", _plot_world_offset, " farm_mgr=", _farm_manager != null)
-	# Rebuild on ready so persisted cells show immediately after scene load
+	if _farm_manager.has_signal("cell_removed") and not _farm_manager.cell_removed.is_connected(_on_cell_removed):
+		_farm_manager.cell_removed.connect(_on_cell_removed)
 	_refresh_all_visuals()
 	if not GameState.day_changed.is_connected(_on_day_changed):
 		GameState.day_changed.connect(_on_day_changed)
-
-func _make_white_texture() -> ImageTexture:
-	var img := Image.create(1, 1, false, Image.FORMAT_RGBA8)
-	img.fill(Color.WHITE)
-	return ImageTexture.create_from_image(img)
+	print("[CropVisual] Ready, cells=%d" % _sprites.size())
 
 func _process(delta: float) -> void:
 	_update_timer += delta
 	if _update_timer < 0.5:
 		return
 	_update_timer = 0.0
-
 	var current_day := GameState.current_day
 	if current_day != _last_day:
 		_last_day = current_day
 		_refresh_all_visuals()
-
 	_refresh_visuals_for_visible_cells()
 
-func _refresh_all_visuals() -> void:
-	if _farm_manager == null:
-		return
-	if not _farm_manager.has_method("serialize"):
-		return
-	var data: Dictionary = _farm_manager.serialize()
-	if not data.has("cells"):
-		return
-	for entry: Dictionary in data["cells"]:
-		var cell := Vector2i(int(entry["x"]), int(entry["y"]))
-		var cell_data: Dictionary = entry["data"]
-		_spawn_sprite(cell, cell_data)
+# =============================================================================
+# SPRITE MANAGEMENT
+# =============================================================================
 
-func _refresh_visuals_for_visible_cells() -> void:
-	if _farm_manager == null:
+func _spawn_sprite(cell: Vector2i, data: Dictionary) -> void:
+	var cell_key := _cell_key(cell)
+	var state: CropState = data.get("state", CropState.EMPTY)
+	# PLOWED (đất đào, chưa trồng) → KHÔNG spawn crop sprite. Mặc định
+	# color = green cho crop_type=NONE nên sẽ tạo ra chấm xanh giống hạt
+	# giống trong ô đất trống.
+	if state <= CropState.PLOWED:
+		_remove_sprite(cell)
 		return
-	if not _farm_manager.has_method("serialize"):
+	if _sprites.has(cell_key):
+		_update_sprite_body(cell_key, cell, data)
 		return
-	var data: Dictionary = _farm_manager.serialize()
-	if not data.has("cells"):
+
+	var rect := ColorRect.new()
+	rect.name = "Crop_" + cell_key
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.z_index = 4
+	rect.position = FARM_ZONE.position + Vector2(cell) * CELL_SIZE
+	rect.size = CELL_SIZE
+	rect.color = _get_crop_color_for_data(data)
+	add_child(rect)
+	_sprites[cell_key] = rect
+	_update_sprite_body(cell_key, cell, data)
+
+func _update_sprite(cell: Vector2i, data: Dictionary) -> void:
+	var cell_key := _cell_key(cell)
+	var state: CropState = data.get("state", CropState.EMPTY)
+	# PLOWED/EMPTY → đảm bảo sprite cũ bị ẩn/xóa (không có chấm xanh).
+	if state <= CropState.PLOWED:
+		_remove_sprite(cell)
 		return
-	for entry: Dictionary in data["cells"]:
-		var cell := Vector2i(int(entry["x"]), int(entry["y"]))
-		var cell_data: Dictionary = entry["data"]
-		_update_sprite(cell, cell_data)
+	if not _sprites.has(cell_key):
+		_spawn_sprite(cell, data)
+		return
+	_update_sprite_body(cell_key, cell, data)
+
+func _update_sprite_body(cell_key: String, cell: Vector2i, data: Dictionary) -> void:
+	if not _sprites.has(cell_key):
+		return
+	var rect: ColorRect = _sprites[cell_key]
+	if not is_instance_valid(rect):
+		return
+
+	var state: CropState = data.get("state", CropState.EMPTY)
+
+	# Ẩn sprite cho EMPTY / PLOWED (đất đào chưa trồng → KHÔNG có chấm xanh)
+	if state <= CropState.PLOWED:
+		rect.visible = false
+		return
+
+	# Tính size dựa trên growth_progress
+	var progress: float
+	if state == CropState.WILTED:
+		progress = data.get("wilted_scale", 0.0)
+	else:
+		progress = data.get("growth_progress", 0.0)
+
+	var max_size: float = CELL_SIZE.x
+	var size: float = lerp(SEEDED_MIN_SIZE, max_size, clampf(progress, 0.0, 1.0))
+	if state == CropState.SEEDED:
+		size = SEEDED_MIN_SIZE
+
+	var cell_origin: Vector2 = FARM_ZONE.position + Vector2(cell) * CELL_SIZE
+	rect.size = Vector2(size, size)
+	rect.position = cell_origin + (CELL_SIZE - rect.size) * 0.5
+	rect.color = _get_crop_color_for_data(data)
+	rect.visible = true
+	crop_visual_changed.emit(cell)
+
+func _get_crop_color_for_data(data: Dictionary) -> Color:
+	var state: CropState = data.get("state", CropState.EMPTY)
+	if state == CropState.WILTED or data.get("wilting", false):
+		return WILTED_COLOR
+	var crop_type: CropType = data.get("type", CropType.NONE)
+	return CROP_COLORS.get(crop_type, Color(0.4, 0.7, 0.3))
+
+# =============================================================================
+# SIGNAL HANDLERS
+# =============================================================================
 
 func _on_crop_planted(cell: Vector2i) -> void:
-	print("[CropVisual] crop_planted signal received for cell ", cell)
 	if _farm_manager == null:
-		push_warning("[CropVisual] crop_planted but no _farm_manager!")
 		return
 	var cell_data: Dictionary = _farm_manager.get_cell_data(cell)
-	print("[CropVisual] cell_data: ", cell_data)
 	_spawn_sprite(cell, cell_data)
 
 func _on_crop_growed(_stage: int) -> void:
@@ -105,153 +167,39 @@ func _on_crop_growed(_stage: int) -> void:
 func _on_crop_harvested(cell: Vector2i, _item_id: String) -> void:
 	_remove_sprite(cell)
 
+func _on_cell_removed(cell: Vector2i) -> void:
+	# PLOWED expire / harvest / etc → xóa crop sprite.
+	_remove_sprite(cell)
+
 func on_farm_data_loaded() -> void:
-	# Called by SceneManager after deserialize so cells are visible immediately.
 	_refresh_all_visuals()
 
 func _on_day_changed(_new_day: int) -> void:
-	# After sleep, crop stages & watered flags may have changed in farm_manager
 	_refresh_visuals_for_visible_cells()
 
-func _spawn_sprite(cell: Vector2i, data: Dictionary) -> void:
-	var cell_key := _cell_key(cell)
+# =============================================================================
+# DATA REFRESH
+# =============================================================================
 
-	if _sprites.has(cell_key):
-		_update_sprite_body(cell_key, cell, data)
+func _refresh_all_visuals() -> void:
+	if _farm_manager == null or not _farm_manager.has_method("serialize"):
 		return
-
-	var sprite := Sprite2D.new()
-	sprite.name = "Crop_" + cell_key
-	sprite.texture = _white_tex
-	sprite.modulate = SEED_COLOR
-	sprite.centered = true
-	# Use parent CropVisualManager's z (5). Player has z=10 so player always on top.
-	sprite.z_index = 0
-	sprite.z_as_relative = true
-	# Set a guaranteed-visible initial transform BEFORE adding to tree so
-	# we can be sure the sprite is on screen even if update_body fails.
-	# Size = SEEDED scale (tiny green dot).
-	sprite.position = FARM_ZONE.position + Vector2(8, 8)  # cell (0,0) center
-	sprite.scale = Vector2(4.2, 4.2)
-
-	# Parent the sprite directly under CropVisualManager (root-level Node2D with z=100).
-	add_child(sprite)
-	_sprites[cell_key] = sprite
-	# Update transform AFTER add_child so transform is applied on a node in tree.
-	_update_sprite_body(cell_key, cell, data)
-	var actual: Sprite2D = _sprites[cell_key]
-	print("[CropVisual] Spawned cell=", cell,
-		" state=", data.get("state", 0),
-		" plot_offset=", _plot_world_offset,
-		" center=", actual.position,
-		" scale=", actual.scale,
-		" visible=", actual.visible,
-		" modulate=", actual.modulate,
-		" tex_size=", actual.texture.get_size() if actual.texture else "null",
-		" parent=", actual.get_parent().name,
-		" z_idx=", actual.z_index,
-		" z_rel=", actual.z_as_relative)
-
-func _update_sprite(cell: Vector2i, data: Dictionary) -> void:
-	var cell_key := _cell_key(cell)
-	if not _sprites.has(cell_key):
-		if data.get("state", 0) >= 2:
-			_spawn_sprite(cell, data)
+	var data: Dictionary = _farm_manager.serialize()
+	if not data.has("cells"):
 		return
-	_update_sprite_body(cell_key, cell, data)
+	for entry: Dictionary in data["cells"]:
+		var cell := Vector2i(int(entry["x"]), int(entry["y"]))
+		_spawn_sprite(cell, entry["data"])
 
-func _update_sprite_body(cell_key: String, cell: Vector2i, data: Dictionary) -> void:
-	if not _sprites.has(cell_key):
+func _refresh_visuals_for_visible_cells() -> void:
+	if _farm_manager == null or not _farm_manager.has_method("serialize"):
 		return
-	var sprite: Sprite2D = _sprites[cell_key]
-	var state: int = data.get("state", 0)
-	var crop_type_val: int = data.get("type", 0)
-	var watered: bool = data.get("watered", false)
-
-	var color: Color = _get_state_color(state, crop_type_val, watered)
-	sprite.modulate = color
-
-	var scale_val: float
-	match state:
-		2: scale_val = 0.35  # SEEDED — tiny green dot (just placed seed)
-		3: scale_val = 0.6   # SPROUTED — small sprout
-		4: scale_val = 0.9   # GROWING — bigger plant
-		5: scale_val = 1.3   # MATURE — full plant, fits inside cell
-		6: scale_val = 0.7   # WILTED — droops back
-		_: scale_val = 0.0
-
-	# Square stays inside the 16x16 cell, centered.
-	var display_size: float = 12.0 * scale_val
-	sprite.scale = Vector2(display_size, display_size)
-	var cell_top_left: Vector2 = _plot_world_offset + FARM_ZONE.position + Vector2(cell) * Vector2(16, 16)
-	var cell_center: Vector2 = cell_top_left + Vector2(16, 16) * 0.5
-	sprite.position = cell_center
-	sprite.visible = scale_val > 0.0
-	print("[CropVisual] sprite ", cell_key, " state=", state, " color=", sprite.modulate, " pos=", sprite.position, " scale=", sprite.scale, " visible=", sprite.visible)
-
-func _get_state_color(state: int, crop_type_val: int, watered: bool) -> Color:
-	match crop_type_val:
-		1: return _wheat_color(state, watered)
-		2: return _corn_color(state, watered)
-		3: return _tomato_color(state, watered)
-		4: return _potato_color(state, watered)
-		5: return _turnip_color(state, watered)
-		6: return _mystery_color(state, watered)
-	return SEED_COLOR
-
-func _wheat_color(state: int, _watered: bool) -> Color:
-	match state:
-		2: return Color(0.6, 0.5, 0.2, 1.0)
-		3: return Color(0.5, 0.7, 0.2, 1.0)
-		4: return Color(0.7, 0.8, 0.3, 1.0)
-		5: return Color(1.0, 0.85, 0.3, 1.0)
-		6: return Color(0.5, 0.3, 0.1, 1.0)
-	return Color(0.6, 0.5, 0.2, 1.0)
-
-func _corn_color(state: int, watered: bool) -> Color:
-	match state:
-		2: return Color(0.5, 0.6, 0.2, 1.0)
-		3: return Color(0.4, 0.7, 0.25, 1.0)
-		4: return Color(0.5, 0.8, 0.3, 1.0)
-		5: return Color(0.9, 0.75, 0.2, 1.0)
-		6: return Color(0.5, 0.3, 0.1, 1.0)
-	return Color(0.5, 0.6, 0.2, 1.0)
-
-func _tomato_color(state: int, watered: bool) -> Color:
-	match state:
-		2: return Color(0.4, 0.6, 0.2, 1.0)
-		3: return Color(0.4, 0.7, 0.3, 1.0)
-		4: return Color(0.5, 0.8, 0.35, 1.0)
-		5: return Color(0.85, 0.15, 0.1, 1.0)
-		6: return Color(0.4, 0.2, 0.1, 1.0)
-	return Color(0.4, 0.6, 0.2, 1.0)
-
-func _potato_color(state: int, watered: bool) -> Color:
-	match state:
-		2: return Color(0.5, 0.6, 0.2, 1.0)
-		3: return Color(0.45, 0.65, 0.3, 1.0)
-		4: return Color(0.55, 0.7, 0.35, 1.0)
-		5: return Color(0.75, 0.55, 0.3, 1.0)
-		6: return Color(0.4, 0.25, 0.1, 1.0)
-	return Color(0.5, 0.6, 0.2, 1.0)
-
-func _turnip_color(state: int, watered: bool) -> Color:
-	match state:
-		2: return Color(0.5, 0.7, 0.3, 1.0)
-		3: return Color(0.5, 0.75, 0.35, 1.0)
-		4: return Color(0.55, 0.8, 0.4, 1.0)
-		5: return Color(0.75, 0.9, 0.5, 1.0)
-		6: return Color(0.4, 0.3, 0.2, 1.0)
-	return Color(0.5, 0.7, 0.3, 1.0)
-
-func _mystery_color(state: int, watered: bool) -> Color:
-	match state:
-		2: return Color(0.5, 0.3, 0.7, 1.0)
-		3: return Color(0.6, 0.4, 0.8, 1.0)
-		4: return Color(0.7, 0.5, 0.9, 1.0)
-		5: return Color(0.9, 0.3, 0.8, 1.0)
-		6: return Color(0.3, 0.2, 0.4, 1.0)
-	return Color(0.5, 0.3, 0.7, 1.0)
+	var data: Dictionary = _farm_manager.serialize()
+	if not data.has("cells"):
+		return
+	for entry: Dictionary in data["cells"]:
+		var cell := Vector2i(int(entry["x"]), int(entry["y"]))
+		_update_sprite(cell, entry["data"])
 
 func _remove_sprite(cell: Vector2i) -> void:
 	var cell_key := _cell_key(cell)
@@ -259,12 +207,12 @@ func _remove_sprite(cell: Vector2i) -> void:
 		_sprites[cell_key].queue_free()
 		_sprites.erase(cell_key)
 
-func _cell_key(cell: Vector2i) -> String:
-	return "%d,%d" % [cell.x, cell.y]
-
 func rebuild_all() -> void:
 	for s in _sprites.values():
 		if is_instance_valid(s):
 			s.queue_free()
 	_sprites.clear()
 	_refresh_all_visuals()
+
+func _cell_key(cell: Vector2i) -> String:
+	return "%d,%d" % [cell.x, cell.y]

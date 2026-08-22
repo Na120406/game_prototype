@@ -7,8 +7,7 @@ func _ready() -> void:
 	_sleep_prompt = $SleepPrompt
 	if _sleep_prompt != null:
 		_sleep_prompt.sleep_chosen.connect(_on_sleep_chosen)
-	_setup_bed()
-
+	call_deferred("_setup_bed")
 func _setup_bed() -> void:
 	var world: Node = get_parent()
 	if world == null:
@@ -49,5 +48,8 @@ func _on_sleep_chosen() -> void:
 	GameState.advance_day()
 	TimeManager.set_time(6.0)
 	TimeManager.resume()
+	# Ngủ đúng giờ → reset speed penalty. Ngủ muộn/kiệt sức đã bị phạt ở
+	# call-site tương ứng (EnergyManager._finish_knock_out) — speed mult vẫn giữ.
+	GameState.move_speed_mult = 1.0
 	if player != null and player.has_method("set_sleeping"):
 		player.set_sleeping(false)

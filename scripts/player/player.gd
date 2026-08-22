@@ -30,6 +30,15 @@ var _current_anim: String = ""
 @onready var interaction_ray: RayCast2D = $InteractionRay
 @onready var footstep_timer: Timer = $FootstepTimer
 
+# Phạt khi quá giờ đi ngủ (24:00) mà vẫn chưa ngủ — không phụ thuộc vào việc
+# player có đang di chuyển hay không. Áp dụng như nhau cho mọi trạng thái.
+const SLEEP_DEADLINE_HOUR: float = 24.0   # quá nửa đêm là quá giờ
+const WARNING_HOUR: float = 24.0          # hiện cảnh báo "Đã muộn rồi!" khi tới mốc này
+var _sleep_warning_shown_today: bool = false
+var _last_day_warning_state: int = -1
+var _sleep_deadline_triggered: bool = false
+var _floating_warning: Node = null
+
 func _ready() -> void:
 	add_to_group("player")
 	GameState.set_flag("player_spawned")
@@ -42,7 +51,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 
-	if DialogueManager.is_active:
+	if DialogueManager.is_active or GameState.game_interacting:
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
 		move_and_slide()
 		return
@@ -55,11 +64,11 @@ func _physics_process(delta: float) -> void:
 	if _is_moving:
 		_update_direction(input_dir)
 
-		var target_speed: float = move_speed
+		var target_speed: float = move_speed * GameState.move_speed_mult
 		if _is_sprinting:
-			target_speed = sprint_speed
+			target_speed = sprint_speed * GameState.move_speed_mult
 		elif _is_running:
-			target_speed = run_speed
+			target_speed = run_speed * GameState.move_speed_mult
 
 		var target_velocity := input_dir * target_speed
 		velocity = velocity.move_toward(target_velocity, acceleration * delta)
@@ -78,10 +87,15 @@ func _physics_process(delta: float) -> void:
 			_set_state(State.IDLE)
 			_update_animation(Vector2.ZERO)
 
-	if _is_moving and (_is_running or _is_sprinting):
-		GameState.modify_energy(-delta * GameState.stamina_drain_rate * 0.3)
+	# Năng lượng KHÔNG tiêu hao khi chạy/sprint — chỉ tiêu hao khi dùng
+	# hoe/water can tương tác với đất (xem farm_plot.gd _try_farm_action).
+	# if _is_moving and (_is_running or _is_sprinting):
+	# 	GameState.modify_energy(-delta * GameState.stamina_drain_rate * 0.3)
 
 	move_and_slide()
+
+	# Phạt khi quá giờ đi ngủ — áp dụng cho mọi trạng thái (đứng yên, đi, chạy…)
+	_check_sleep_deadline()
 
 func _update_direction(dir: Vector2) -> void:
 	var new_dir: Direction = current_direction
@@ -119,12 +133,34 @@ func _update_animation(dir: Vector2) -> void:
 			animation_player.play("idle")
 
 func _update_sprite_flip() -> void:
-	if sprite != null:
-		match current_direction:
-			Direction.LEFT:
-				sprite.flip_h = true
-			Direction.RIGHT:
-				sprite.flip_h = false
+	if sprite == null or not is_instance_valid(sprite):
+		return
+	match current_direction:
+		Direction.LEFT:
+			sprite.flip_h = true
+		Direction.RIGHT:
+			sprite.flip_h = false
+
+func _check_sleep_deadline() -> void:
+	# Reset trạng thái cảnh báo khi sang ngày mới.
+	if _last_day_warning_state != GameState.current_day:
+		_last_day_warning_state = GameState.current_day
+		_sleep_warning_shown_today = false
+		_sleep_deadline_triggered = false
+
+	# Khi đạt 24:00 và chưa ngủ → hiện cảnh báo (1 lần/ngày).
+	if not _sleep_warning_shown_today and GameState.current_time >= WARNING_HOUR:
+		_sleep_warning_shown_today = true
+		var fw := _get_floating_warning()
+		if fw != null:
+			fw.call("show_text", "Đã muộn rồi! Cần đi ngủ, nếu không sắp bị phạt.")
+		print("[Player] Sleep deadline warning at hour %.1f" % GameState.current_time)
+
+	# Sau khi TimeManager gọi advance_day(), current_time được reset về 6.0
+	# và current_day tăng lên → trigger knock-out bằng energy manager hoặc
+	# penalty riêng. Ở đây ta chỉ chịu trách nhiệm CẢNH BÁO; phạt (giảm tốc độ
+	# + qua ngày) đã được xử lý ở TimeManager._process thông qua
+	# EnergyManager.trigger_knock_out() nếu player chưa về giường.
 
 func _get_animation_name(dir: Vector2) -> String:
 	var base: String = "idle"
@@ -300,3 +336,16 @@ func set_sleeping(sleeping: bool) -> void:
 		velocity = Vector2.ZERO
 	else:
 		_set_state(State.IDLE)
+
+# Lazy-resolve FloatingWarning autoload. Tránh identifier chưa được parser
+# nhận khi editor chưa reload project sau khi thêm autoload mới.
+func _get_floating_warning() -> Node:
+	if _floating_warning != null and is_instance_valid(_floating_warning):
+		return _floating_warning
+	var tree := get_tree()
+	if tree == null:
+		return null
+	var node := tree.root.get_node_or_null("FloatingWarning")
+	if node != null:
+		_floating_warning = node
+	return _floating_warning

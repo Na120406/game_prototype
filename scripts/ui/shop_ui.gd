@@ -1,4 +1,4 @@
-extends Control
+extends CanvasLayer
 # =============================================================================
 # SHOP UI (Giao diện Cửa hàng)
 # =============================================================================
@@ -55,7 +55,9 @@ func _ready() -> void:
 	add_to_group("shop_ui")
 	visible = false
 	_shop_is_visible = false
-	
+
+	_hotbar = get_tree().get_first_node_in_group("hotbar")
+
 	buy_tab.pressed.connect(_on_tab_buy)
 	sell_tab.pressed.connect(_on_tab_sell)
 	shop_closed.connect(_on_shop_closed)
@@ -208,7 +210,7 @@ func _show_tooltip(item_data: ItemData) -> void:
 	_tooltip_panel.custom_minimum_size = Vector2(140, total_h)
 	_tooltip_panel.size = Vector2(140, total_h)
 
-	var mouse_pos := get_global_mouse_position()
+	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	var tooltip_w: float = 140.0
 	var tooltip_h: float = total_h
 
@@ -267,7 +269,7 @@ func _process(_delta: float) -> void:
 	if _tooltip_layer == null or _tooltip_panel == null:
 		return
 
-	var mouse_pos := get_global_mouse_position()
+	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 	var item_data := _get_item_data_at_mouse(mouse_pos)
 
 	# =================================================================
@@ -304,7 +306,7 @@ func _process(_delta: float) -> void:
 	elif not visible and _hotbar_pending_id != "":
 		_hotbar_hover_timer += _delta
 		if _hotbar_hover_timer >= HOTBAR_HOVER_DELAY:
-			var db = get_node("/root/ItemDB")
+			var db = get_node_or_null("/root/ItemDB")
 			if db != null:
 				var data: ItemData = db.get_item(_hotbar_pending_id)
 				if data != null:
@@ -419,19 +421,26 @@ func _try_show_hotbar() -> void:
 # HÀM MỞ SHOP (open)
 # =============================================================================
 
-func open(gold: int = 100) -> void:
+func open(gold: int = 200) -> void:
 	_player_gold = gold
 	_current_tab = 0
 	_refresh_tabs()
 	_refresh_shop()
 	_try_hide_hotbar()
-	
+
 	# Reset state khi mở shop
 	_reset_all_state()
-	
+
 	_shop_is_visible = true
 	visible = true
 	GameState.game_interacting = true
+	var uif: Node = get_node_or_null("/root/UIFocusManager")
+	if uif != null:
+		uif.call("dim_background", true)
+
+	var backdrop: Panel = find_child("Backdrop", false, false)
+	if backdrop != null:
+		backdrop.visible = true
 
 
 # =============================================================================
@@ -514,7 +523,7 @@ func _refresh_shop() -> void:
 # =============================================================================
 
 func _refresh_buy_list() -> void:
-	var db = get_node("/root/ItemDB")
+	var db = get_node_or_null("/root/ItemDB")
 	if db == null:
 		return
 	var buyable_items: Array = db.get_buyable_items()
@@ -612,7 +621,7 @@ func _make_sell_row(item_id: String, amount: int) -> Array:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 26)
 
-	var db = get_node("/root/ItemDB")
+	var db = get_node_or_null("/root/ItemDB")
 	var item_data: ItemData = null
 	if db != null:
 		item_data = db.get_item(item_id)
@@ -686,7 +695,7 @@ func _make_sell_row(item_id: String, amount: int) -> Array:
 # =============================================================================
 
 func _get_sell_price(item_id: String) -> int:
-	var db = get_node("/root/ItemDB")
+	var db = get_node_or_null("/root/ItemDB")
 	if db != null:
 		var item_data: ItemData = db.get_item(item_id)
 		if item_data != null:
@@ -730,18 +739,26 @@ func _try_sell(item_id: String) -> void:
 func close() -> void:
 	# Đánh dấu shop không còn mở
 	_shop_is_visible = false
-	
+
 	# Reset tất cả state liên quan đến shop
 	_last_hover_item_id = ""
 	_pending_item_data = null
 	_hover_timer = 0.0
 	_row_item_cache.clear()
-	
+
 	# Ẩn tooltip
 	_hide_tooltip()
-	
+
+	# Ẩn backdrop
+	var backdrop: Panel = find_child("Backdrop", false, false)
+	if backdrop != null:
+		backdrop.visible = false
+
 	# Đóng shop UI
 	visible = false
 	GameState.game_interacting = false
+	var uif: Node = get_node_or_null("/root/UIFocusManager")
+	if uif != null:
+		uif.call("dim_background", false)
 	_try_show_hotbar()
 	shop_closed.emit()

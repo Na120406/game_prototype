@@ -11,12 +11,13 @@ config_version=5
 [application]
 
 config/name="GameDemo"
-run/main_scene="uid://dgy10g2koldw6"
+run/main_scene="res://scenes/maps/inside_house_map.tscn"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://scenes/icon.svg"
 
 [autoload]
 
+FarmEnums="*res://scripts/autoload/farm_enums.gd"
 GameState="*res://scripts/autoload/game_state.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
 CameraManager="*res://scripts/autoload/camera_manager.gd"
@@ -35,8 +36,14 @@ CatchUpSystem="*res://scripts/autoload/catch_up_system.gd"
 QuestSystem="*res://scripts/autoload/quest_system.gd"
 ItemManager="*res://scripts/autoload/item_manager.gd"
 ItemDB="*res://resources/items/item_database.gd"
+InteractionPromptManager="*res://scripts/autoload/interaction_prompt_manager.gd"
 ItemHandler="*res://scripts/autoload/item_handler.gd"
 ToolHandler="*res://scripts/autoload/tool_handler.gd"
+EnergyManager="*res://scripts/autoload/energy_manager.gd"
+EnergyBar="*res://scripts/ui/energy_bar.gd"
+UIFocusManager="*res://scripts/autoload/ui_focus_manager.gd"
+FarmTickManager="*res://scripts/autoload/farm_tick_manager.gd"
+FloatingWarning="*res://scripts/autoload/floating_warning.gd"
 
 [display]
 
@@ -76,7 +83,7 @@ interact={
 }
 sprint={
 "deadzone": 0.2,
-"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":4194325,"key_label":0,"unicode":0,"location":0,"echo":false,"script":null)
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":88,"key_label":0,"unicode":120,"location":0,"echo":false,"script":null)
 ]
 }
 toggle_inventory={

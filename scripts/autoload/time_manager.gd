@@ -78,18 +78,19 @@ func _process(delta: float) -> void:
 	# =================================================================
 	# XỬ LÝ CHUYỂN NGÀY MỚI
 	# =================================================================
-	# Nếu thời gian >= 24:00 (nửa đêm)
-	if GameState.current_time >= 24.0:
-		# Reset về 0:00
-		GameState.current_time = 0.0
-		# Tăng ngày
-		GameState.current_day += 1
-		# Khôi phục năng lượng đầy (mỗi ngày mới)
-		GameState.energy = GameState.max_energy
-		# Đặt ban ngày
-		GameState.is_day = true
-		# Phát tín hiệu ngày mới
-		day_changed.emit(GameState.current_day)
+	# Nếu thời gian >= 24:00 (nửa đêm) VÀ player không đang ngủ →
+	# phạt kiểu kiệt sức (không teleport, giảm tốc độ -25%, qua ngày).
+	# Nếu player đã lên giường (TimeManager bị pause bởi sleep prompt),
+	# không trigger ở đây — InsideHouseHUD đã gọi advance_day() thủ công.
+	if GameState.current_time >= 24.0 and not TimeManager.paused:
+		# Phạt "quá giờ chưa ngủ": bất tỉnh tại chỗ + speed penalty.
+		var em := get_tree().root.get_node_or_null("EnergyManager")
+		if em != null and em.has_method("trigger_afk_knock_out"):
+			print("[TimeManager] Hour %.1f — player missed bedtime, triggering AFK penalty." % GameState.current_time)
+			em.call("trigger_afk_knock_out")
+			return
+		# Fallback: nếu không có EnergyManager thì chỉ gọi advance_day()
+		GameState.advance_day()
 
 	# =================================================================
 	# KIỂM TRA TRÔI QUA 1 GIỜ

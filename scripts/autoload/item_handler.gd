@@ -1,4 +1,7 @@
 extends Node
+# =============================================================================
+# ITEM HANDLER - Xử lý việc sử dụng items
+# =============================================================================
 
 signal item_used(item_id: String, item_data: ItemData)
 signal item_equipped(item_id: String)
@@ -6,11 +9,12 @@ signal item_consumed(item_id: String)
 signal item_planted(item_id: String, crop_id: String)
 
 func _ready() -> void:
-	item_planted.connect(_on_item_planted)
+	if not item_planted.is_connected(_on_item_planted):
+		item_planted.connect(_on_item_planted)
 
 func use_item(item_id: String, from_inventory: bool = true) -> bool:
+	var db = get_node_or_null("/root/ItemDB")
 	var item_data: ItemData = null
-	var db = get_node("/root/ItemDB")
 	if db != null:
 		item_data = db.get_item(item_id)
 	if item_data == null:
@@ -53,7 +57,11 @@ func _apply_consumable(data: ItemData) -> void:
 			print("[ItemHandler] No effect for consumable: %s" % data.item_id)
 
 func _apply_tool(data: ItemData) -> void:
-	get_node("/root/ToolHandler").equip(data.item_id)
+	var tool_handler = get_node_or_null("/root/ToolHandler")
+	if tool_handler != null:
+		tool_handler.equip(data.item_id)
+	else:
+		push_error("[ItemHandler] ToolHandler not found!")
 
 func _plant_seed(data: ItemData) -> void:
 	if data.harvest_item_id != "":
@@ -64,8 +72,8 @@ func _plant_seed(data: ItemData) -> void:
 		print("[ItemHandler] Seed planted: %s" % data.item_id)
 
 func get_use_message(item_id: String) -> String:
+	var db = get_node_or_null("/root/ItemDB")
 	var data: ItemData = null
-	var db = get_node("/root/ItemDB")
 	if db != null:
 		data = db.get_item(item_id)
 	if data == null:
@@ -104,9 +112,13 @@ func _on_item_planted(seed_id: String, harvest_id: String) -> void:
 	elif player.has_method("get_facing_cell"):
 		cell = player.get_facing_cell()
 	else:
-		cell = player.get_facing_cell()
+		push_error("[ItemHandler] Cannot determine facing cell!")
+		return
 
-	if farm.plant_from_seed(cell, seed_id):
-		print("[ItemHandler] Seed %s planted at cell %s" % [seed_id, str(cell)])
+	if farm.has_method("plant_from_seed"):
+		if farm.plant_from_seed(cell, seed_id):
+			print("[ItemHandler] Seed %s planted at cell %s" % [seed_id, str(cell)])
+		else:
+			print("[ItemHandler] Failed to plant seed %s at cell %s" % [seed_id, str(cell)])
 	else:
-		print("[ItemHandler] Failed to plant seed %s at cell %s" % [seed_id, str(cell)])
+		push_error("[ItemHandler] farm_manager missing plant_from_seed method!")

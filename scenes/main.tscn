@@ -1,19 +1,19 @@
-[gd_scene load_steps=9 format=3 uid="uid://1naqxwme16ri"]
+[gd_scene load_steps=12 format=3 uid="uid://1naqxwme16ri"]
 
 [ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_ground"]
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="3_trans"]
 [ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="4_uimgr"]
-[ext_resource type="Script" uid="uid://46lmulhha6py" path="res://scripts/ui/dialogue_ui.gd" id="5_dui"]
+[ext_resource type="PackedScene" path="res://scenes/ui/inventory_ui.tscn" id="5_tbgi4"]
 
-[sub_resource type="TileSetAtlasSource" id="TSA_farm"]
+[sub_resource type="TileSetAtlasSource" id="TSA_town"]
 texture = ExtResource("1_ground")
 0:0/0 = 0
 1:0/0 = 0
 2:0/0 = 0
 
-[sub_resource type="TileSet" id="TS_farm"]
-sources/0 = SubResource("TSA_farm")
+[sub_resource type="TileSet" id="TS_town"]
+sources/0 = SubResource("TSA_town")
 
 [sub_resource type="RectangleShape2D" id="RS_wall_h"]
 size = Vector2(480, 4)
@@ -21,149 +21,107 @@ size = Vector2(480, 4)
 [sub_resource type="RectangleShape2D" id="RS_wall_v"]
 size = Vector2(4, 270)
 
+[sub_resource type="RectangleShape2D" id="RS_door"]
+size = Vector2(30, 25)
+
 [sub_resource type="RectangleShape2D" id="RS_trans"]
 size = Vector2(20, 40)
 
-[node name="main" type="Node2D"]
-script = ExtResource("4_uimgr")
+[node name="TownMap" type="Node2D"]
 
-[node name="World" type="Node2D" parent="."]
+[node name="Ground" type="TileMapLayer" parent="."]
+tile_set = SubResource("TS_town")
 
-[node name="Ground" type="TileMapLayer" parent="World"]
-tile_set = SubResource("TS_farm")
+[node name="Walls" type="Node2D" parent="."]
 
-[node name="Walls" type="Node2D" parent="World"]
-
-[node name="WallTop" type="StaticBody2D" parent="World/Walls"]
+[node name="WallTop" type="StaticBody2D" parent="Walls"]
 position = Vector2(240, 2)
-[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Walls/WallTop"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallTop"]
 shape = SubResource("RS_wall_h")
 
-[node name="WallBottom" type="StaticBody2D" parent="World/Walls"]
+[node name="WallBottom" type="StaticBody2D" parent="Walls"]
 position = Vector2(240, 268)
-[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Walls/WallBottom"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallBottom"]
 shape = SubResource("RS_wall_h")
 
-[node name="WallLeft" type="StaticBody2D" parent="World/Walls"]
+[node name="WallLeft" type="StaticBody2D" parent="Walls"]
 position = Vector2(2, 135)
-[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Walls/WallLeft"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallLeft"]
 shape = SubResource("RS_wall_v")
 
-[node name="WallRight" type="StaticBody2D" parent="World/Walls"]
+[node name="WallRight" type="StaticBody2D" parent="Walls"]
 position = Vector2(478, 135)
-[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Walls/WallRight"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallRight"]
 shape = SubResource("RS_wall_v")
 
-[node name="House" type="ColorRect" parent="World"]
+[node name="Road" type="ColorRect" parent="."]
 z_index = 1
-offset_left = 40.0
-offset_top = 50.0
-offset_right = 200.0
-offset_bottom = 200.0
-color = Color(0.55, 0.35, 0.2, 1)
+offset_top = 122.0
+offset_right = 480.0
+offset_bottom = 148.0
+color = Color(0.55, 0.5, 0.4, 1)
 
-[node name="HouseRoof" type="ColorRect" parent="World/House"]
+[node name="ShopBuilding" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 20.0
+offset_top = 30.0
+offset_right = 180.0
+offset_bottom = 180.0
+color = Color(0.4, 0.3, 0.2, 1)
+
+[node name="ShopRoof" type="ColorRect" parent="ShopBuilding"]
 layout_mode = 0
 offset_left = -10.0
 offset_top = -15.0
 offset_right = 170.0
 offset_bottom = -2.0
-color = Color(0.4, 0.25, 0.15, 1)
+color = Color(0.3, 0.2, 0.1, 1)
 
-[node name="Door" type="Area2D" parent="World/House"]
-position = Vector2(110, 170)
+[node name="ShopSign" type="ColorRect" parent="ShopBuilding"]
+z_index = 2
+layout_mode = 0
+offset_left = 45.0
+offset_top = -22.0
+offset_right = 125.0
+offset_bottom = -5.0
+color = Color(0.7, 0.6, 0.4, 1)
+
+[node name="ShopDoor" type="Area2D" parent="."]
+position = Vector2(95, 105)
 script = ExtResource("3_trans")
-portal_id = "portal_house"
-target_scene = "res://scenes/maps/inside_house_map.tscn"
+portal_id = "portal_shop"
+target_scene = "res://scenes/maps/inside_shop_map.tscn"
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="World/House/Door"]
-shape = SubResource("RS_trans")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ShopDoor"]
+shape = SubResource("RS_door")
 
-[node name="Prompt" type="Label" parent="World/House/Door"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
+[node name="DoorSprite" type="Sprite2D" parent="ShopDoor"]
+modulate = Color(0.3, 0.18, 0.06, 1)
+scale = Vector2(30, 25)
+
+[node name="Prompt" type="Label" parent="ShopDoor"]
+anchors_preset = -1
 offset_left = -10.0
-offset_top = 4.0
+offset_top = -10.0
 offset_right = 10.0
-offset_bottom = 12.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+offset_bottom = -2.0
 theme_override_font_sizes/font_size = 6
-text = "E"
+text = "[E]"
 horizontal_alignment = 1
 
-[node name="FarmField" type="ColorRect" parent="World"]
-z_index = 1
-offset_left = 250.0
-offset_top = 200.0
-offset_right = 400.0
-offset_bottom = 250.0
-color = Color(0.5, 0.35, 0.2, 1)
-
-[node name="CropRow1" type="ColorRect" parent="World/FarmField"]
-z_index = 1
-layout_mode = 0
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 60.0
-offset_bottom = 20.0
-color = Color(0.3, 0.6, 0.3, 1)
-
-[node name="CropRow2" type="ColorRect" parent="World/FarmField"]
-z_index = 1
-layout_mode = 0
-offset_left = 70.0
-offset_top = 10.0
-offset_right = 120.0
-offset_bottom = 20.0
-color = Color(0.3, 0.6, 0.3, 1)
-
-[node name="CropRow3" type="ColorRect" parent="World/FarmField"]
-z_index = 1
-layout_mode = 0
-offset_left = 10.0
-offset_top = 30.0
-offset_right = 60.0
-offset_bottom = 40.0
-color = Color(0.3, 0.6, 0.3, 1)
-
-[node name="Fence" type="ColorRect" parent="World"]
-z_index = 1
-offset_left = 20.0
-offset_top = 180.0
-offset_right = 470.0
-offset_bottom = 184.0
-color = Color(0.5, 0.35, 0.15, 1)
-
-[node name="Well" type="ColorRect" parent="World"]
+[node name="Well" type="ColorRect" parent="."]
 z_index = 1
 offset_left = 380.0
-offset_top = 80.0
+offset_top = 60.0
 offset_right = 420.0
-offset_bottom = 130.0
+offset_bottom = 100.0
 color = Color(0.5, 0.5, 0.55, 1)
 
-[node name="WellTop" type="ColorRect" parent="World/Well"]
-z_index = 1
-layout_mode = 0
-offset_left = -8.0
-offset_top = -8.0
-offset_right = 48.0
-color = Color(0.4, 0.3, 0.2, 1)
-
-[node name="Tree1" type="ColorRect" parent="World"]
-z_index = 1
-offset_left = 300.0
-offset_top = 40.0
-offset_right = 340.0
-offset_bottom = 80.0
-color = Color(0.3, 0.5, 0.2, 1)
-
-[node name="Tree2" type="ColorRect" parent="World"]
+[node name="Tree1" type="ColorRect" parent="."]
 z_index = 1
 offset_left = 20.0
 offset_top = 20.0
@@ -171,30 +129,39 @@ offset_right = 50.0
 offset_bottom = 50.0
 color = Color(0.3, 0.5, 0.2, 1)
 
-[node name="ToShop" type="Area2D" parent="World"]
-position = Vector2(95, 105)
-script = ExtResource("3_trans")
-portal_id = "portal_inside_shop"
-target_scene = "res://scenes/maps/inside_shop_map.tscn"
+[node name="Tree2" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 300.0
+offset_top = 40.0
+offset_right = 340.0
+offset_bottom = 80.0
+color = Color(0.3, 0.5, 0.2, 1)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="World/ToShop"]
+[node name="Tree3" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 420.0
+offset_top = 200.0
+offset_right = 460.0
+offset_bottom = 240.0
+color = Color(0.3, 0.5, 0.2, 1)
+
+[node name="FromFarm" type="Area2D" parent="."]
+position = Vector2(20, 135)
+script = ExtResource("3_trans")
+portal_id = "portal_town"
+target_scene = "res://scenes/maps/farm_map.tscn"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="FromFarm"]
 shape = SubResource("RS_trans")
 
-[node name="Prompt" type="Label" parent="World/ToShop"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
+[node name="Prompt" type="Label" parent="FromFarm"]
+anchors_preset = -1
 offset_left = -10.0
-offset_top = 4.0
+offset_top = -10.0
 offset_right = 10.0
-offset_bottom = 12.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+offset_bottom = -2.0
 theme_override_font_sizes/font_size = 6
-text = "E"
+text = "[E]"
 horizontal_alignment = 1
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
@@ -206,74 +173,8 @@ limit_left = 0
 limit_top = 0
 limit_right = 480
 limit_bottom = 270
-position_smoothing_enabled = false
 
 [node name="UI" type="CanvasLayer" parent="."]
 script = ExtResource("4_uimgr")
 
-[node name="DialogueUI" type="Control" parent="UI"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("5_dui")
-
-[node name="ClickCatcher" type="Control" parent="UI/DialogueUI"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="Panel" type="PanelContainer" parent="UI/DialogueUI"]
-layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = -70.0
-grow_horizontal = 2
-grow_vertical = 0
-
-[node name="BG" type="ColorRect" parent="UI/DialogueUI/Panel"]
-layout_mode = 2
-color = Color(0.08, 0.05, 0.1, 0.95)
-
-[node name="Border" type="ColorRect" parent="UI/DialogueUI/Panel"]
-layout_mode = 2
-color = Color(0.5, 0.4, 0.3, 1)
-
-[node name="VBox" type="VBoxContainer" parent="UI/DialogueUI/Panel"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="Header" type="HBoxContainer" parent="UI/DialogueUI/Panel/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="Name" type="Label" parent="UI/DialogueUI/Panel/VBox/Header"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
-theme_override_font_sizes/font_size = 9
-text = "Speaker"
-
-[node name="Spacer" type="Control" parent="UI/DialogueUI/Panel/VBox/Header"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Text" type="RichTextLabel" parent="UI/DialogueUI/Panel/VBox"]
-custom_minimum_size = Vector2(0, 36)
-layout_mode = 2
-size_flags_vertical = 3
-theme_override_colors/default_color = Color(0.95, 0.92, 0.85, 1)
-theme_override_font_sizes/normal_font_size = 9
-scroll_active = false
-autowrap_mode = 2
-
-[node name="Choices" type="VBoxContainer" parent="UI/DialogueUI/Panel/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 3
+[node name="InventoryUI" parent="UI" instance=ExtResource("5_tbgi4")]

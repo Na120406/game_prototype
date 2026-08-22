@@ -19,6 +19,7 @@ extends Node
 # Khi inventory thay đổi, gửi thông báo để UI cập nhật
 signal inventory_changed
 signal day_changed(new_day: int)
+signal energy_changed(new_value: float)
 
 # =============================================================================
 # CÁC BIẾN NGƯỜI CHƠI (PLAYER VARIABLES)
@@ -35,14 +36,19 @@ var current_day: int = 1
 var current_time: float = 6.0
 
 # Năng lượng hiện tại - dùng để làm các hoạt động (farming, walking...)
-# Khi = 0, người chơi buộc phải ngủ
-var energy: float = 100.0
+# Thanh gồm 20 ô, mỗi hành động (đào đất, tưới nước...) tiêu hao 1 ô.
+# Khi = 0, người chơi buộc phải ngủ.
+var energy: float = 20.0
 
-# Năng lượng tối đa - giới hạn trên của energy
-var max_energy: float = 100.0
+# Năng lượng tối đa - giới hạn trên của energy (20 ô)
+var max_energy: float = 20.0
 
 # Tốc độ tiêu hao năng lượng mỗi giây khi làm việc
 var stamina_drain_rate: float = 5.0
+
+# Tốc độ di chuyển hiện tại (mặc định 1.0 = 100%). Bị giảm 25% mỗi lần
+# knock-out, reset về 1.0 sau khi ngủ qua ngày.
+var move_speed_mult: float = 1.0
 
 # Máu (health) - khi = 0, người chơi chết hoặc bất tỉnh
 var health: float = 100.0
@@ -77,7 +83,7 @@ var inventory: Array[Dictionary] = []
 var equipped_tool: String = "none"
 
 # Số vàng hiện có - dùng để mua bán vật phẩm
-var gold: int = 100
+var gold: int = 200
 
 # =============================================================================
 # HỆ THỐNG THẾ GIỚI (WORLD SYSTEM)
@@ -133,7 +139,11 @@ func advance_day() -> void:
 	current_time = 6.0        # Reset về 6:00 sáng
 	energy = max_energy        # Khôi phục năng lượng đầy
 	is_day = true              # Đặt ban ngày
+	# move_speed_mult KHÔNG reset ở đây — penalty chỉ được reset khi người chơi
+	# NGỦ ĐÚNG GIỜ (qua đêm tại giường). Nếu qua ngày do kiệt sức hoặc bị
+	# phạt vì không ngủ → speed penalty giữ nguyên.
 	day_changed.emit(current_day)
+	energy_changed.emit(energy)  # Bắn signal để UI cập nhật thanh năng lượng ngay
 	print("[GameState] Day %d begins." % current_day)
 
 
@@ -174,11 +184,13 @@ func advance_time(hours: float) -> void:
 
 func modify_energy(amount: float) -> void:
 	# Clampf đảm bảo giá trị nằm trong khoảng [0, max_energy]
+	var prev: float = energy
 	energy = clampf(energy + amount, 0.0, max_energy)
-	
+	energy_changed.emit(energy)
+
 	# Cảnh báo khi năng lượng hết
-	if energy <= 0.0:
-		print("[GameState] Energy depleted! Forcing sleep...")
+	if energy <= 0.0 and prev > 0.0:
+		print("[GameState] Energy depleted! Knock-out imminent.")
 
 
 # =============================================================================
@@ -381,6 +393,139 @@ func reset() -> void:
 	lore_fragments_found = 0
 	weather_type = "clear"
 	is_day = true
-	gold = 100
+	gold = 200
+	move_speed_mult = 1.0
 	
 	print("[GameState] Game state reset.")
+
+
+# =============================================================================
+# INVENTORY HELPER FUNCTIONS (Type-Safe Utilities)
+# =============================================================================
+
+## Lấy tất cả item ID trong inventory
+func get_all_item_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for item: Dictionary in inventory:
+		ids.append(item.get("id", ""))
+	return ids
+
+## Tìm index của item trong inventory, -1 nếu không tìm thấy
+func find_item_index(item_id: String) -> int:
+	for i: int in range(inventory.size()):
+		if inventory[i].get("id", "") == item_id:
+			return i
+	return -1
+
+## Kiểm tra item có tồn tại trong inventory không
+func item_exists(item_id: String) -> bool:
+	return find_item_index(item_id) >= 0
+
+## Lấy thông tin item đầy đủ từ inventory (id + amount)
+func get_inventory_item(item_id: String) -> Dictionary:
+	var idx: int = find_item_index(item_id)
+	if idx >= 0:
+		return inventory[idx].duplicate()
+	return {}
+
+## Thêm item với validation (chỉ thêm nếu hợp lệ)
+func add_item_safe(item_id: String, amount: int = 1) -> bool:
+	if item_id == "" or amount <= 0:
+		push_warning("[GameState] Invalid add_item parameters: %s, %d" % [item_id, amount])
+		return false
+	return add_item(item_id, amount)
+
+## Xóa item với validation
+func remove_item_safe(item_id: String, amount: int = 1) -> bool:
+	if item_id == "" or amount <= 0:
+		push_warning("[GameState] Invalid remove_item parameters: %s, %d" % [item_id, amount])
+		return false
+	if not has_item(item_id, amount):
+		push_warning("[GameState] Cannot remove %d x %s - not enough in inventory" % [amount, item_id])
+		return false
+	return remove_item(item_id, amount)
+
+## Đếm tổng số loại item trong inventory
+func get_unique_item_count() -> int:
+	return inventory.size()
+
+## Đếm tổng số item trong inventory (tất cả các loại)
+func get_total_item_count() -> int:
+	var total: int = 0
+	for item: Dictionary in inventory:
+		total += item.get("amount", 0)
+	return total
+
+## Lấy tất cả items có số lượng >= min_amount
+func get_items_with_min_amount(min_amount: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for item: Dictionary in inventory:
+		if item.get("amount", 0) >= min_amount:
+			result.append(item.duplicate())
+	return result
+
+## Xóa tất cả items của một loại (xóa hết số lượng)
+func clear_item(item_id: String) -> bool:
+	var idx: int = find_item_index(item_id)
+	if idx >= 0:
+		inventory.remove_at(idx)
+		inventory_changed.emit()
+		return true
+	return false
+
+## Xóa toàn bộ inventory
+func clear_inventory() -> void:
+	inventory.clear()
+	inventory_changed.emit()
+
+## Kiểm tra inventory có trống không
+func is_inventory_empty() -> bool:
+	return inventory.is_empty()
+
+## Kiểm tra inventory có đầy không (giới hạn slot)
+func is_inventory_full(max_slots: int = 20) -> bool:
+	return inventory.size() >= max_slots
+
+## Thêm item vào slot trống đầu tiên (cho stackable items)
+func add_item_to_empty_slot(item_id: String, amount: int = 1) -> bool:
+	# Thử stack với item cùng loại trước
+	if has_item(item_id):
+		return add_item(item_id, amount)
+	# Thử thêm vào slot mới nếu còn chỗ
+	if not is_inventory_full():
+		return add_item(item_id, amount)
+	push_warning("[GameState] Inventory full! Cannot add %s" % item_id)
+	return false
+
+## Lấy danh sách seeds trong inventory
+func get_seeds_in_inventory() -> Array[Dictionary]:
+	var seeds: Array[Dictionary] = []
+	var db = get_node_or_null("/root/ItemDB")
+	if db == null:
+		return seeds
+	for item: Dictionary in inventory:
+		var item_data: ItemData = db.get_item(item.get("id", ""))
+		if item_data != null and item_data.item_type == ItemData.Type.SEED:
+			seeds.append(item.duplicate())
+	return seeds
+
+## Lấy danh sách tools trong inventory
+func get_tools_in_inventory() -> Array[Dictionary]:
+	var tools: Array[Dictionary] = []
+	var db = get_node_or_null("/root/ItemDB")
+	if db == null:
+		return tools
+	for item: Dictionary in inventory:
+		var item_data: ItemData = db.get_item(item.get("id", ""))
+		if item_data != null and item_data.item_type == ItemData.Type.TOOL:
+			tools.append(item.duplicate())
+	return tools
+
+## Debug: In ra inventory hiện tại
+func debug_print_inventory() -> void:
+	print("[GameState] === INVENTORY DEBUG ===")
+	print("Total unique items: %d" % get_unique_item_count())
+	print("Total item count: %d" % get_total_item_count())
+	for item: Dictionary in inventory:
+		print("  - %s: %d" % [item.get("id", "?"), item.get("amount", 0)])
+	print("==============================")

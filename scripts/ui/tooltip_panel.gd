@@ -35,7 +35,7 @@ func show_for_item(item_id: String) -> void:
 
 	_item_id = item_id
 	var data: ItemData = null
-	var db = get_node("/root/ItemDB")
+	var db = get_node_or_null("/root/ItemDB")
 	if db != null:
 		data = db.get_item(item_id)
 	if data == null:

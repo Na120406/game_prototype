@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://dgy10g2koldw6"]
+[gd_scene load_steps=12 format=3 uid="uid://dgy10g2koldw6"]
 
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="3_trans"]
@@ -8,15 +8,13 @@
 [ext_resource type="Script" uid="uid://csfm82tpxbelg" path="res://scripts/world/farm/farm_manager.gd" id="9_fmgr"]
 [ext_resource type="PackedScene" path="res://scenes/world/farm/crop_visual_manager.tscn" id="10_cropvis"]
 [ext_resource type="PackedScene" path="res://scenes/ui/inventory_ui.tscn" id="11_inv"]
+[ext_resource type="Script" path="res://scripts/world/scene_root.gd" id="12_sceneroot"]
 
 [sub_resource type="RectangleShape2D" id="RS_wall_h"]
 size = Vector2(800, 4)
 
 [sub_resource type="RectangleShape2D" id="RS_wall_v"]
 size = Vector2(4, 600)
-
-[sub_resource type="RectangleShape2D" id="RS_door"]
-size = Vector2(20, 30)
 
 [sub_resource type="RectangleShape2D" id="RS_trans"]
 size = Vector2(20, 40)
@@ -58,12 +56,6 @@ position = Vector2(798, 300)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallRight"]
 shape = SubResource("RS_wall_v")
-
-[node name="InteriorDivider" type="StaticBody2D" parent="Walls"]
-position = Vector2(200, 300)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/InteriorDivider"]
-shape = SubResource("RS_wall_h")
 
 [node name="House" type="ColorRect" parent="."]
 z_index = 1
@@ -203,20 +195,13 @@ target_scene = "res://scenes/maps/town_map.tscn"
 shape = SubResource("RS_trans")
 
 [node name="Prompt" type="Label" parent="ToTown"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
+anchors_preset = -1
 offset_left = -10.0
-offset_top = 4.0
+offset_top = -10.0
 offset_right = 10.0
-offset_bottom = 12.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+offset_bottom = -2.0
 theme_override_font_sizes/font_size = 6
-text = "E"
+text = "[E]"
 horizontal_alignment = 1
 metadata/_edit_use_anchors_ = true
 
@@ -230,24 +215,23 @@ target_scene = "res://scenes/maps/inside_house_map.tscn"
 shape = SubResource("RS_trans")
 
 [node name="Prompt" type="Label" parent="ToHouse"]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
+anchors_preset = -1
 offset_left = -10.0
-offset_top = 4.0
+offset_top = -10.0
 offset_right = 10.0
-offset_bottom = 12.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_colors/font_color = Color(1, 1, 0.8, 1)
+offset_bottom = -2.0
 theme_override_font_sizes/font_size = 6
-text = "E"
+text = "[E]"
 horizontal_alignment = 1
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 z_index = 10
+position = Vector2(393, 174)
+
+[node name="SceneRoot" type="Node" parent="."]
+script = ExtResource("12_sceneroot")
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
 position = Vector2(393, 174)
 
 [node name="Camera2D" type="Camera2D" parent="Player"]

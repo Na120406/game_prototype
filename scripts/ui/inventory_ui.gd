@@ -1,4 +1,4 @@
-extends Control
+extends CanvasLayer
 
 const COLS: int = 4
 const TOTAL_SLOTS: int = 16
@@ -22,6 +22,7 @@ var _game_paused_before: bool = false
 var _hotbar_ref: Control = null
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_to_group("inventory_ui")
 	visible = false
 	_maybe_pause_tree(false)
@@ -31,7 +32,7 @@ func _ready() -> void:
 	GameState.inventory_changed.connect(_on_inventory_changed)
 
 func _build_grid() -> void:
-	var grid: GridContainer = get_node_or_null("Panel/VBox/GridContainer")
+	var grid: GridContainer = get_node_or_null("Root/Panel/VBox/GridContainer")
 	if grid == null:
 		return
 	for i: int in range(TOTAL_SLOTS):
@@ -131,26 +132,22 @@ func _build_tooltip() -> void:
 	_tooltip_timer.timeout.connect(_show_tooltip)
 	add_child(_tooltip_timer)
 
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_inventory"):
-		if GameState.game_interacting:
+		if DialogueManager.is_active:
 			return
 		_toggle()
 		get_viewport().set_input_as_handled()
 		return
 
+func _input(event: InputEvent) -> void:
 	if not visible:
 		return
 
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		_close()
-		get_viewport().set_input_as_handled()
-		return
-
 	if event is InputEventMouseMotion:
-		var local := make_input_local(event as InputEventMouseMotion)
-		var rect := get_global_rect()
-		if not rect.has_point(get_global_mouse_position()):
+		var vp_rect := get_viewport().get_visible_rect()
+		var mouse_pos := get_viewport().get_mouse_position()
+		if not vp_rect.has_point(mouse_pos):
 			_clear_hover()
 
 func _toggle() -> void:
@@ -159,23 +156,34 @@ func _toggle() -> void:
 	else:
 		_open()
 
+func _ui_focus() -> Node:
+	return get_node_or_null("/root/UIFocusManager")
+
 func _open() -> void:
 	_game_paused_before = GameState.is_paused
 	GameState.is_paused = true
+	GameState.game_interacting = true
 	visible = true
 	_refresh()
 	_hide_tooltip()
 	_hotbar_ref = get_tree().get_first_node_in_group("hotbar")
 	if _hotbar_ref != null:
 		_hotbar_ref.visible = false
+	var uif: Node = _ui_focus()
+	if uif != null:
+		uif.call("dim_background", true)
 
 func _close() -> void:
 	visible = false
 	GameState.is_paused = _game_paused_before
+	GameState.game_interacting = false
 	_hide_tooltip()
 	_clear_hover()
 	if _hotbar_ref != null:
 		_hotbar_ref.visible = true
+	var uif: Node = _ui_focus()
+	if uif != null:
+		uif.call("dim_background", false)
 
 func _refresh() -> void:
 	for i: int in range(TOTAL_SLOTS):
@@ -350,16 +358,15 @@ func _show_item_info(slot_idx: int) -> void:
 
 	_tooltip.text = "\n".join(lines)
 
-	var panel_rect := get_global_rect()
 	var slot_global_pos: Vector2
 	if slot_idx < _slot_panels.size():
 		slot_global_pos = _slot_panels[slot_idx].get_global_rect().position
 	else:
-		slot_global_pos = get_global_mouse_position()
+		slot_global_pos = get_viewport().get_mouse_position()
 
 	var tt_size := Vector2(120, 60)
 	var tt_pos := slot_global_pos + Vector2(SLOT_SIZE.x + 4, 0)
-	if tt_pos.x + tt_size.x > get_viewport_rect().size.x:
+	if tt_pos.x + tt_size.x > get_viewport().get_visible_rect().size.x:
 		tt_pos.x = slot_global_pos.x - tt_size.x - 4
 
 	_tooltip_panel.position = tt_pos
@@ -402,11 +409,11 @@ func _show_tooltip() -> void:
 	if _pending_tooltip_slot < _slot_panels.size():
 		slot_global_pos = _slot_panels[_pending_tooltip_slot].get_global_rect().position
 	else:
-		slot_global_pos = get_global_mouse_position()
+		slot_global_pos = get_viewport().get_mouse_position()
 
 	var tt_size := Vector2(100, 36)
 	var tt_pos := slot_global_pos + Vector2(SLOT_SIZE.x + 4, 0)
-	if tt_pos.x + tt_size.x > get_viewport_rect().size.x:
+	if tt_pos.x + tt_size.x > get_viewport().get_visible_rect().size.x:
 		tt_pos.x = slot_global_pos.x - tt_size.x - 4
 
 	_tooltip_panel.position = tt_pos

@@ -27,6 +27,64 @@ func _load_all_items() -> void:
 func get_item(item_id: String) -> ItemData:
 	return _db.get(item_id, null)
 
+func get_item_or_null(item_id: String) -> ItemData:
+	var item: ItemData = _db.get(item_id, null)
+	if item == null:
+		push_warning("[ItemDB] Item not found: %s" % item_id)
+	return item
+
+func safe_get_item(item_id: String, default_values: Dictionary = {}) -> ItemData:
+	var item: ItemData = _db.get(item_id, null)
+	if item == null:
+		push_warning("[ItemDB] Item not found: %s, using defaults" % item_id)
+		# Return a placeholder ItemData with default values
+		return _create_default_item_data(item_id, default_values)
+	return item
+
+func _create_default_item_data(item_id: String, defaults: Dictionary) -> ItemData:
+	var data := ItemData.new()
+	data.item_id = item_id
+	data.display_name = defaults.get("display_name", item_id)
+	data.item_type = defaults.get("item_type", ItemData.Type.CONSUMABLE)
+	data.item_category = defaults.get("item_category", ItemData.Category.MISC)
+	data.buy_price = defaults.get("buy_price", 10)
+	data.sell_price = defaults.get("sell_price", 5)
+	data.item_color = defaults.get("item_color", Color.WHITE)
+	return data
+
+func get_item_with_validation(item_id: String, expected_type: ItemData.Type = ItemData.Type.CONSUMABLE) -> ItemData:
+	var item: ItemData = _db.get(item_id, null)
+	if item == null:
+		push_warning("[ItemDB] Item not found: %s" % item_id)
+		return null
+	if item.item_type != expected_type:
+		push_warning("[ItemDB] Item %s has type %s, expected %s" % [item_id, item.item_type, expected_type])
+	return item
+
+func require_item(item_id: String) -> ItemData:
+	var item: ItemData = _db.get(item_id, null)
+	if item == null:
+		push_error("[ItemDB] CRITICAL: Required item not found: %s" % item_id)
+	return item
+
+func is_valid_seed(seed_id: String) -> bool:
+	var item: ItemData = _db.get(seed_id, null)
+	if item == null:
+		return false
+	return item.item_type == ItemData.Type.SEED
+
+func is_valid_tool(tool_id: String) -> bool:
+	var item: ItemData = _db.get(tool_id, null)
+	if item == null:
+		return false
+	return item.item_type == ItemData.Type.TOOL
+
+func is_valid_consumable(item_id: String) -> bool:
+	var item: ItemData = _db.get(item_id, null)
+	if item == null:
+		return false
+	return item.item_type == ItemData.Type.CONSUMABLE
+
 func has_item(item_id: String) -> bool:
 	return _db.has(item_id)
 

@@ -34,18 +34,34 @@ func show_prompt() -> void:
 	_is_open = true
 	visible = true
 	GameState.game_interacting = true
+	var uif: Node = get_node_or_null("/root/UIFocusManager")
+	if uif != null:
+		uif.call("dim_background", true)
 	var panel := _find_panel()
 	if panel != null:
 		panel.visible = true
+	var backdrop: Control = null
+	if get_parent() != null:
+		backdrop = get_parent().get_node_or_null("SleepBackdrop")
+	if backdrop != null:
+		backdrop.visible = true
 	accept_event()
 
 func hide_prompt() -> void:
 	_is_open = false
 	visible = false
 	GameState.game_interacting = false
+	var uif: Node = get_node_or_null("/root/UIFocusManager")
+	if uif != null:
+		uif.call("dim_background", false)
 	var panel := _find_panel()
 	if panel != null:
 		panel.visible = false
+	var backdrop: Control = null
+	if get_parent() != null:
+		backdrop = get_parent().get_node_or_null("SleepBackdrop")
+	if backdrop != null:
+		backdrop.visible = false
 
 func _input(event: InputEvent) -> void:
 	if not _is_open:

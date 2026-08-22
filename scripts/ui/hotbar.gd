@@ -20,6 +20,16 @@ func _ready() -> void:
 	_refresh()
 	GameState.inventory_changed.connect(_on_inventory_changed)
 	_apply_selection_style(_selected_index)
+	mouse_exited.connect(_on_hotbar_leave)
+
+func _on_hotbar_leave() -> void:
+	# Mouse rời hoàn toàn khỏi hotbar -> ẩn tooltip
+	var shop_ui: CanvasLayer = get_tree().get_first_node_in_group("shop_ui")
+	if shop_ui != null:
+		if shop_ui.has_method("_hide_tooltip"):
+			shop_ui._hide_tooltip()
+		if shop_ui.has_method("_reset_hotbar_hover"):
+			shop_ui._reset_hotbar_hover()
 
 func _setup_slots() -> void:
 	var slot_names := ["Slot0", "Slot1", "Slot2"]
@@ -32,7 +42,7 @@ func _setup_slots() -> void:
 		_slot_panels.append(panel)
 		panel.gui_input.connect(_on_slot_input.bind(i))
 		panel.mouse_entered.connect(_on_slot_hover.bind(i))
-		panel.mouse_exited.connect(_on_slot_leave)
+		panel.mouse_exited.connect(_on_slot_leave.bind(i))
 
 		var original_style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
 		var copy_style := StyleBoxFlat.new()
@@ -157,7 +167,7 @@ func _update_slot(slot_index: int) -> void:
 		var amount: int = item.get("amount", 1)
 
 		var item_data: ItemData = null
-		var db = get_node("/root/ItemDB")
+		var db = get_node_or_null("/root/ItemDB")
 		if db != null:
 			item_data = db.get_item(item_id)
 		if item_data != null:
@@ -206,8 +216,9 @@ func _on_slot_input(event: InputEvent, slot_index: int) -> void:
 	_selected_index = slot_index
 	_apply_selection_style(_selected_index)
 
-	if get_node("/root/ItemHandler").use_item(item_id):
-		GameState.inventory_changed.emit()
+	if get_node_or_null("/root/ItemHandler") != null:
+		if get_node_or_null("/root/ItemHandler").use_item(item_id):
+			GameState.inventory_changed.emit()
 	_emit_selected_changed()
 
 func _emit_selected_changed() -> void:
@@ -224,13 +235,14 @@ func _on_slot_hover(slot_index: int) -> void:
 	if item_id == "":
 		return
 
-	var shop_ui: Control = get_tree().get_first_node_in_group("shop_ui")
+	var shop_ui: CanvasLayer = get_tree().get_first_node_in_group("shop_ui")
 	if shop_ui != null and shop_ui.has_method("_show_tooltip_for_hotbar"):
 		shop_ui._show_tooltip_for_hotbar(item_id)
 
-func _on_slot_leave() -> void:
-	var shop_ui: Control = get_tree().get_first_node_in_group("shop_ui")
-	if shop_ui != null and shop_ui.has_method("_hide_tooltip"):
-		shop_ui._hide_tooltip()
+func _on_slot_leave(slot_index: int) -> void:
+	# Không gọi hide ngay khi rời slot, vì có thể chuột chỉ di chuyển sang slot kế bên.
+	# Việc hide/show sẽ do _on_slot_hover của slot tiếp theo xử lý.
+	# Chỉ reset hotbar hover state (dùng để cancel tooltip timer nếu user rời hẳn).
+	var shop_ui: CanvasLayer = get_tree().get_first_node_in_group("shop_ui")
 	if shop_ui != null and shop_ui.has_method("_reset_hotbar_hover"):
 		shop_ui._reset_hotbar_hover()

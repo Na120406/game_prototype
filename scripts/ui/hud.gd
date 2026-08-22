@@ -42,7 +42,9 @@ func _process(_delta: float) -> void:
 
 func _update_hud() -> void:
 	energy_bar.value = GameState.energy
-	tool_label.text = "Tool: %s" % get_node("/root/ToolHandler").get_equipped().to_upper()
+	var tool_handler = get_node_or_null("/root/ToolHandler")
+	var tool_name = "NONE" if tool_handler == null else tool_handler.get_equipped().to_upper()
+	tool_label.text = "Tool: %s" % tool_name
 
 	var player := get_tree().get_first_node_in_group("player")
 	if player != null and show_coords:

@@ -1,0 +1,61 @@
+[gd_scene load_steps=2 format=3 uid="uid://energybar01"]
+
+[ext_resource type="Script" path="res://scripts/ui/energy_bar.gd" id="1_energy"]
+
+[node name="EnergyBar" type="Control"]
+custom_minimum_size = Vector2(16, 48)
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -28.0
+offset_top = -60.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+script = ExtResource("1_energy")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 0
+offset_right = 16.0
+offset_bottom = 48.0
+color = Color(0.06, 0.04, 0.08, 0.85)
+mouse_filter = 2
+
+[node name="Border" type="ColorRect" parent="."]
+layout_mode = 0
+offset_right = 1.0
+offset_bottom = 48.0
+color = Color(0.55, 0.45, 0.25, 0.8)
+mouse_filter = 2
+
+[node name="BorderRight" type="ColorRect" parent="."]
+layout_mode = 0
+offset_left = 15.0
+offset_right = 16.0
+offset_bottom = 48.0
+color = Color(0.55, 0.45, 0.25, 0.8)
+mouse_filter = 2
+
+[node name="Cells" type="Control" parent="."]
+custom_minimum_size = Vector2(14, 46)
+layout_mode = 0
+offset_left = 1.0
+offset_top = 1.0
+offset_right = 15.0
+offset_bottom = 47.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 0
+offset_left = -54.0
+offset_top = 14.0
+offset_right = -2.0
+offset_bottom = 24.0
+theme_override_colors/font_color = Color(1, 0.9, 0.6, 1)
+theme_override_font_sizes/font_size = 6
+text = "E 20/20"
+horizontal_alignment = 2
+mouse_filter = 2
