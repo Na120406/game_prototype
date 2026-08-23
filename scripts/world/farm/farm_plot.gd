@@ -323,9 +323,27 @@ func _try_plant_seed(cell: Vector2i) -> void:
 		_play_feedback(cell, "Plow first!", Color(0.8, 0.3, 0.3))
 		return
 	if _farm_manager.plant_from_seed(cell, _current_hotbar_item):
-		GameState.remove_item(_current_hotbar_item, 1)
+		# Trừ seed từ nguồn đang chọn (toolbar hoặc inventory).
+		# Nếu toolbar slot active đang giữ đúng item_id này → trừ từ toolbar.
+		var from_toolbar := _consume_seed_from_active_toolbar(_current_hotbar_item)
+		if not from_toolbar:
+			GameState.remove_item(_current_hotbar_item, 1)
+			GameState.inventory_changed.emit()
 		_play_feedback(cell, "Planted!", Color(0.4, 0.8, 0.3))
-		GameState.inventory_changed.emit()
+
+func _consume_seed_from_active_toolbar(item_id: String) -> bool:
+	var hotbar: Node = get_tree().get_first_node_in_group("hotbar")
+	if hotbar == null:
+		return false
+	var active_slot: int = 0
+	if hotbar.has_method("get_active_slot"):
+		active_slot = hotbar.get_active_slot()
+	if active_slot < 0 or active_slot >= GameState.toolbar.size():
+		return false
+	var slot: Dictionary = GameState.toolbar[active_slot]
+	if slot.get("id", "") != item_id:
+		return false
+	return GameState.consume_toolbar_slot(active_slot, 1)
 
 # =============================================================================
 # HARVESTING

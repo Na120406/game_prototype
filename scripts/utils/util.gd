@@ -56,7 +56,13 @@ static func format_time_with_ampm(time_val: float) -> String:
 	var hours24 := int(time_val)
 	var minutes := int((time_val - hours24) * 60)
 	var ampm := "AM" if hours24 < 12 else "PM"
-	var hours12 := hours24 if hours24 > 0 and hours24 <= 12 else abs(hours24 - 12) if hours24 > 12 else 12
+	var hours12: int
+	if hours24 == 0:
+		hours12 = 12
+	elif hours24 > 12:
+		hours12 = abs(hours24 - 12)
+	else:
+		hours12 = hours24
 	return "%d:%02d %s" % [hours12, minutes, ampm]
 
 static func ease_in_out(t: float) -> float:

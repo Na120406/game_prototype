@@ -20,6 +20,7 @@ extends Node
 signal inventory_changed
 signal day_changed(new_day: int)
 signal energy_changed(new_value: float)
+signal toolbar_changed
 
 # =============================================================================
 # CÁC BIẾN NGƯỜI CHƠI (PLAYER VARIABLES)
@@ -78,6 +79,17 @@ var game_interacting: bool = false
 # Cấu trúc: [{"id": "apple", "amount": 5}, {"id": "hoe", "amount": 1}]
 var inventory: Array[Dictionary] = []
 
+# Thanh công cụ (toolbar) - 5 slot cố định gắn với phím 1-5.
+# Tách khỏi inventory để tránh phụ thuộc vị trí; player có thể chủ động
+# sắp xếp item hay dùng lên toolbar qua Inventory UI (drag/drop).
+var toolbar: Array[Dictionary] = [
+	{"id": "", "amount": 0},
+	{"id": "", "amount": 0},
+	{"id": "", "amount": 0},
+	{"id": "", "amount": 0},
+	{"id": "", "amount": 0},
+]
+
 # Công cụ đang trang bị - tên của công cụ đang dùng
 # Ví dụ: "hoe" (cuốc), "water_can" (bình tưới)
 var equipped_tool: String = "none"
@@ -121,6 +133,23 @@ var farm_cells_data: Dictionary = {}
 func _ready() -> void:
 	# In ra thông báo khởi tạo để debug
 	print("[GameState] Initialized — Day %d, %.0f:00" % [current_day, current_time])
+	_ensure_inventory_slots()
+
+
+# Inventory UI có 21 ô cố định (3 hàng × 7 cột). Mỗi ô map 1:1 với index
+# trong GameState.inventory; các ô trống từ đầu cũng phải có entry {"id":"",
+# "amount":0} để drag/swap giữa tất cả các ô hoạt động nhất quán.
+const INVENTORY_SLOTS: int = 21
+
+func _ensure_inventory_slots() -> void:
+	while inventory.size() < INVENTORY_SLOTS:
+		inventory.append({"id": "", "amount": 0})
+
+
+# Gọi sau khi load save hoặc khi inventory UI khởi tạo để đảm bảo mọi
+# ô đều có entry tương ứng.
+func reset_inventory_layout() -> void:
+	_ensure_inventory_slots()
 
 
 # =============================================================================
@@ -223,10 +252,11 @@ func modify_health(amount: float) -> void:
 # Trả về: true nếu thêm thành công
 
 func add_item(item_id: String, amount: int = 1) -> bool:
+	_ensure_inventory_slots()
 	# Duyệt túi đồ để tìm vật phẩm đã tồn tại chưa
 	for i: int in range(inventory.size()):
 		var existing_id: String = inventory[i].get("id", "")
-		
+
 		# Nếu tìm thấy vật phẩm cùng loại
 		if existing_id == item_id:
 			# Tăng số lượng lên
@@ -234,12 +264,17 @@ func add_item(item_id: String, amount: int = 1) -> bool:
 			print("[GameState] Added %d x %s (now %d)" % [amount, item_id, inventory[i]["amount"]])
 			inventory_changed.emit()  # Thông báo cho UI cập nhật
 			return true
-	
-	# Nếu không tìm thấy, thêm vật phẩm mới vào túi
-	inventory.append({"id": item_id, "amount": amount})
-	print("[GameState] Added %d x %s to inventory" % [amount, item_id])
-	inventory_changed.emit()  # Thông báo cho UI cập nhật
-	return true
+
+	# Nếu không tìm thấy, đặt vào ô trống đầu tiên (không vượt quá capacity).
+	for i: int in range(inventory.size()):
+		if inventory[i].get("id", "") == "":
+			inventory[i] = {"id": item_id, "amount": amount}
+			print("[GameState] Added %d x %s to slot %d" % [amount, item_id, i])
+			inventory_changed.emit()
+			return true
+	# Inventory đầy
+	print("[GameState] add_item: inventory full, cannot add ", item_id)
+	return false
 
 
 # =============================================================================
@@ -274,6 +309,91 @@ func remove_item(item_id: String, amount: int = 1) -> bool:
 	
 	# Không tìm thấy vật phẩm
 	return false
+
+
+# =============================================================================
+# THANH CÔNG CỤ (TOOLBAR) - 5 slot gắn với phím 1-5
+# =============================================================================
+# Tách khỏi inventory để player chủ động đặt item hay dùng (tool, seed,
+# consumable) lên 5 ô cố định. Drag/drop trong Inventory UI hoán đổi giữa
+# inventory ↔ toolbar hoặc giữa các slot toolbar với nhau.
+# =============================================================================
+
+const TOOLBAR_SIZE: int = 5
+
+func set_toolbar_slot(idx: int, item_id: String, amount: int = 1) -> bool:
+	if idx < 0 or idx >= toolbar.size():
+		return false
+	toolbar[idx] = {"id": item_id, "amount": amount}
+	toolbar_changed.emit()
+	return true
+
+func clear_toolbar_slot(idx: int) -> bool:
+	if idx < 0 or idx >= toolbar.size():
+		return false
+	toolbar[idx] = {"id": "", "amount": 0}
+	toolbar_changed.emit()
+	return true
+
+func swap_toolbar_slots(a: int, b: int) -> bool:
+	if a < 0 or a >= toolbar.size() or b < 0 or b >= toolbar.size():
+		return false
+	if a == b:
+		return false
+	var tmp: Dictionary = toolbar[a]
+	toolbar[a] = toolbar[b]
+	toolbar[b] = tmp
+	toolbar_changed.emit()
+	return true
+
+func swap_inventory_slots(a: int, b: int) -> bool:
+	if a < 0 or a >= inventory.size() or b < 0 or b >= inventory.size():
+		return false
+	if a == b:
+		return false
+	var tmp: Dictionary = inventory[a]
+	inventory[a] = inventory[b]
+	inventory[b] = tmp
+	inventory_changed.emit()
+	return true
+
+func swap_inventory_toolbar(inv_idx: int, tool_idx: int) -> bool:
+	if tool_idx < 0 or tool_idx >= toolbar.size():
+		return false
+	if inv_idx < 0 or inv_idx >= inventory.size():
+		return false
+	var tmp: Dictionary = inventory[inv_idx]
+	inventory[inv_idx] = toolbar[tool_idx]
+	toolbar[tool_idx] = tmp
+	inventory_changed.emit()
+	toolbar_changed.emit()
+	return true
+
+func get_toolbar_item(idx: int) -> Dictionary:
+	if idx < 0 or idx >= toolbar.size():
+		return {}
+	return toolbar[idx]
+
+func consume_toolbar_slot(idx: int, amount: int = 1) -> bool:
+	if idx < 0 or idx >= toolbar.size():
+		return false
+	var slot: Dictionary = toolbar[idx]
+	var slot_id: String = slot.get("id", "")
+	var slot_amount: int = int(slot.get("amount", 0))
+	if slot_id == "" or slot_amount <= 0:
+		return false
+	slot_amount -= amount
+	if slot_amount <= 0:
+		toolbar[idx] = {"id": "", "amount": 0}
+	else:
+		toolbar[idx] = {"id": slot_id, "amount": slot_amount}
+	toolbar_changed.emit()
+	return true
+
+func reset_toolbar() -> void:
+	for i in range(toolbar.size()):
+		toolbar[i] = {"id": "", "amount": 0}
+	toolbar_changed.emit()
 
 
 # =============================================================================
@@ -386,6 +506,7 @@ func reset() -> void:
 	
 	# Xóa toàn bộ túi đồ và cờ sự kiện
 	inventory.clear()
+	reset_toolbar()
 	world_flags.clear()
 	discovered_areas.clear()
 	

@@ -205,6 +205,11 @@ func _interact() -> void:
 	_set_state(State.INTERACTING)
 	_current_interact_target = null
 
+	# Lưu lại trạng thái game_interacting trước khi tương tác để restore
+	# sau khi action one-shot kết thúc (pickup apple, mở scene transition,
+	# examine object). Đây là các action không nên block di chuyển player.
+	var prev_game_interacting: bool = GameState.game_interacting
+
 	# Try raycast first
 	if interaction_ray != null:
 		interaction_ray.target_position = facing_dir * interaction_range
@@ -241,7 +246,66 @@ func _interact() -> void:
 			_current_interact_target = counter
 
 	if _current_interact_target == null:
+		# Không có interactable nào → dùng CONSUMABLE ở slot đang select
+		# (táo hồi energy, bình máu hồi health). Nếu item đang select là
+		# TOOL/SEED thì E không có tác dụng (dùng TOOL/SEED phải click chuột).
+		var consumed: bool = _try_use_active_consumable()
+		if not consumed:
+			_set_state(State.IDLE)
+
+	# Restore game_interacting về giá trị ban đầu sau one-shot actions.
+	# Đây là lý do trước đây player bị "đứng im" sau khi nhặt táo bằng E:
+	# apple.interact() chỉ queue_free() mà không mở UI/dialogue nào, nên
+	# game_interacting cần được trả về false ngay sau khi action kết thúc.
+	# Các tương tác KHÁC (shop, dialogue, sleep, scene change) tự set
+	# game_interacting = true/false ở script của chúng khi mở/đóng UI.
+	# Nếu một UI đang mở → giữ game_interacting=true (UI đó tự clear khi đóng).
+	if not _is_ui_blocking_movement():
+		GameState.game_interacting = prev_game_interacting
 		_set_state(State.IDLE)
+		_current_interact_target = null
+
+# Thử dùng CONSUMABLE ở toolbar slot đang active.
+# Trả về true nếu đã consume (kể cả khi không hồi được energy/health do đầy),
+# false nếu slot rỗng / không phải consumable.
+func _try_use_active_consumable() -> bool:
+	var hotbar: Node = get_tree().get_first_node_in_group("hotbar")
+	if hotbar == null:
+		return false
+	var active_idx: int = hotbar.get_active_slot()
+	if active_idx < 0 or active_idx >= GameState.toolbar.size():
+		return false
+	var slot: Dictionary = GameState.toolbar[active_idx]
+	if slot.get("id", "") == "":
+		return false
+	var db = get_node_or_null("/root/ItemDB")
+	if db == null:
+		return false
+	var data: ItemData = db.get_item(slot.get("id", ""))
+	if data == null or data.item_type != ItemData.Type.CONSUMABLE:
+		return false
+	if ItemHandler != null and ItemHandler.has_method("use_toolbar_slot"):
+		return ItemHandler.use_toolbar_slot(active_idx)
+	return false
+
+# Trả về true nếu có UI đang giữ player (shop/dialogue/sleep/pause).
+# Khi UI mở, player KHÔNG được restore state về IDLE — UI tự clear
+# game_interacting = false khi đóng. Đây là cách tránh "đứng im" sau
+# khi nhặt táo bằng E (pickup one-shot) mà vẫn giữ chặn đúng khi
+# tương tác mở UI (counter/shop, bed/sleep, npc/dialogue).
+func _is_ui_blocking_movement() -> bool:
+	if DialogueManager != null and DialogueManager.is_active:
+		return true
+	var shop: CanvasLayer = get_tree().get_first_node_in_group("shop_ui")
+	if shop != null and shop.visible:
+		return true
+	var sleep_nodes := get_tree().get_nodes_in_group("sleep_prompt")
+	for n: Node in sleep_nodes:
+		if n is Control and (n as Control).visible:
+			return true
+	if GameState.is_paused:
+		return true
+	return false
 
 func _find_nearby_bed() -> Node:
 	var world: Node = get_parent()
@@ -307,6 +371,7 @@ func _exit_interaction() -> void:
 		if _current_interact_target.has_method("on_dialogue_ended"):
 			_current_interact_target.on_dialogue_ended()
 		_current_interact_target = null
+	GameState.game_interacting = false
 	_set_state(State.IDLE)
 
 func _on_dialogue_closed() -> void:

@@ -1,10 +1,9 @@
-[gd_scene load_steps=12 format=3 uid="uid://1naqxwme16ri"]
+[gd_scene load_steps=11 format=3 uid="uid://1naqxwme16ri"]
 
 [ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_ground"]
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="3_trans"]
 [ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="4_uimgr"]
-[ext_resource type="PackedScene" path="res://scenes/ui/inventory_ui.tscn" id="5_tbgi4"]
 
 [sub_resource type="TileSetAtlasSource" id="TSA_town"]
 texture = ExtResource("1_ground")
@@ -176,5 +175,3 @@ limit_bottom = 270
 
 [node name="UI" type="CanvasLayer" parent="."]
 script = ExtResource("4_uimgr")
-
-[node name="InventoryUI" parent="UI" instance=ExtResource("5_tbgi4")]

@@ -45,6 +45,49 @@ func use_item(item_id: String, from_inventory: bool = true) -> bool:
 	item_used.emit(item_id, item_data)
 	return true
 
+# =============================================================================
+# TOOLBAR SLOT USAGE (gắn với phím 1-5)
+# =============================================================================
+# Khi nhấn phím 1..5, dùng item ở GameState.toolbar[idx].
+# Sau khi dùng (consumable/seed) sẽ consume từ TOOLBAR chứ không phải inventory.
+# =============================================================================
+
+func use_toolbar_slot(idx: int) -> bool:
+	if idx < 0 or idx >= GameState.toolbar.size():
+		return false
+	var slot: Dictionary = GameState.toolbar[idx]
+	var item_id: String = slot.get("id", "")
+	if item_id == "":
+		return false
+
+	var db = get_node_or_null("/root/ItemDB")
+	if db == null:
+		return false
+	var data: ItemData = db.get_item(item_id)
+	if data == null:
+		return false
+
+	if not data.can_use():
+		print("[ItemHandler] Cannot use toolbar item: %s" % item_id)
+		return false
+
+	match data.item_type:
+		ItemData.Type.CONSUMABLE:
+			_apply_consumable(data)
+			GameState.consume_toolbar_slot(idx, 1)
+			item_consumed.emit(item_id)
+		ItemData.Type.TOOL:
+			_apply_tool(data)
+			item_equipped.emit(item_id)
+		ItemData.Type.SEED:
+			_plant_seed(data)
+			GameState.consume_toolbar_slot(idx, 1)
+		_:
+			return false
+
+	item_used.emit(item_id, data)
+	return true
+
 func _apply_consumable(data: ItemData) -> void:
 	match data.effect_type:
 		ItemData.Effect.RESTORE_ENERGY:

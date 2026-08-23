@@ -1,8 +1,12 @@
-[gd_scene load_steps=2 format=3 uid="uid://hotbar_scene"]
+[gd_scene load_steps=3 format=3 uid="uid://uabe0xidetg7"]
 
-[ext_resource type="Script" path="res://scripts/ui/hotbar.gd" id="1_hotbar"]
+[ext_resource type="Script" uid="uid://ctkqpyx0a1sje" path="res://scripts/ui/hotbar.gd" id="1_hotbar"]
 
 [sub_resource type="StyleBoxFlat" id="SB_slot"]
+content_margin_left = 3.0
+content_margin_top = 3.0
+content_margin_right = 3.0
+content_margin_bottom = 3.0
 bg_color = Color(0.1, 0.08, 0.15, 0.85)
 border_width_left = 1
 border_width_top = 1
@@ -13,10 +17,6 @@ corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
-content_margin_left = 3.0
-content_margin_top = 3.0
-content_margin_right = 3.0
-content_margin_bottom = 3.0
 
 [node name="Hotbar" type="Control"]
 layout_mode = 3
@@ -34,9 +34,9 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -72.0
+offset_left = -110.0
 offset_top = -38.0
-offset_right = 72.0
+offset_right = 110.0
 offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 0
@@ -47,12 +47,90 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("SB_slot")
 
+[node name="NumLabel" type="Label" parent="SlotsContainer/Slot0"]
+layout_mode = 2
+text = "1"
+
+[node name="IconLabel" type="Label" parent="SlotsContainer/Slot0"]
+layout_mode = 2
+
+[node name="CountLabel" type="Label" parent="SlotsContainer/Slot0"]
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 2
+
 [node name="Slot1" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("SB_slot")
 
+[node name="NumLabel" type="Label" parent="SlotsContainer/Slot1"]
+layout_mode = 2
+text = "2"
+
+[node name="IconLabel" type="Label" parent="SlotsContainer/Slot1"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CountLabel" type="Label" parent="SlotsContainer/Slot1"]
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 2
+
 [node name="Slot2" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_styles/panel = SubResource("SB_slot")
+
+[node name="NumLabel" type="Label" parent="SlotsContainer/Slot2"]
+layout_mode = 2
+text = "3"
+
+[node name="IconLabel" type="Label" parent="SlotsContainer/Slot2"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CountLabel" type="Label" parent="SlotsContainer/Slot2"]
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 2
+
+[node name="Slot3" type="PanelContainer" parent="SlotsContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("SB_slot")
+
+[node name="NumLabel" type="Label" parent="SlotsContainer/Slot3"]
+layout_mode = 2
+text = "4"
+
+[node name="IconLabel" type="Label" parent="SlotsContainer/Slot3"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CountLabel" type="Label" parent="SlotsContainer/Slot3"]
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 2
+
+[node name="Slot4" type="PanelContainer" parent="SlotsContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("SB_slot")
+
+[node name="NumLabel" type="Label" parent="SlotsContainer/Slot4"]
+layout_mode = 2
+text = "5"
+
+[node name="IconLabel" type="Label" parent="SlotsContainer/Slot4"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CountLabel" type="Label" parent="SlotsContainer/Slot4"]
+layout_mode = 2
+horizontal_alignment = 2
+vertical_alignment = 2

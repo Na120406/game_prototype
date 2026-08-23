@@ -53,15 +53,11 @@ func _ensure_prompt_label() -> void:
 
 
 func _process(_delta: float) -> void:
-	# Manager (autoload) xử lý input + prompt nếu đã đăng ký.
-	# Nếu manager chưa có, fallback xử lý tại đây:
-	var mgr := _get_prompt_manager()
-	if mgr == null:
-		if _player_inside and Input.is_action_just_pressed("interact"):
-			_change_scene()
-		return
-
-	# Manager tồn tại — dùng nó
+	# Xử lý input ở đây cho portal (Area2D — raycast KHÔNG reliable).
+	# Dùng Input.is_action_just_pressed thay vì event.is_action_pressed
+	# để tránh duplicate trigger nếu player._interact cũng gọi interact().
+	# is_action_just_pressed chỉ true 1 frame nên double-call là benign
+	# (scene change idempotent, gọi 2 lần vẫn chỉ change 1 lần).
 	if _player_inside and Input.is_action_just_pressed("interact"):
 		_change_scene()
 

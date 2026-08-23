@@ -1,18 +1,42 @@
-[gd_scene load_steps=2 format=3 uid="uid://inv_ui_01"]
+[gd_scene load_steps=2 format=3 uid="uid://cn6drakh8a7gv"]
 
-[ext_resource type="Script" path="res://scripts/ui/inventory_ui.gd" id="1_inv"]
+[ext_resource type="Script" uid="uid://m47dly1dk4rn" path="res://scripts/ui/inventory_ui.gd" id="1_inv"]
 
 [node name="InventoryUI" type="CanvasLayer"]
 layer = 100
+follow_viewport_scale = 0.001
 script = ExtResource("1_inv")
+panel_width = 256
+panel_height = 129
+title_width = 60
+inner_padding = 2
+title_text_v_offset = -1
+screen_offset_x = -2
+screen_offset_y = -18
 
-[node name="Root" type="Control" parent="."]
+[node name="BackdropLayer" type="CanvasLayer" parent="."]
+layer = 0
+visible = false
+
+[node name="BGOverlay" type="ColorRect" parent="BackdropLayer"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.02, 0.01, 0.04, 0.78)
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 
-[node name="BGOverlay" type="ColorRect" parent="Root"]
+[node name="BrightRegion" type="PanelContainer" parent="Root"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,59 +44,66 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.02, 0.01, 0.04, 0.75)
 
-[node name="Panel" type="PanelContainer" parent="Root"]
+[node name="BrightBG" type="ColorRect" parent="Root/BrightRegion"]
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.08, 0.05, 0.13, 0.55)
+
+[node name="Panel" type="Control" parent="Root"]
+editor_description = "Wrapper Panel — chỉnh size tổng của inventory (centered). Expand 3px mỗi cạnh để chứa viền GridBox."
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -72.0
-offset_top = -56.0
-offset_right = 72.0
-offset_bottom = 56.0
+offset_left = -136.0
+offset_top = -68.0
+offset_right = 136.0
+offset_bottom = 68.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
-[node name="BG" type="ColorRect" parent="Root/Panel"]
-layout_mode = 2
-color = Color(0.06, 0.04, 0.1, 0.97)
+[node name="TitleBox" type="PanelContainer" parent="Root/Panel"]
+editor_description = "Box chứa text INVENTORY (tab). Width 70, Height 20. Nằm phía sau GridBox (GridBox che TitleBox ở child index 2)."
+layout_mode = 1
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 72.0
+offset_bottom = 22.0
+mouse_filter = 2
 
-[node name="Border" type="ColorRect" parent="Root/Panel"]
-layout_mode = 2
-color = Color(0.45, 0.35, 0.2, 1)
-
-[node name="VBox" type="VBoxContainer" parent="Root/Panel"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="Header" type="HBoxContainer" parent="Root/Panel/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="Title" type="Label" parent="Root/Panel/VBox/Header"]
-layout_mode = 2
+[node name="Title" type="Label" parent="Root/Panel"]
+editor_description = "Text INVENTORY. Nằm cùng cấp TitleBox (không phải child) để Label có thể chỉnh position.y tự do — PanelContainer ép anchor child mỗi frame."
+layout_mode = 1
+offset_left = 20.0
+offset_top = 2.0
+offset_right = 54.0
+offset_bottom = 14.0
 theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
 theme_override_font_sizes/font_size = 8
 text = "INVENTORY"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="Spacer" type="Control" parent="Root/Panel/VBox/Header"]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="GridBox" type="PanelContainer" parent="Root/Panel"]
+editor_description = "Box chứa slot grid. Overlap TitleBox 6px (TitleBox bottom=22, GridBox top=16). Viền 2px expand 3px mỗi cạnh."
+layout_mode = 1
+offset_left = 2.0
+offset_top = 16.0
+offset_right = 270.0
+offset_bottom = 131.0
+mouse_filter = 2
 
-[node name="TabHint" type="Label" parent="Root/Panel/VBox/Header"]
+[node name="GridContainer" type="GridContainer" parent="Root/Panel/GridBox"]
+editor_description = "Grid 7 cột × 3 hàng. Padding 8px từ viền GridBox. Slot 32×32, gap 4px."
 layout_mode = 2
-theme_override_colors/font_color = Color(0.5, 0.45, 0.4, 1)
-theme_override_font_sizes/font_size = 6
-text = "[TAB]"
-
-[node name="GridContainer" type="GridContainer" parent="Root/Panel/VBox"]
-layout_mode = 2
+mouse_filter = 2
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
-columns = 4
+columns = 7
 
 [node name="ClickCatcher" type="Control" parent="Root"]
 layout_mode = 1

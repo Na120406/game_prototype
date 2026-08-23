@@ -59,9 +59,11 @@ func _is_background_widget(node: Node) -> bool:
 	# Map label nhỏ ở góc
 	if node.name == "MapLabel" and node is Label:
 		return true
-	# Hotbar (là Control)
+	# Hotbar (là Control) — LUÔN hiển thị kể cả khi inventory mở,
+	# vì hotbar đóng vai trò TOOLBAR cho drag/drop trong inventory UI.
+	# Xem comment trong inventory_ui.gd _open(): "Hotbar LUÔN hiển thị".
 	if node.is_in_group("hotbar"):
-		return true
+		return false
 	return false
 
 func _apply_dim_to_all() -> void:

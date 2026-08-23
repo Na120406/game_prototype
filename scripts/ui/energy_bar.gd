@@ -32,7 +32,14 @@ func _ready() -> void:
 func _build_persistent_bar() -> void:
 	_canvas = CanvasLayer.new()
 	_canvas.name = "EnergyBarCanvas"
-	_canvas.layer = 200
+	# Layer thấp (10) để EnergyBar KHÔNG che các UI popup/hội thoại.
+	# Thứ tự layer mới:
+	#   1:  UI canvas (hotbar, day info, map label)
+	#   10: EnergyBar
+	#   50: Dialogue (hội thoại)
+	#   100: Inventory / Shop / Sleep prompt / FloatingWarning
+	#   200+: Transition / scene change overlay
+	_canvas.layer = 10
 	add_child(_canvas)
 
 	# Container thanh bar — neo góc dưới phải.

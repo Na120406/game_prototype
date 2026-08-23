@@ -1,93 +1,326 @@
 extends CanvasLayer
+# =============================================================================
+# INVENTORY UI v5
+# =============================================================================
+# Layout khi mở (2 khối tách rời):
+#   ┌─TitleBox─┐
+#   │INVENTORY │      ← ô nhỏ góc trên-trái, chứa chữ "INVENTORY"
+#   └──────────┘
+#            ┌─────────────── GridBox ─────────────────────┐
+#            │ [slot][slot][slot][slot][slot][slot][slot] │
+#            │ [slot][slot][slot][slot][slot][slot][slot] │  ← 3 hàng × 7 cột
+#            │ [slot][slot][slot][slot][slot][slot][slot] │
+#            └────────────────────────────────────────────┘
+#
+# Cả TitleBox và GridBox đều bo góc nhẹ (corner_radius), nền nâu tối, viền
+# vàng nâu. TitleBox lệch trái-lên, GridBox lệch phải-xuống → tạo cảm giác
+# 2 khối tách biệt nhưng vẫn cùng nhóm.
+#
+# Hotbar (5 slot dưới màn hình) LUÔN hiển thị — khi mở Inventory, hotbar
+# hoạt động như phần "TOOLBAR" của inventory: drag từ ô inventory ra hotbar
+# slot để chuyển item, hoặc ngược lại.
+#
+# Drag/drop:
+# - Bấm chuột trái vào slot có item → bắt đầu drag (preview di theo chuột).
+# - Di chuột sang slot khác (inv hoặc hotbar) → highlight drop target.
+# - Thả chuột trong slot khác → swap / move vào slot đó.
+# - Thả chuột ra ngoài slot nào → huỷ drag, item trở lại vị trí cũ.
+# =============================================================================
 
-const COLS: int = 4
-const TOTAL_SLOTS: int = 16
-const SLOT_SIZE: Vector2 = Vector2(32, 32)
+const COLS: int = 7
+const ROWS: int = 3
+const TOTAL_SLOTS: int = COLS * ROWS
+
+@export_range(8, 128, 1) var slot_size: int = 32 :
+	set(value):
+		slot_size = value
+		SLOT_SIZE = Vector2(value, value)
+		_rebuild_grid_if_ready()
+@export_range(0, 32, 1) var slot_gap: int = 4 :
+	set(value):
+		slot_gap = value
+		_separation_h = value
+		_separation_v = value
+		_apply_separation_if_ready()
+var SLOT_SIZE: Vector2 = Vector2(32, 32)
+var _separation_h: int = 4
+var _separation_v: int = 4
+
+@export_range(120, 480, 1) var panel_width: int = 272 :
+	set(value):
+		panel_width = value
+		_apply_panel_size_if_ready()
+@export_range(100, 320, 1) var panel_height: int = 136 :
+	set(value):
+		panel_height = value
+		_apply_panel_size_if_ready()
+
+@export_range(40, 200, 1) var title_width: int = 70 :
+	set(value):
+		title_width = value
+		_apply_title_size_if_ready()
+@export_range(12, 48, 1) var title_height: int = 20 :
+	set(value):
+		title_height = value
+		_apply_title_size_if_ready()
+
+@export_range(0, 32, 1) var inner_padding: int = 8 :
+	set(value):
+		inner_padding = value
+		_apply_padding_if_ready()
+@export_range(-16, 16, 1) var title_text_v_offset: int = -8 :
+	set(value):
+		title_text_v_offset = value
+		_apply_title_label_offset_if_ready()
+
+# Tọa độ toàn bộ UI theo vị trí screen (pixel, tính từ center).
+# @onready để chỉ setter hoạt động khi đã ready (tránh null Root).
+@export_range(-2000, 2000, 1) var screen_offset_x: int = 0 :
+	set(value):
+		screen_offset_x = value
+		_apply_screen_offset_if_ready()
+@export_range(-2000, 2000, 1) var screen_offset_y: int = 0 :
+	set(value):
+		screen_offset_y = value
+		_apply_screen_offset_if_ready()
 const SLOT_BG_COLOR := Color(0.12, 0.09, 0.18, 1.0)
 const SLOT_HOVER_COLOR := Color(0.22, 0.16, 0.32, 1.0)
-const SLOT_SELECTED_COLOR := Color(1.0, 0.82, 0.28, 0.9)
+const SLOT_DROP_TARGET_COLOR := Color(0.32, 0.24, 0.18, 1.0)
 const SLOT_BORDER := Color(0.35, 0.28, 0.18, 0.8)
 const SLOT_EMPTY := Color(0.18, 0.14, 0.25, 0.6)
+const SLOT_SELECTED_DROP_COLOR := Color(1.0, 0.82, 0.28, 1.0)
 
-var _slot_panels: Array[Panel] = []
-var _slot_icons: Array[Label] = []
-var _slot_counts: Array[Label] = []
-var _slot_item_ids: Array[String] = []
-var _hovered_slot: int = -1
+# Vị trí "slot" trong drag/drop system:
+#   index >= 0 && index < TOTAL_SLOTS          → inventory slot
+#   index >= 100 && index < 100+5               → hotbar slot (index - 100)
+const SLOT_KIND_INVENTORY := 0
+const SLOT_KIND_TOOLBAR := 1
+
+var _inv_slot_panels: Array[Panel] = []
+var _inv_slot_icons: Array[Label] = []
+var _inv_slot_counts: Array[Label] = []
+
 var _tooltip: RichTextLabel = null
 var _tooltip_panel: Panel = null
 var _tooltip_timer: Timer = null
 var _pending_tooltip_slot: int = -1
 var _game_paused_before: bool = false
-var _hotbar_ref: Control = null
+
+# Drag/drop state
+var _drag_source_slot: int = -1  # -1 = not dragging
+var _drag_amount: int = 0
+var _drag_preview: Panel = null
+var _drop_target_slot: int = -1
+
+var _bright_region: Control = null
+var _inventory_panel: Control = null
 
 func _ready() -> void:
+	print("[InvUI] _ready ENTER, name=", name)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	add_to_group("inventory_ui")
+	print("[InvUI] added to group, is_in_group=", is_in_group("inventory_ui"))
 	visible = false
-	_maybe_pause_tree(false)
-	_build_grid()
+	_apply_box_style("Root/Panel/TitleBox", Color(0.06, 0.04, 0.1, 0.97), Color(0.85, 0.68, 0.38, 1.0), 4, 2, 3.0)
+	_apply_box_style("Root/Panel/GridBox", Color(0.06, 0.04, 0.1, 0.97), Color(0.85, 0.68, 0.38, 1.0), 4, 2, 3.0)
+	_build_inv_grid()
+	_apply_separation_if_ready()
+	_apply_padding_if_ready()
+	_apply_title_size_if_ready()
+	_apply_gridbox_size_if_ready()
+	_apply_panel_size_if_ready()
+	_apply_title_label_offset_if_ready()
 	_build_tooltip()
-	_refresh()
+	GameState.reset_inventory_layout()
+	_refresh_all()
 	GameState.inventory_changed.connect(_on_inventory_changed)
+	GameState.toolbar_changed.connect(_on_toolbar_changed)
+	_bright_region = get_node_or_null("Root/BrightRegion")
+	_inventory_panel = get_node_or_null("Root/Panel")
+	if _bright_region != null:
+		_bright_region.visible = false
+	print("[InvUI] _ready EXIT, _bright_region=", _bright_region, " _inventory_panel=", _inventory_panel)
 
-func _build_grid() -> void:
-	var grid: GridContainer = get_node_or_null("Root/Panel/VBox/GridContainer")
+# Áp style bo góc nhẹ cho PanelContainer (TitleBox / GridBox).
+# bg_color: màu nền nâu, border_color: màu viền vàng nâu,
+# corner_radius: bán kính bo góc (px), border_width: độ dày viền.
+# Viền render "rộng ra ngoài" panel rect thêm expand_px mỗi cạnh — tạo cảm
+# giác viền nhô ra khỏi khung panel, không bị crop bởi parent.
+func _apply_box_style(path: String, bg_color: Color, border_color: Color, corner_radius: int, border_width: int, expand_px: float) -> void:
+	var box: PanelContainer = get_node_or_null(path) as PanelContainer
+	if box == null:
+		return
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg_color
+	style.border_color = border_color
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	style.corner_radius_top_left = corner_radius
+	style.corner_radius_top_right = corner_radius
+	style.corner_radius_bottom_right = corner_radius
+	style.corner_radius_bottom_left = corner_radius
+	style.expand_margin_left = expand_px
+	style.expand_margin_top = expand_px
+	style.expand_margin_right = expand_px
+	style.expand_margin_bottom = expand_px
+	box.add_theme_stylebox_override("panel", style)
+
+
+# --- Live-tweak setters (gọi từ @export setters khi user chỉnh trong Inspector) ---
+# Tất cả đều guard bằng is_inside_tree() / node == null để an toàn trước _ready.
+
+func _apply_panel_size_if_ready() -> void:
+	var panel: Control = get_node_or_null("Root/Panel")
+	if panel == null or not panel.is_inside_tree():
+		return
+	var half_w: int = panel_width / 2
+	var half_h: int = panel_height / 2
+	panel.offset_left = -half_w + screen_offset_x
+	panel.offset_right = half_w + screen_offset_x
+	panel.offset_top = -half_h + screen_offset_y
+	panel.offset_bottom = half_h + screen_offset_y
+	_apply_gridbox_size_if_ready()
+
+func _apply_screen_offset_if_ready() -> void:
+	# Đã có _apply_panel_size_if_ready tự tính screen_offset vào offset,
+	# chỉ cần gọi lại nó khi chỉnh screen_offset_x/y để UI dịch theo.
+	_apply_panel_size_if_ready()
+
+func _apply_gridbox_size_if_ready() -> void:
+	var gridbox: PanelContainer = get_node_or_null("Root/Panel/GridBox")
+	if gridbox == null:
+		return
+	# GridBox left=2, right=panel_width-2, top=title_height-4, bottom=panel_height-5
+	gridbox.offset_left = 2
+	gridbox.offset_right = panel_width - 2
+	gridbox.offset_top = title_height - 4
+	gridbox.offset_bottom = panel_height - 5
+	_apply_padding_if_ready()
+
+func _apply_title_size_if_ready() -> void:
+	var titlebox: PanelContainer = get_node_or_null("Root/Panel/TitleBox")
+	if titlebox == null:
+		return
+	titlebox.offset_right = 2 + title_width
+	titlebox.offset_bottom = 2 + title_height
+	var gridbox: PanelContainer = get_node_or_null("Root/Panel/GridBox")
+	if gridbox != null:
+		gridbox.offset_top = (2 + title_height) - 6
+	_apply_title_label_offset_if_ready()
+
+func _apply_title_label_offset_if_ready() -> void:
+	var label: Label = get_node_or_null("Root/Panel/Title")
+	if label == null:
+		return
+	label.position.y = title_text_v_offset
+	label.position.x = (2 + title_width) / 2.0 - label.size.x / 2.0
+	var titlebox: PanelContainer = get_node_or_null("Root/Panel/TitleBox")
+	if titlebox == null:
+		return
+	label.position.x = titlebox.position.x + (titlebox.size.x / 2.0) - (label.size.x / 2.0)
+	label.position.y = titlebox.position.y + title_text_v_offset
+
+func _apply_padding_if_ready() -> void:
+	var grid: GridContainer = get_node_or_null("Root/Panel/GridBox/GridContainer")
+	if grid == null:
+		return
+	grid.offset_left = inner_padding
+	grid.offset_top = inner_padding
+	grid.offset_right = -inner_padding
+	grid.offset_bottom = -inner_padding
+	_apply_separation_if_ready()
+
+func _apply_separation_if_ready() -> void:
+	var grid: GridContainer = get_node_or_null("Root/Panel/GridBox/GridContainer")
+	if grid == null:
+		return
+	grid.add_theme_constant_override("h_separation", _separation_h)
+	grid.add_theme_constant_override("v_separation", _separation_v)
+
+func _rebuild_grid_if_ready() -> void:
+	# Xoá slot cũ, build lại với SLOT_SIZE mới.
+	var grid: GridContainer = get_node_or_null("Root/Panel/GridBox/GridContainer")
+	if grid == null:
+		return
+	for child in grid.get_children():
+		child.queue_free()
+	_inv_slot_panels.clear()
+	_inv_slot_icons.clear()
+	_inv_slot_counts.clear()
+	# Đợi 1 frame để queue_free hoàn tất trước khi build lại — nhưng gọi trực tiếp
+	# cũng được vì add_child vào GridContainer vẫn hoạt động; Godot xử lý deferred.
+	_build_inv_grid()
+	_refresh_all()
+
+# =============================================================================
+# BUILD UI
+# =============================================================================
+
+func _build_inv_grid() -> void:
+	var grid: GridContainer = get_node_or_null("Root/Panel/GridBox/GridContainer")
 	if grid == null:
 		return
 	for i: int in range(TOTAL_SLOTS):
 		var panel := Panel.new()
 		panel.custom_minimum_size = SLOT_SIZE
-		panel.name = "Slot%d" % i
-
-		var style := StyleBoxFlat.new()
-		style.bg_color = SLOT_BG_COLOR
-		style.border_color = SLOT_EMPTY
-		style.border_width_left = 1
-		style.border_width_top = 1
-		style.border_width_right = 1
-		style.border_width_bottom = 1
-		style.corner_radius_top_left = 2
-		style.corner_radius_top_right = 2
-		style.corner_radius_bottom_right = 2
-		style.corner_radius_bottom_left = 2
-		panel.add_theme_stylebox_override("panel", style)
-
-		panel.gui_input.connect(_on_slot_input.bind(i))
+		panel.name = "InvSlot%d" % i
+		_apply_panel_style(panel, false)
+		panel.gui_input.connect(_on_inv_slot_input.bind(i))
 		panel.mouse_entered.connect(_on_slot_enter.bind(i))
 		panel.mouse_exited.connect(_on_slot_leave.bind(i))
-
-		var icon := Label.new()
-		icon.name = "Icon"
-		icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		icon.add_theme_font_size_override("font_size", 14)
+		var icon := _make_icon_label("InvIcon")
 		panel.add_child(icon)
-		_slot_icons.append(icon)
-
-		var count := Label.new()
-		count.name = "Count"
-		count.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-		count.anchor_left = 1.0
-		count.anchor_top = 1.0
-		count.anchor_right = 1.0
-		count.anchor_bottom = 1.0
-		count.offset_left = -8.0
-		count.offset_top = -8.0
-		count.offset_right = -1.0
-		count.offset_bottom = -1.0
-		count.grow_horizontal = Control.GROW_DIRECTION_END
-		count.grow_vertical = Control.GROW_DIRECTION_END
-		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		count.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-		count.add_theme_font_size_override("font_size", 8)
-		count.add_theme_color_override("font_color", Color(1, 0.92, 0.5, 1))
+		_inv_slot_icons.append(icon)
+		var count := _make_count_label("InvCount")
 		panel.add_child(count)
-		_slot_counts.append(count)
-
+		_inv_slot_counts.append(count)
 		grid.add_child(panel)
-		_slot_panels.append(panel)
-		_slot_item_ids.append("")
+		_inv_slot_panels.append(panel)
+
+func _apply_panel_style(panel: Panel, drop_target: bool) -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = SLOT_BG_COLOR
+	style.border_color = SLOT_EMPTY if not drop_target else SLOT_DROP_TARGET_COLOR
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 2
+	style.corner_radius_top_right = 2
+	style.corner_radius_bottom_right = 2
+	style.corner_radius_bottom_left = 2
+	panel.add_theme_stylebox_override("panel", style)
+
+func _make_icon_label(name_str: String) -> Label:
+	var icon := Label.new()
+	icon.name = name_str
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	icon.add_theme_font_size_override("font_size", 14)
+	return icon
+
+func _make_count_label(name_str: String) -> Label:
+	var count := Label.new()
+	count.name = name_str
+	count.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	count.anchor_left = 1.0
+	count.anchor_top = 1.0
+	count.anchor_right = 1.0
+	count.anchor_bottom = 1.0
+	count.offset_left = -8.0
+	count.offset_top = -8.0
+	count.offset_right = -1.0
+	count.offset_bottom = -1.0
+	count.grow_horizontal = Control.GROW_DIRECTION_END
+	count.grow_vertical = Control.GROW_DIRECTION_END
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	count.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	count.add_theme_font_size_override("font_size", 8)
+	count.add_theme_color_override("font_color", Color(1, 0.92, 0.5, 1))
+	return count
 
 func _build_tooltip() -> void:
 	_tooltip_panel = Panel.new()
@@ -118,21 +351,27 @@ func _build_tooltip() -> void:
 	_tooltip.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_tooltip_panel.add_child(_tooltip)
 
-	# Thêm padding để text không đè viền panel
 	var tooltip_style := StyleBoxEmpty.new()
 	tooltip_style.content_margin_left = 4
 	tooltip_style.content_margin_top = 1.5
 	tooltip_style.content_margin_right = 4
-	tooltip_style.content_margin_bottom = 10
+	tooltip_style.content_margin_bottom = 2
 	_tooltip.add_theme_stylebox_override("normal", tooltip_style)
 
 	_tooltip_timer = Timer.new()
 	_tooltip_timer.wait_time = 0.3
 	_tooltip_timer.one_shot = true
-	_tooltip_timer.timeout.connect(_show_tooltip)
+	_tooltip_timer.timeout.connect(_show_tooltip_for_pending)
 	add_child(_tooltip_timer)
 
-func _unhandled_input(event: InputEvent) -> void:
+# =============================================================================
+# OPEN / CLOSE
+# =============================================================================
+
+func _input(event: InputEvent) -> void:
+	# Toggle inventory cũng được bắt ở HotkeyInputManager (autoload) để chắc
+	# chắn hoạt động dù packed scene này bị delay load. Handler ở đây vẫn
+	# giữ làm fallback — _input chạy trước GUI dispatch.
 	if event.is_action_pressed("toggle_inventory"):
 		if DialogueManager.is_active:
 			return
@@ -140,15 +379,57 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-
 	if event is InputEventMouseMotion:
 		var vp_rect := get_viewport().get_visible_rect()
 		var mouse_pos := get_viewport().get_mouse_position()
 		if not vp_rect.has_point(mouse_pos):
 			_clear_hover()
+
+	# Bắt mouse UP ở _input (không phải _unhandled_input) vì hotbar slots có
+	# mouse_filter = STOP mặc định — chúng ăn event trước khi bubble xuống
+	# unhandled. Khi inventory đang mở và đang drag, hotbar slot không nên
+	# nhận click "chọn slot" — ta consume event để hotbar bỏ qua.
+	if event is InputEventMouseButton and not event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT and _drag_source_slot >= 0:
+			_handle_drag_release()
+			get_viewport().set_input_as_handled()
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Defensive: khi inventory mở + đang drag, mouse UP cũng có thể bubble
+	# tới đây nếu không có control nào trên đường đi.
+	if event is InputEventMouseButton and not event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT and _drag_source_slot >= 0:
+			_handle_drag_release()
+			get_viewport().set_input_as_handled()
+
+func _process(_delta: float) -> void:
+	# Vùng sáng cần update mỗi frame vì hotbar có thể bị layout thay đổi
+	# (resolution, scene change). Tính bounding rect bao trùm cả inventory
+	# panel và hotbar, set BrightRegion = rect đó (không chia ô vuông).
+	if _bright_region != null and _bright_region.visible:
+		_update_bright_region()
+
+	# Cập nhật vị trí preview theo chuột mỗi frame (motion event không bubble
+	# xuống _unhandled_input khi popup đang mở vì mouse_filter của Panel).
+	if _drag_source_slot >= 0 and _drag_preview != null and is_instance_valid(_drag_preview):
+		var mouse_pos: Vector2 = get_viewport().get_mouse_position()
+		_drag_preview.position = mouse_pos - SLOT_SIZE * 0.5
+		# Cập nhật drop target theo vị trí chuột (slot nào chuột đang nằm trên).
+		# Bắt buộc dùng _process vì hotbar slots chặn mouse event (mouse_filter
+		# = STOP mặc định) nên _unhandled_input không nhận được motion.
+		var new_target: int = _find_slot_under_mouse(mouse_pos)
+		if new_target != _drop_target_slot:
+			# Clear highlight slot cũ (nếu đang highlight)
+			if _drop_target_slot >= 0:
+				_apply_drop_target_style(_drop_target_slot, false)
+			_drop_target_slot = new_target
+			# Highlight slot mới nếu khác source
+			if _drop_target_slot >= 0 and _drop_target_slot != _drag_source_slot:
+				_apply_drop_target_style(_drop_target_slot, true)
+	elif _drag_source_slot < 0 and _drop_target_slot != -1:
+		_drop_target_slot = -1
 
 func _toggle() -> void:
 	if visible:
@@ -156,73 +437,109 @@ func _toggle() -> void:
 	else:
 		_open()
 
-func _ui_focus() -> Node:
-	return get_node_or_null("/root/UIFocusManager")
-
 func _open() -> void:
 	_game_paused_before = GameState.is_paused
 	GameState.is_paused = true
 	GameState.game_interacting = true
 	visible = true
-	_refresh()
+	_cancel_drag()
+	_refresh_all()
 	_hide_tooltip()
-	_hotbar_ref = get_tree().get_first_node_in_group("hotbar")
-	if _hotbar_ref != null:
-		_hotbar_ref.visible = false
-	var uif: Node = _ui_focus()
-	if uif != null:
-		uif.call("dim_background", true)
+	# Backdrop tắt theo yêu cầu — chỉ hiện inventory panel, không dim UI phụ
+	# và không vẽ BrightRegion. Nếu muốn bật lại, set _bright_region.visible
+	# = true trước khi gọi _open(), hoặc bỏ comment 2 dòng dưới.
+	# if _bright_region != null:
+	# 	_bright_region.visible = true
+	# 	_update_bright_region()
+	# var uif: Node = get_node_or_null("/root/UIFocusManager")
+	# if uif != null:
+	# 	uif.call("dim_background", true)
 
 func _close() -> void:
 	visible = false
 	GameState.is_paused = _game_paused_before
 	GameState.game_interacting = false
+	_cancel_drag()
 	_hide_tooltip()
 	_clear_hover()
-	if _hotbar_ref != null:
-		_hotbar_ref.visible = true
-	var uif: Node = _ui_focus()
+	# Defensive reset: nếu backdrop từng được bật (qua code path khác),
+	# đảm bảo tắt khi đóng inventory để không kẹt UI mờ.
+	if _bright_region != null and _bright_region.visible:
+		_bright_region.visible = false
+	var uif: Node = get_node_or_null("/root/UIFocusManager")
 	if uif != null:
 		uif.call("dim_background", false)
 
-func _refresh() -> void:
-	for i: int in range(TOTAL_SLOTS):
-		_update_slot(i)
-
-func _update_slot(slot_idx: int) -> void:
-	if slot_idx >= _slot_panels.size():
+# Tính bounding rect (union của TitleBox + GridBox + hotbar) và set BrightRegion
+# position/size. Vùng sáng là một khối liền, không chia ô vuông — nó phủ bên
+# dưới cả inventory boxes và hotbar để chúng nổi bật như 1 layout dọc.
+# Cộng thêm expand_px (StyleBox expand_margin) để viền render nằm gọn trong
+# BrightRegion.
+func _update_bright_region() -> void:
+	if _bright_region == null:
 		return
-	var panel: Panel = _slot_panels[slot_idx]
-	var icon: Label = _slot_icons[slot_idx]
-	var count: Label = _slot_counts[slot_idx]
-	var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
+	var title_box: Control = get_node_or_null("Root/Panel/TitleBox") as Control
+	var grid_box: Control = get_node_or_null("Root/Panel/GridBox") as Control
+	if title_box == null or grid_box == null:
+		return
+	var pad: float = 8.0
+	var expand_px: float = 2.0
+	var inv_rect: Rect2 = title_box.get_global_rect()
+	inv_rect = inv_rect.merge(grid_box.get_global_rect())
+	inv_rect = inv_rect.grow(expand_px)
+	# Hotbar KHÔNG nằm trong BrightRegion — nó luôn hiển thị đầy đủ
+	# (xem UIFocusManager: hotbar loại khỏi dim list).
+	_bright_region.position = inv_rect.position - Vector2(pad, pad)
+	_bright_region.size = inv_rect.size + Vector2(pad * 2, pad * 2)
 
+# =============================================================================
+# REFRESH
+# =============================================================================
+
+func _refresh_all() -> void:
+	_refresh_inv()
+
+func _on_inventory_changed() -> void:
+	if visible:
+		_refresh_inv()
+
+func _on_toolbar_changed() -> void:
+	# Hotbar tự refresh qua signal của nó; inventory không có panel hotbar
+	# riêng — chỉ cần refresh nếu slot đang được highlight drop target.
+	if visible and _drop_target_slot >= 100:
+		_apply_drop_target_style(_drop_target_slot, _is_drop_target(_drop_target_slot))
+
+func _refresh_inv() -> void:
+	for i: int in range(TOTAL_SLOTS):
+		_update_inv_slot(i)
+
+func _update_inv_slot(slot_idx: int) -> void:
+	if slot_idx >= _inv_slot_panels.size():
+		return
+	var panel: Panel = _inv_slot_panels[slot_idx]
+	var icon: Label = _inv_slot_icons[slot_idx]
+	var count: Label = _inv_slot_counts[slot_idx]
 	var item_id: String = ""
 	var amount: int = 0
-
 	if slot_idx < GameState.inventory.size():
 		var entry: Dictionary = GameState.inventory[slot_idx]
 		item_id = entry.get("id", "")
 		amount = entry.get("amount", 1)
+	_fill_slot(panel, icon, count, item_id, amount, slot_idx)
 
-	_slot_item_ids[slot_idx] = item_id
-
+func _fill_slot(panel: Panel, icon: Label, count: Label, item_id: String, amount: int, slot_idx: int) -> void:
 	if item_id == "":
 		icon.text = ""
 		icon.visible = false
 		count.visible = false
-		if style != null:
-			style.bg_color = SLOT_BG_COLOR
-			style.border_color = SLOT_EMPTY
+		_set_slot_border(panel, false, false, slot_idx)
 	else:
 		var data: ItemData = ItemDB.get_item(item_id)
 		if data != null:
 			icon.text = data.icon
 			icon.add_theme_color_override("font_color", data.item_color)
 			icon.visible = true
-			if style != null:
-				style.bg_color = SLOT_BG_COLOR
-				style.border_color = SLOT_BORDER
+			_set_slot_border(panel, true, false, slot_idx)
 			if amount > 1:
 				count.text = str(amount)
 				count.visible = true
@@ -233,162 +550,218 @@ func _update_slot(slot_idx: int) -> void:
 			icon.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
 			icon.visible = true
 			count.visible = false
-			if style != null:
-				style.border_color = SLOT_BORDER
+			_set_slot_border(panel, true, false, slot_idx)
 
-	if slot_idx == _hovered_slot:
-		_apply_hover_style(slot_idx)
+func _set_slot_border(panel: Panel, has_item: bool, is_drop: bool, slot_idx: int) -> void:
+	var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
+	if style == null:
+		return
+	# Highlight bị tắt theo yêu cầu: drag preview di chuyển theo chuột là đủ
+	# tín hiệu trực quan — không highlight source / drop target slot.
+	style.bg_color = SLOT_BG_COLOR
+	style.border_color = SLOT_BORDER if has_item else SLOT_EMPTY
 
-func _on_inventory_changed() -> void:
-	if visible:
-		_refresh()
+func _apply_drop_target_style(slot_idx: int, is_drop_target: bool) -> void:
+	if slot_idx >= 100:
+		# Toolbar slot — hotbar tự render và tự highlight
+		var hotbar: Control = get_tree().get_first_node_in_group("hotbar")
+		if hotbar != null and hotbar.has_method("highlight_slot"):
+			# Vẫn gọi để reset style về default (highlight đã tắt).
+			hotbar.call("highlight_slot", slot_idx - 100, false)
+		return
+	var panel: Panel = _get_panel_for_slot(slot_idx)
+	if panel == null:
+		return
+	# Highlight đã tắt — không đổi border width / bg; reset về default.
+	_set_slot_border(panel, _has_item_in_slot(slot_idx), false, slot_idx)
+
+func _has_item_in_slot(slot_idx: int) -> bool:
+	if slot_idx < 100:
+		if slot_idx >= GameState.inventory.size():
+			return false
+		return GameState.inventory[slot_idx].get("id", "") != ""
+	else:
+		var ti := slot_idx - 100
+		if ti >= GameState.toolbar.size():
+			return false
+		return GameState.toolbar[ti].get("id", "") != ""
+
+func _get_panel_for_slot(slot_idx: int) -> Panel:
+	if slot_idx < 100:
+		if slot_idx >= _inv_slot_panels.size():
+			return null
+		return _inv_slot_panels[slot_idx]
+	# Toolbar slot (>=100) nằm ngoài inventory UI (dùng hotbar bên ngoài).
+	# Inventory không giữ reference tới panel đó — giao diện hotbar tự render.
+	return null
+
+# =============================================================================
+# SLOT EVENTS
+# =============================================================================
 
 func _on_slot_enter(slot_idx: int) -> void:
-	_hovered_slot = slot_idx
-	_apply_hover_style(slot_idx)
+	if _drag_source_slot >= 0:
+		# đang drag → highlight slot này là drop target nếu khác source
+		var is_drop := (slot_idx != _drag_source_slot)
+		_apply_drop_target_style(slot_idx, is_drop)
+		if is_drop:
+			_drop_target_slot = slot_idx
+		return
 	_pending_tooltip_slot = slot_idx
 	_tooltip_timer.start()
 
 func _on_slot_leave(slot_idx: int) -> void:
 	_tooltip_timer.stop()
-	if _hovered_slot == slot_idx:
-		_hovered_slot = -1
-		_apply_normal_style(slot_idx)
+	_apply_drop_target_style(slot_idx, false)
+	if _drop_target_slot == slot_idx:
+		_drop_target_slot = -1
 	_hide_tooltip()
 
-func _apply_hover_style(slot_idx: int) -> void:
-	if slot_idx >= _slot_panels.size():
-		return
-	var panel: Panel = _slot_panels[slot_idx]
-	var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
-	if style != null:
-		style.bg_color = SLOT_HOVER_COLOR
-		style.border_color = SLOT_SELECTED_COLOR
-		style.border_width_left = 2
-		style.border_width_top = 2
-		style.border_width_right = 2
-		style.border_width_bottom = 2
-
-func _apply_normal_style(slot_idx: int) -> void:
-	if slot_idx >= _slot_panels.size():
-		return
-	var panel: Panel = _slot_panels[slot_idx]
-	var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
-	if style != null:
-		style.border_width_left = 1
-		style.border_width_top = 1
-		style.border_width_right = 1
-		style.border_width_bottom = 1
-		if _slot_item_ids[slot_idx] != "":
-			style.bg_color = SLOT_BG_COLOR
-			style.border_color = SLOT_BORDER
-		else:
-			style.bg_color = SLOT_BG_COLOR
-			style.border_color = SLOT_EMPTY
-
-func _on_slot_input(event: InputEvent, slot_idx: int) -> void:
+func _on_inv_slot_input(event: InputEvent, slot_idx: int) -> void:
 	if not (event is InputEventMouseButton and event.pressed):
 		return
-	if slot_idx >= GameState.inventory.size():
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		# Right click → show info
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			_show_item_info_for(slot_idx)
 		return
-
-	var entry: Dictionary = GameState.inventory[slot_idx]
-	var item_id: String = entry.get("id", "")
-	if item_id == "":
-		return
-
-	if event.button_index == MOUSE_BUTTON_LEFT:
-		_use_item(slot_idx)
-	elif event.button_index == MOUSE_BUTTON_RIGHT:
-		_show_item_info(slot_idx)
-
-func _use_item(slot_idx: int) -> void:
 	if slot_idx >= GameState.inventory.size():
 		return
 	var entry: Dictionary = GameState.inventory[slot_idx]
-	var item_id: String = entry.get("id", "")
+	if entry.get("id", "") == "":
+		return
+	# Bắt đầu drag từ inventory slot
+	_start_drag(slot_idx, entry.get("id", ""), int(entry.get("amount", 1)))
+
+func _on_toolbar_slot_input(_event: InputEvent, _toolbar_idx: int) -> void:
+	pass
+
+# =============================================================================
+# DRAG / DROP
+# =============================================================================
+
+func _start_drag(slot_idx: int, item_id: String, amount: int) -> void:
 	if item_id == "":
 		return
-
+	_cancel_drag()
+	_drag_source_slot = slot_idx
+	_drag_amount = amount
+	# Tạo preview panel nhỏ di theo chuột
+	var preview := Panel.new()
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.size = SLOT_SIZE
+	preview.z_index = 50
+	var preview_style := StyleBoxFlat.new()
+	preview_style.bg_color = SLOT_BG_COLOR
+	preview_style.border_color = Color(1, 0.82, 0.28, 1)
+	preview_style.border_width_left = 2
+	preview_style.border_width_top = 2
+	preview_style.border_width_right = 2
+	preview_style.border_width_bottom = 2
+	preview_style.corner_radius_top_left = 2
+	preview_style.corner_radius_top_right = 2
+	preview_style.corner_radius_bottom_right = 2
+	preview_style.corner_radius_bottom_left = 2
+	preview.add_theme_stylebox_override("panel", preview_style)
+	var icon := Label.new()
+	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	icon.add_theme_font_size_override("font_size", 14)
 	var data: ItemData = ItemDB.get_item(item_id)
-	if data == null:
-		return
-
-	match data.item_type:
-		ItemData.Type.CONSUMABLE:
-			ItemHandler.use_item(item_id, true)
-		ItemData.Type.TOOL:
-			ItemHandler.use_item(item_id, false)
-		ItemData.Type.SEED:
-			ItemHandler.use_item(item_id, true)
-		ItemData.Type.KEY_ITEM:
-			_show_item_info(slot_idx)
-		_:
-			_show_item_info(slot_idx)
-
-func _show_item_info(slot_idx: int) -> void:
-	if slot_idx >= GameState.inventory.size():
-		return
-	var entry: Dictionary = GameState.inventory[slot_idx]
-	var item_id: String = entry.get("id", "")
-	if item_id == "":
-		return
-
-	var data: ItemData = ItemDB.get_item(item_id)
-	if data == null:
-		return
-
-	var lines: Array[String] = []
-	lines.append("[color=#FFD866]%s[/color]" % data.get_display_name())
-	lines.append("[color=#AAA]%s[/color]" % data.get_type_name())
-	if data.description != "":
-		lines.append("[color=#CCC]%s[/color]" % data.description)
-	lines.append("")
-	var amount: int = entry.get("amount", 1)
-	lines.append("[color=#888]Owned: %d[/color]" % amount)
-	match data.item_type:
-		ItemData.Type.CONSUMABLE:
-			if data.effect_type == ItemData.Effect.RESTORE_ENERGY:
-				lines.append("[color=#6F6]%+d Energy[/color]" % int(data.energy_restore))
-			elif data.effect_type == ItemData.Effect.RESTORE_HEALTH:
-				lines.append("[color=#F66]%+d Health[/color]" % int(data.health_restore))
-		ItemData.Type.SEED:
-			lines.append("[color=#6A6]Grows: %s[/color]" % data.harvest_item_id.capitalize().replace("_", " "))
-			lines.append("[color=#666]Days: %d[/color]" % data.grow_days)
-
-	_tooltip.text = "\n".join(lines)
-
-	var slot_global_pos: Vector2
-	if slot_idx < _slot_panels.size():
-		slot_global_pos = _slot_panels[slot_idx].get_global_rect().position
+	if data != null:
+		icon.text = data.icon
+		icon.add_theme_color_override("font_color", data.item_color)
 	else:
-		slot_global_pos = get_viewport().get_mouse_position()
+		icon.text = "?"
+	preview.add_child(icon)
+	# Đặt preview vào CanvasLayer (self) để không bị clip bởi Panel container
+	add_child(preview)
+	preview.position = get_viewport().get_mouse_position() - SLOT_SIZE * 0.5
+	_drag_preview = preview
+	# (Highlight source đã tắt — drag preview di chuyển theo chuột là đủ tín hiệu.)
 
-	var tt_size := Vector2(120, 60)
-	var tt_pos := slot_global_pos + Vector2(SLOT_SIZE.x + 4, 0)
-	if tt_pos.x + tt_size.x > get_viewport().get_visible_rect().size.x:
-		tt_pos.x = slot_global_pos.x - tt_size.x - 4
+func _update_drag_preview(mouse_pos: Vector2) -> void:
+	if _drag_preview != null and is_instance_valid(_drag_preview):
+		_drag_preview.position = mouse_pos - SLOT_SIZE * 0.5
 
-	_tooltip_panel.position = tt_pos
-	_tooltip_panel.custom_minimum_size = tt_size
-	_tooltip_panel.visible = true
-	_tooltip_timer.stop()
-
-func _show_tooltip() -> void:
-	if _pending_tooltip_slot < 0 or _pending_tooltip_slot >= GameState.inventory.size():
-		_hide_tooltip()
+func _handle_drag_release() -> void:
+	if _drag_source_slot < 0:
 		return
-	var entry: Dictionary = GameState.inventory[_pending_tooltip_slot]
+	var drop_slot := _find_slot_under_mouse(get_viewport().get_mouse_position())
+	if drop_slot >= 0 and drop_slot != _drag_source_slot:
+		# Swap bất kể ô đích có item hay không — move item giữa các ô trống
+		# hoặc hoán đổi vị trí khi cả 2 ô đều có item.
+		_swap_slots(_drag_source_slot, drop_slot)
+	_cancel_drag()
+
+func _find_slot_under_mouse(mouse_pos: Vector2) -> int:
+	# Ưu tiên inventory trước (trên cùng), rồi đến hotbar ở dưới màn hình.
+	for i: int in range(_inv_slot_panels.size()):
+		var p := _inv_slot_panels[i]
+		if is_instance_valid(p) and p.get_global_rect().has_point(mouse_pos):
+			return i
+	# Hotbar slots nằm ngoài inventory UI; truy vấn qua group "hotbar".
+	var hotbar: Control = get_tree().get_first_node_in_group("hotbar")
+	if hotbar != null:
+		var slot_names := ["Slot0", "Slot1", "Slot2", "Slot3", "Slot4"]
+		for i: int in range(slot_names.size()):
+			var slot: Control = hotbar.get_node_or_null("SlotsContainer/" + slot_names[i]) as Control
+			if slot != null and is_instance_valid(slot) and slot.get_global_rect().has_point(mouse_pos):
+				return 100 + i
+	return -1
+
+func _is_drop_target(slot_idx: int) -> bool:
+	return _drag_source_slot >= 0 and slot_idx != _drag_source_slot
+
+func _swap_slots(a: int, b: int) -> void:
+	if a == b:
+		return
+	# a < 100: inventory ; a >= 100: toolbar
+	if a < 100 and b < 100:
+		GameState.swap_inventory_slots(a, b)
+	elif a >= 100 and b >= 100:
+		GameState.swap_toolbar_slots(a - 100, b - 100)
+	else:
+		# inventory ↔ toolbar
+		if a < 100:
+			GameState.swap_inventory_toolbar(a, b - 100)
+		else:
+			GameState.swap_inventory_toolbar(b, a - 100)
+
+func _swap_inv_inv(a: int, b: int) -> void:
+	# Deprecated — dùng GameState.swap_inventory_slots trực tiếp.
+	GameState.swap_inventory_slots(a, b)
+
+func _cancel_drag() -> void:
+	if _drag_preview != null and is_instance_valid(_drag_preview):
+		_drag_preview.queue_free()
+	_drag_preview = null
+	# Reset style của source slot
+	if _drag_source_slot >= 0:
+		var panel: Panel = _get_panel_for_slot(_drag_source_slot)
+		if panel != null:
+			_apply_drop_target_style(_drag_source_slot, false)
+	_drag_source_slot = -1
+	_drag_amount = 0
+	_drop_target_slot = -1
+
+# =============================================================================
+# TOOLTIP / INFO
+# =============================================================================
+
+func _show_tooltip_for_pending() -> void:
+	if _pending_tooltip_slot < 0:
+		return
+	var entry: Dictionary = _get_slot_entry(_pending_tooltip_slot)
+	if entry.is_empty():
+		return
 	var item_id: String = entry.get("id", "")
 	if item_id == "":
-		_hide_tooltip()
 		return
-
 	var data: ItemData = ItemDB.get_item(item_id)
 	if data == null:
-		_hide_tooltip()
 		return
-
 	var name_text := "[color=#FFD866]%s[/color]" % data.get_display_name()
 	var type_text := "[color=#AAA]%s[/color]" % data.get_type_name()
 	var effect_text := ""
@@ -402,23 +775,74 @@ func _show_tooltip() -> void:
 			effect_text = "[color=#6A6]%dd to harvest[/color]" % data.grow_days
 		ItemData.Type.TOOL:
 			effect_text = "[color=#AAA]Equip[/color]"
-
 	_tooltip.text = "\n".join([name_text, type_text, effect_text])
-
+	var panel: Panel = _get_panel_for_slot(_pending_tooltip_slot)
 	var slot_global_pos: Vector2
-	if _pending_tooltip_slot < _slot_panels.size():
-		slot_global_pos = _slot_panels[_pending_tooltip_slot].get_global_rect().position
+	if panel != null:
+		slot_global_pos = panel.get_global_rect().position
 	else:
 		slot_global_pos = get_viewport().get_mouse_position()
-
 	var tt_size := Vector2(100, 36)
 	var tt_pos := slot_global_pos + Vector2(SLOT_SIZE.x + 4, 0)
 	if tt_pos.x + tt_size.x > get_viewport().get_visible_rect().size.x:
 		tt_pos.x = slot_global_pos.x - tt_size.x - 4
-
 	_tooltip_panel.position = tt_pos
 	_tooltip_panel.custom_minimum_size = tt_size
 	_tooltip_panel.visible = true
+
+func _show_item_info_for(slot_idx: int) -> void:
+	var entry: Dictionary = _get_slot_entry(slot_idx)
+	if entry.is_empty():
+		return
+	var item_id: String = entry.get("id", "")
+	if item_id == "":
+		return
+	var data: ItemData = ItemDB.get_item(item_id)
+	if data == null:
+		return
+	var lines: Array[String] = []
+	lines.append("[color=#FFD866]%s[/color]" % data.get_display_name())
+	lines.append("[color=#AAA]%s[/color]" % data.get_type_name())
+	if data.description != "":
+		lines.append("[color=#CCC]%s[/color]" % data.description)
+	lines.append("")
+	var amount: int = int(entry.get("amount", 1))
+	lines.append("[color=#888]Owned: %d[/color]" % amount)
+	match data.item_type:
+		ItemData.Type.CONSUMABLE:
+			if data.effect_type == ItemData.Effect.RESTORE_ENERGY:
+				lines.append("[color=#6F6]%+d Energy[/color]" % int(data.energy_restore))
+			elif data.effect_type == ItemData.Effect.RESTORE_HEALTH:
+				lines.append("[color=#F66]%+d Health[/color]" % int(data.health_restore))
+		ItemData.Type.SEED:
+			lines.append("[color=#6A6]Grows: %s[/color]" % data.harvest_item_id.capitalize().replace("_", " "))
+			lines.append("[color=#666]Days: %d[/color]" % data.grow_days)
+	_tooltip.text = "\n".join(lines)
+	var panel: Panel = _get_panel_for_slot(slot_idx)
+	var slot_global_pos: Vector2
+	if panel != null:
+		slot_global_pos = panel.get_global_rect().position
+	else:
+		slot_global_pos = get_viewport().get_mouse_position()
+	var tt_size := Vector2(120, 60)
+	var tt_pos := slot_global_pos + Vector2(SLOT_SIZE.x + 4, 0)
+	if tt_pos.x + tt_size.x > get_viewport().get_visible_rect().size.x:
+		tt_pos.x = slot_global_pos.x - tt_size.x - 4
+	_tooltip_panel.position = tt_pos
+	_tooltip_panel.custom_minimum_size = tt_size
+	_tooltip_panel.visible = true
+	_tooltip_timer.stop()
+
+func _get_slot_entry(slot_idx: int) -> Dictionary:
+	if slot_idx < 100:
+		if slot_idx >= GameState.inventory.size():
+			return {}
+		return GameState.inventory[slot_idx]
+	else:
+		var ti := slot_idx - 100
+		if ti >= GameState.toolbar.size():
+			return {}
+		return GameState.toolbar[ti]
 
 func _hide_tooltip() -> void:
 	if _tooltip_panel != null:
@@ -426,12 +850,8 @@ func _hide_tooltip() -> void:
 	_pending_tooltip_slot = -1
 
 func _clear_hover() -> void:
-	var prev := _hovered_slot
-	_hovered_slot = -1
 	_tooltip_timer.stop()
 	_hide_tooltip()
-	if prev >= 0:
-		_apply_normal_style(prev)
 
 func _maybe_pause_tree(pause: bool) -> void:
 	get_tree().paused = pause

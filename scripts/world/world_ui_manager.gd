@@ -13,13 +13,34 @@ func _ready() -> void:
 	var tree := get_tree()
 	_scene_path = tree.current_scene.scene_file_path if tree and tree.current_scene else ""
 
-	var existing_ui = get_node_or_null("UI") as CanvasLayer
+	# Script này được attach vào CanvasLayer "UI" trong scene. Bản thân
+	# script instance là Node (extends Node), không phải CanvasLayer. Để lấy
+	# UI CanvasLayer chứa script, dùng get_parent() — node parent của script.
+	# Nếu scene không có UI node, get_parent() sẽ là root scene → null.
+	var existing_ui: CanvasLayer = null
+	var parent := get_parent()
+	if parent is CanvasLayer and parent.name == "UI":
+		existing_ui = parent as CanvasLayer
+		print("[WorldUIManager] detected existing UI via get_parent()")
+	# Fallback: tìm UI qua absolute path trong tree root
+	if existing_ui == null:
+		var root := tree.root if tree != null else null
+		if root != null:
+			var found := root.find_child("UI", true, false)
+			if found is CanvasLayer and found.name == "UI":
+				existing_ui = found as CanvasLayer
+				print("[WorldUIManager] detected existing UI via find_child")
+
+	# Đường dẫn root để spawn các UI cần layer riêng (Dialogue, FloatingWarning…)
+	# để chúng luôn nằm trên các UI phụ (hotbar/energy/day info) ở UI canvas.
+	var root_node: Node = tree.root
+
 	if existing_ui != null:
 		_ui_layer = existing_ui
+		# DialogueUI được spawn vào root (CanvasLayer riêng layer=50) — KHÔNG
+		# thêm vào _ui_layer (layer=1) vì sẽ bị hotbar ở cùng layer che mất.
 		for child in existing_ui.get_children():
-			if child.name == "DialogueUI":
-				_dialogue_ui = child
-			elif child.name == "ShopUI":
+			if child.name == "ShopUI":
 				_shop_ui = child
 			elif child.name == "Hotbar":
 				_hotbar = child
@@ -28,8 +49,10 @@ func _ready() -> void:
 				_gold_label = child.get_node_or_null("GoldPanel/GoldLabel")
 			elif child.name == "MapLabel":
 				_map_label = child
+		# Tìm DialogueUI đã tồn tại trong root (CanvasLayer riêng)
+		_dialogue_ui = _find_dialogue_ui_in_tree(root_node)
 		if _dialogue_ui == null:
-			_dialogue_ui = _spawn_dialogue_ui()
+			_dialogue_ui = _spawn_dialogue_ui(root_node)
 		if _shop_ui == null:
 			_shop_ui = _spawn_shop_ui()
 		if _hotbar == null:
@@ -38,6 +61,10 @@ func _ready() -> void:
 			_create_day_info()
 		if not _ui_layer.has_node("MapLabel"):
 			_create_map_label()
+		# Luôn đảm bảo InventoryUI tồn tại — packed scene reference trong scene
+		# gốc có thể fail load, ta spawn bằng code thay thế.
+		if not _ui_layer.has_node("InventoryUI"):
+			_spawn_inventory_ui()
 		_set_map_name_from_scene()
 		print("[WorldUIManager] Using existing CanvasLayer — scene: ", _scene_path)
 		return
@@ -47,26 +74,71 @@ func _ready() -> void:
 	add_child(_ui_layer)
 	_create_day_info()
 	_create_map_label()
-	_spawn_dialogue_ui()
+	# Spawn các UI vào root để có layer riêng (dialogue, popup), phần còn lại
+	# (hotbar, day info, map label) vào _ui_layer.
+	_dialogue_ui = _spawn_dialogue_ui(root_node)
 	_spawn_shop_ui()
 	_spawn_hotbar()
+	_spawn_inventory_ui()
 	_set_map_name_from_scene()
 	print("[WorldUIManager] Built UI from code — scene: ", _scene_path)
 
 func get_ui_layer() -> CanvasLayer:
 	return _ui_layer
 
-func _spawn_dialogue_ui() -> Node:
+func _spawn_dialogue_ui(target: Node = null) -> Node:
 	if _dialogue_ui != null:
 		return _dialogue_ui
 	if not ResourceLoader.exists("res://scenes/ui/dialogue_ui.tscn"):
 		return null
 	var scene_res = load("res://scenes/ui/dialogue_ui.tscn")
-	if scene_res:
-		_dialogue_ui = scene_res.instantiate()
-		_dialogue_ui.name = "DialogueUI"
-		_ui_layer.add_child(_dialogue_ui)
+	if scene_res == null:
+		return null
+	_dialogue_ui = scene_res.instantiate()
+	_dialogue_ui.name = "DialogueUI"
+	# Spawn vào root để dùng CanvasLayer riêng (layer=50) — đảm bảo hộp thoại
+	# LUÔN nằm trên các UI phụ (hotbar/energy/day info ở UI canvas layer=1).
+	if target == null:
+		target = _ui_layer if _ui_layer != null else get_tree().root
+	target.add_child(_dialogue_ui)
 	return _dialogue_ui
+
+# Tìm DialogueUI đã được spawn bởi WorldUIManager (hoặc bất kỳ code path nào).
+# Luôn trả về DialogueUI Control (script-attached), không phải DialogueLayer.
+# DialogueLayer có thể đã được rename thành "DialogueUI" khi instance từ scene
+# file gốc (ví dụ inside_shop_map.tscn đặt DialogueUI thẳng dưới UI canvas).
+func _find_dialogue_ui_in_tree(root_node: Node) -> Node:
+	if root_node == null:
+		return null
+	# Duyệt root: tìm mọi node có script dialogue_ui.gd.
+	var found: Node = _find_node_with_script(root_node, "res://scripts/ui/dialogue_ui.gd")
+	if found != null:
+		return found
+	# Fallback: tìm theo tên "DialogueUI" — chỉ chấp nhận nếu node đó là Control
+	# (KHÔNG phải CanvasLayer, vì CanvasLayer "DialogueUI" là DialogueLayer).
+	var named: Node = root_node.find_child("DialogueUI", true, false)
+	if named is Control:
+		return named
+	# Tìm DialogueLayer riêng (cấu trúc 2 node).
+	var layer: Node = root_node.find_child("DialogueLayer", true, false)
+	if layer != null:
+		var ui: Node = layer.find_child("DialogueUI", true, false)
+		if ui != null:
+			return ui
+	return null
+
+func _find_node_with_script(root_node: Node, script_path: String) -> Node:
+	if root_node == null:
+		return null
+	if root_node.get_script() != null:
+		var sp: String = root_node.get_script().resource_path
+		if sp == script_path:
+			return root_node
+	for child in root_node.get_children():
+		var r: Node = _find_node_with_script(child, script_path)
+		if r != null:
+			return r
+	return null
 
 func _spawn_shop_ui() -> Node:
 	if _shop_ui != null:
@@ -95,6 +167,34 @@ func _spawn_hotbar() -> Node:
 		_ui_layer.add_child(_hotbar)
 		print("[WorldUIManager] Hotbar spawned!")
 	return _hotbar
+
+func _spawn_inventory_ui() -> Node:
+	# Tạo InventoryUI programmatic để bypass packed scene loading issue.
+	# Reference packed scene trong scene file có thể fail khi:
+	#   - ext_resource không có uid hợp lệ
+	#   - packed scene có lỗi parse hoặc script gặp lỗi khi load
+	# Spawn bằng code đảm bảo node luôn có trong tree và group "inventory_ui"
+	# được set. InventoryUI script sẽ tự build UI trong _ready.
+	print("[WorldUIManager] _spawn_inventory_ui ENTER")
+	if not ResourceLoader.exists("res://scenes/ui/inventory_ui.tscn"):
+		print("[WorldUIManager] inventory_ui.tscn not found!")
+		return null
+	print("[WorldUIManager] loading inventory_ui.tscn...")
+	var scene_res = load("res://scenes/ui/inventory_ui.tscn")
+	print("[WorldUIManager] load result: ", scene_res)
+	if scene_res == null:
+		print("[WorldUIManager] Failed to load inventory_ui.tscn (null)")
+		return null
+	print("[WorldUIManager] instantiating...")
+	var inv = scene_res.instantiate()
+	print("[WorldUIManager] instantiate result: ", inv)
+	if inv == null:
+		print("[WorldUIManager] Failed to instantiate inventory_ui.tscn")
+		return null
+	inv.name = "InventoryUI"
+	_ui_layer.add_child(inv)
+	print("[WorldUIManager] InventoryUI spawned fresh from code, is_in_group=", inv.is_in_group("inventory_ui"))
+	return inv
 
 func _create_day_info() -> void:
 	if _ui_layer.has_node("DayInfo"):

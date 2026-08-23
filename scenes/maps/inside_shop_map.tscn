@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://bwakjyivdpisv"]
+[gd_scene load_steps=13 format=3 uid="uid://bwakjyivdpisv"]
 
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/npc/shopkeeper.tscn" id="2_shopkeeper"]
@@ -6,7 +6,6 @@
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="4_trans"]
 [ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="5_uimgr"]
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_ui.tscn" id="6_dui"]
-[ext_resource type="PackedScene" path="res://scenes/ui/inventory_ui.tscn" id="7_inv"]
 [ext_resource type="Script" uid="uid://csb0usahe6ut0" path="res://scripts/world/scene_root.gd" id="8_sceneroot"]
 
 [sub_resource type="RectangleShape2D" id="RS_wall_h"]
@@ -181,5 +180,3 @@ position = Vector2(100, 135)
 script = ExtResource("5_uimgr")
 
 [node name="DialogueUI" parent="UI" instance=ExtResource("6_dui")]
-
-[node name="InventoryUI" parent="UI" instance=ExtResource("7_inv")]

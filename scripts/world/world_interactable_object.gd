@@ -51,8 +51,10 @@ func _ensure_prompt_label() -> void:
 
 
 func _process(_delta: float) -> void:
-	if _player_inside and Input.is_action_just_pressed("interact"):
-		_do_interact()
+	# KHÔNG xử lý input ở đây — player._unhandled_input gọi interact(player)
+	# qua raycast/proximity. Trước đây _process cũng check
+	# Input.is_action_just_pressed gây double-trigger. Bỏ duplicate.
+	pass
 
 
 func interact(_player: Node) -> void:

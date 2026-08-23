@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://dgy10g2koldw6"]
+[gd_scene load_steps=11 format=3 uid="uid://dgy10g2koldw6"]
 
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="3_trans"]
@@ -7,7 +7,6 @@
 [ext_resource type="PackedScene" path="res://scenes/world/items/apple.tscn" id="8_apple"]
 [ext_resource type="Script" uid="uid://csfm82tpxbelg" path="res://scripts/world/farm/farm_manager.gd" id="9_fmgr"]
 [ext_resource type="PackedScene" path="res://scenes/world/farm/crop_visual_manager.tscn" id="10_cropvis"]
-[ext_resource type="PackedScene" path="res://scenes/ui/inventory_ui.tscn" id="11_inv"]
 [ext_resource type="Script" path="res://scripts/world/scene_root.gd" id="12_sceneroot"]
 
 [sub_resource type="RectangleShape2D" id="RS_wall_h"]
@@ -244,5 +243,3 @@ limit_bottom = 600
 position = Vector2(350, 400)
 
 [node name="UI" type="CanvasLayer" parent="."]
-
-[node name="InventoryUI" parent="UI" instance=ExtResource("11_inv")]

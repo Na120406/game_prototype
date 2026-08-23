@@ -46,12 +46,14 @@ func _build_ground_tileset() -> void:
 	ts.add_source(src)
 
 	# Custom-data layer for soil_state (matches farm_manager constants)
-	var cd_soil := TileSetCustomDataLayer.new()
-	cd_soil.name = "soil_state"
-	ts.add_custom_data_layer(cd_soil)
-	var cd_crop := TileSetCustomDataLayer.new()
-	cd_crop.name = "crop_stage"
-	ts.add_custom_data_layer(cd_crop)
+	# Note: add_custom_data_layer() returns void in this Godot version,
+	# so we track the index manually as the new last index.
+	ts.add_custom_data_layer()
+	var cd_soil := ts.get_custom_data_layers_count() - 1
+	ts.set_custom_data_layer_name(cd_soil, "soil_state")
+	ts.add_custom_data_layer()
+	var cd_crop := ts.get_custom_data_layers_count() - 1
+	ts.set_custom_data_layer_name(cd_crop, "crop_stage")
 
 	# Create every tile in the grid
 	for y in 18:
@@ -97,15 +99,15 @@ func _build_decor_tileset() -> void:
 	ts.add_source(src)
 
 	# Physics layer for fences/trees
-	var phys := TileSetPhysicsLayer.new()
-	phys.collision_layer = 2
-	phys.collision_mask = 2
-	ts.add_physics_layer(phys)
+	ts.add_physics_layer()
+	var phys := ts.get_physics_layers_count() - 1
+	ts.set_physics_layer_collision_layer(phys, 2)
+	ts.set_physics_layer_collision_mask(phys, 2)
 
 	# Custom-data layer for tile kind (0=visual, 1=fence, 2=tree, 3=house, 4=well)
-	var cd := TileSetCustomDataLayer.new()
-	cd.name = "decor_kind"
-	ts.add_custom_data_layer(cd)
+	ts.add_custom_data_layer()
+	var cd := ts.get_custom_data_layers_count() - 1
+	ts.set_custom_data_layer_name(cd, "decor_kind")
 
 	for y in 18:
 		for x in 42:

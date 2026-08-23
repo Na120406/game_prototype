@@ -84,10 +84,14 @@ func _ready() -> void:
 #   node: Node - node vừa được thêm
 
 func _on_node_added(node: Node) -> void:
-	# Chỉ quan tâm đến DialogueUI
-	if node.name != "DialogueUI":
+	# Bắt mọi node có script dialogue_ui.gd — đây là cách đáng tin cậy nhất
+	# để detect DialogueUI Control được thêm vào cây (dù là instance từ scene
+	# file gốc hay được spawn bằng code).
+	if node.get_script() == null:
 		return
-	
+	if node.get_script().resource_path != "res://scripts/ui/dialogue_ui.gd":
+		return
+
 	# Kết nối với DialogueUI
 	var ui: Node = _get_dialogue_ui()
 	if ui == null:
@@ -378,12 +382,36 @@ func _get_dialogue_ui() -> Node:
 	var scene: SceneTree = get_tree()
 	if scene == null:
 		return null
-	
+
+	# Ưu tiên tìm node có script dialogue_ui.gd trong toàn bộ scene tree
+	# (DialogueUI có thể nằm trong current_scene HOẶC ở root nếu được spawn
+	# bởi WorldUIManager với CanvasLayer riêng).
+	var root_node: Node = scene.root
+	if root_node != null:
+		var by_script: Node = _find_node_with_script(root_node)
+		if by_script != null:
+			return by_script
+
+	# Fallback: tìm theo tên "DialogueUI" trong current_scene (cấu trúc cũ)
 	var root_scene: Node = scene.current_scene
-	if root_scene == null:
+	if root_scene != null:
+		var found: Node = _find_child(root_scene, "DialogueUI")
+		if found != null:
+			return found
+	return null
+
+func _find_node_with_script(root_node: Node) -> Node:
+	if root_node == null:
 		return null
-	
-	return _find_child(root_scene, "DialogueUI")
+	if root_node.get_script() != null:
+		var sp: String = root_node.get_script().resource_path
+		if sp == "res://scripts/ui/dialogue_ui.gd":
+			return root_node
+	for child in root_node.get_children():
+		var r: Node = _find_node_with_script(child)
+		if r != null:
+			return r
+	return null
 
 
 # =============================================================================

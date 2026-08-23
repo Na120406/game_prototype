@@ -51,7 +51,7 @@ func load_game(slot: int = 0) -> bool:
 
 	var scene_path: String = save_data.get("current_scene", "")
 	if scene_path != "":
-		SceneManager.change_scene(scene_path, false)
+		SceneManager.change_scene(scene_path, "", false)
 
 	load_completed.emit(slot)
 	print("[SaveManager] Loaded from slot %d." % slot)

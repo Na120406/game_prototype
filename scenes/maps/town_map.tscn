@@ -1,11 +1,10 @@
-[gd_scene load_steps=9 format=4 uid="uid://de5kc56thmwpd"]
+[gd_scene load_steps=8 format=4 uid="uid://de5kc56thmwpd"]
 
 [ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_ground"]
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" path="res://scripts/world/world_transition.gd" id="3_trans"]
 [ext_resource type="Script" path="res://scripts/world/world_ui_manager.gd" id="4_uimgr"]
 [ext_resource type="Script" path="res://scripts/world/scene_root.gd" id="5_sceneroot"]
-[ext_resource type="PackedScene" uid="uid://inv_ui_01" path="res://scenes/ui/inventory_ui.tscn" id="10_inv"]
 
 [sub_resource type="TileSetAtlasSource" id="TSA_town"]
 texture = ExtResource("1_ground")
@@ -187,5 +186,3 @@ position_smoothing_enabled = false
 
 [node name="UI" type="CanvasLayer" parent="."]
 script = ExtResource("4_uimgr")
-
-[node name="InventoryUI" parent="UI" instance=ExtResource("10_inv")]
