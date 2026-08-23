@@ -59,6 +59,12 @@ func _ready() -> void:
 			_hotbar = _spawn_hotbar()
 		if not _ui_layer.has_node("DayInfo"):
 			_create_day_info()
+		else:
+			# Scene đã có sẵn DayInfo → bổ sung ClockPanel nếu thiếu (chèn
+			# giữa DayPanel và GoldPanel). Idempotent — không thêm nếu đã có.
+			var existing_day_info: Node = _ui_layer.get_node("DayInfo")
+			if existing_day_info != null and existing_day_info.get_node_or_null("ClockPanel") == null:
+				_spawn_clock_panel(existing_day_info)
 		if not _ui_layer.has_node("MapLabel"):
 			_create_map_label()
 		# Luôn đảm bảo InventoryUI tồn tại — packed scene reference trong scene
@@ -209,7 +215,9 @@ func _create_day_info() -> void:
 	container.offset_left = -66.0
 	container.offset_top = 4.0
 	container.offset_right = -4.0
-	container.offset_bottom = 36.0
+	# 3 panels (Day + Clock + Gold), mỗi panel cao ~16px + separation — tổng
+	# ~64px. offset_bottom = 80 để height = 76 đủ chứa cả 3, không bị clip.
+	container.offset_bottom = 80.0
 	container.grow_horizontal = Control.GROW_DIRECTION_END
 	container.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	container.custom_minimum_size = Vector2(62, 0)
@@ -237,6 +245,11 @@ func _create_day_info() -> void:
 	panel_day.add_child(_day_label)
 	container.add_child(panel_day)
 
+	# ClockPanel — hiển thị thời gian trong ngày (HH:MM, step 10 phút). Spawn
+	# từ scenes/ui/clock_display.tscn để script tự connect TimeManager. Đặt
+	# giữa DayPanel và GoldPanel như yêu cầu.
+	_spawn_clock_panel(container)
+
 	var panel_gold := PanelContainer.new()
 	panel_gold.name = "GoldPanel"
 	var style_g := StyleBoxFlat.new()
@@ -261,6 +274,21 @@ func _create_day_info() -> void:
 	container.add_child(panel_gold)
 
 	_ui_layer.add_child(container)
+
+# Spawn clock_display.tscn vào container (VBox DayInfo). Đặt tên node là
+# "ClockPanel" để scene có sẵn (nếu sau này refactor) cũng khớp.
+func _spawn_clock_panel(container: Node) -> void:
+	if not ResourceLoader.exists("res://scenes/ui/clock_display.tscn"):
+		push_warning("[WorldUIManager] clock_display.tscn not found!")
+		return
+	var scene_res = load("res://scenes/ui/clock_display.tscn")
+	if scene_res == null:
+		return
+	var clock = scene_res.instantiate()
+	if clock == null:
+		return
+	clock.name = "ClockPanel"
+	container.add_child(clock)
 
 func _create_map_label() -> void:
 	if _ui_layer.has_node("MapLabel"):

@@ -3,7 +3,7 @@ extends Node
 # TIME MANAGER (Quản lý Thời gian)
 # =============================================================================
 # Chức năng: Điều khiển thời gian trong game - ngày/đêm, giờ
-# 
+#
 # Đặc điểm:
 #   - Tự động tăng thời gian mỗi frame dựa trên delta
 #   - Phát tín hiệu khi có thay đổi thời gian/ngày
@@ -13,6 +13,14 @@ extends Node
 #   - TimeManager.is_night() - kiểm tra có phải ban đêm
 #   - TimeManager.pause() - tạm dừng thời gian
 #   - TimeManager.set_time_scale(2.0) - tăng tốc thời gian gấp đôi
+#
+# Mốc thời gian mặc định "bắt đầu state ngày mới" = 6:00:
+#   - Time chạy 0-24 liên tục (KHÔNG clamp, KHÔNG phạt khi qua 24).
+#   - Tới 1:00 (mod 24) → trigger AFK penalty (bất tỉnh + gold penalty).
+#     Sau AFK xong → set time = 6.0 → advance_day(6.0) tự động chạy.
+#   - Tới 6:00 (mod 24) → advance_day(6.0): tăng current_day + emit
+#     farm_day_changed + day_changed.
+#   - Tới 24.0 → wrap về mod 24 (= 0.0). KHÔNG phạt, KHÔNG tăng day.
 # =============================================================================
 
 # =============================================================================
@@ -42,6 +50,25 @@ var time_scale: float = 1.0
 # Trạng thái tạm dừng - true thì thời gian không trôi
 var paused: bool = false
 
+# Cờ chỉ trigger AFK penalty 1 lần mỗi đêm. Reset khi advance_day emit
+# day_changed (khi qua 6:00 hoặc player ngủ tại giường).
+var _afk_triggered_this_night: bool = false
+
+# Cờ chỉ tick farm day 1 lần mỗi đêm. Reset cùng _afk_triggered_this_night.
+var _farm_day_ticked_this_night: bool = false
+
+func _ready() -> void:
+	# Khi GameState tăng day (qua advance_day từ ngủ / farm tick / AFK reset
+	# 6.0), reset các cờ night-boundary để đêm tiếp theo hoạt động đúng.
+	if not GameState.day_changed.is_connected(_on_day_changed_reset_flags):
+		GameState.day_changed.connect(_on_day_changed_reset_flags)
+	print("[TimeManager] Ready.")
+
+func _on_day_changed_reset_flags(_new_day: int) -> void:
+	# Sau khi ngày chính thức đổi → reset cờ để sẵn sàng cho đêm tiếp theo.
+	_afk_triggered_this_night = false
+	_farm_day_ticked_this_night = false
+
 
 # =============================================================================
 # HÀM CẬP NHẬT MỖI FRAME (_process)
@@ -59,46 +86,68 @@ func _process(delta: float) -> void:
 
 	# Lưu thời gian trước khi thay đổi (để so sánh)
 	var previous_time: float = GameState.current_time
-	
+
 	# Tăng thời gian: delta * time_scale * 0.1
 	# 0.1 là hệ số để 1 giờ game = 10 giây thực
 	# Ví dụ: delta=0.016 (60fps), time_scale=1.0 -> thêm 0.0016 giờ
 	GameState.current_time += delta * time_scale * 0.1
 
 	# =================================================================
-	# KIỂM TRA TRẠNG THÁI NGÀY/ĐÊM
+	# KIỂM TRA TRẠNG THÁI NGÀY/ĐÊM (dùng mod 24 để xử lý khi time vượt 24)
 	# =================================================================
-	# Nếu thời gian >= 22:00 (10 giờ tối) -> ĐÊM
-	if GameState.current_time >= 22.0:
+	var t24: float = fposmod(GameState.current_time, 24.0)
+	if t24 >= 22.0 or t24 < 6.0:
 		GameState.is_day = false
-	# Nếu thời gian >= 6:00 và < 22:00 -> NGÀY
-	elif GameState.current_time >= 6.0:
+	else:
 		GameState.is_day = true
 
 	# =================================================================
-	# XỬ LÝ CHUYỂN NGÀY MỚI
+	# XỬ LÝ CÁC MỐC THỜI GIAN (midnight wrap / AFK / farm day)
 	# =================================================================
-	# Nếu thời gian >= 24:00 (nửa đêm) VÀ player không đang ngủ →
-	# phạt kiểu kiệt sức (không teleport, giảm tốc độ -25%, qua ngày).
-	# Nếu player đã lên giường (TimeManager bị pause bởi sleep prompt),
-	# không trigger ở đây — InsideHouseHUD đã gọi advance_day() thủ công.
-	if GameState.current_time >= 24.0 and not TimeManager.paused:
-		# Phạt "quá giờ chưa ngủ": bất tỉnh tại chỗ + speed penalty.
-		var em := get_tree().root.get_node_or_null("EnergyManager")
-		if em != null and em.has_method("trigger_afk_knock_out"):
-			print("[TimeManager] Hour %.1f — player missed bedtime, triggering AFK penalty." % GameState.current_time)
-			em.call("trigger_afk_knock_out")
-			return
-		# Fallback: nếu không có EnergyManager thì chỉ gọi advance_day()
-		GameState.advance_day()
+	if not TimeManager.paused:
+		var prev_t24: float = fposmod(previous_time, 24.0)
+		var curr_t24: float = t24
+
+		# --- Bước 1: midnight wrap ---
+		# Khi time >= 24.0 → wrap về mod 24. KHÔNG tăng day, KHÔNG phạt.
+		# Day chỉ update lúc 6:00 (qua advance_day(6.0)).
+		if GameState.current_time >= 24.0:
+			GameState.current_time = curr_t24
+			print("[TimeManager] Hour wrapped to %.1f (midnight)." % curr_t24)
+			curr_t24 = fposmod(GameState.current_time, 24.0)
+
+		# --- Bước 2: AFK trigger lúc 1:00 sáng ---
+		# Điều kiện: previous_time (mod 24) < 1.0 <= current_time (mod 24).
+		# Sau khi wrap về 0.0 → frame sau time tăng dần tới 1.0 → trigger.
+		if prev_t24 < 1.0 and curr_t24 >= 1.0 and not _afk_triggered_this_night:
+			var em := get_tree().root.get_node_or_null("EnergyManager")
+			if em != null and em.has_method("trigger_afk_knock_out"):
+				print("[TimeManager] Hour %.1f — 1:00 AM, triggering AFK penalty." % GameState.current_time)
+				em.call("trigger_afk_knock_out")
+				_afk_triggered_this_night = true
+			else:
+				# Fallback: set time = 6.0 + advance_day (start of new day).
+				GameState.advance_day(6.0)
+				_afk_triggered_this_night = true
+				_farm_day_ticked_this_night = true
+				curr_t24 = fposmod(GameState.current_time, 24.0)
+
+		# --- Bước 3: farm day tick lúc 6:00 sáng ---
+		# Điều kiện: previous_time (mod 24) < 6.0 <= current_time (mod 24).
+		# Guard: KHÔNG tick farm nếu AFK vừa trigger trong frame này (sẽ được
+		# xử lý bởi AFK reset path → tự gọi advance_day(6.0)).
+		if not _afk_triggered_this_night:
+			if prev_t24 < 6.0 and curr_t24 >= 6.0 and not _farm_day_ticked_this_night:
+				print("[TimeManager] Hour %.1f — 6:00 AM, farm day tick." % GameState.current_time)
+				GameState.advance_day(6.0)
+				_farm_day_ticked_this_night = true
 
 	# =================================================================
 	# KIỂM TRA TRÔI QUA 1 GIỜ
 	# =================================================================
-	# Lấy phần nguyên của thời gian (để lấy giờ)
-	var prev_hour: int = int(previous_time)
-	var curr_hour: int = int(GameState.current_time)
-	
+	var prev_hour: int = int(fposmod(previous_time, 24.0))
+	var curr_hour: int = int(fposmod(GameState.current_time, 24.0))
+
 	# Nếu giờ thay đổi -> phát tín hiệu
 	if curr_hour != prev_hour:
 		hour_elapsed.emit(curr_hour)
@@ -115,16 +164,17 @@ func _process(delta: float) -> void:
 # Dùng khi cần teleport thời gian (ví dụ: debug, chuyển scene)
 #
 # Tham số:
-#   new_time: float - thời gian mới (0.0 - 24.0)
+#   new_time: float - thời gian mới
 
 func set_time(new_time: float) -> void:
-	# Clamp để đảm bảo thời gian hợp lệ
-	GameState.current_time = clampf(new_time, 0.0, 24.0)
-	
-	# Tính toán is_day
-	# Ngày: 6:00 <= time < 22:00
-	GameState.is_day = GameState.current_time >= 6.0 and GameState.current_time < 22.0
-	
+	# KHÔNG clamp về [0, 24] — để các mốc trên 24 có thể đạt tới cho debug.
+	# Time sẽ được wrap tự nhiên trong _process khi vượt 24.
+	GameState.current_time = new_time
+
+	# Tính toán is_day — dùng fposmod để xử lý khi time >= 24
+	var t24: float = fposmod(new_time, 24.0)
+	GameState.is_day = t24 >= 6.0 and t24 < 22.0
+
 	# Thông báo thay đổi
 	time_changed.emit(GameState.current_time, GameState.is_day)
 
@@ -199,7 +249,8 @@ func is_night() -> bool:
 # Trả về: true nếu là 5:00 - 7:00
 
 func is_dawn() -> bool:
-	return GameState.current_time >= 5.0 and GameState.current_time < 7.0
+	var t24: float = fposmod(GameState.current_time, 24.0)
+	return t24 >= 5.0 and t24 < 7.0
 
 
 # =============================================================================
@@ -210,7 +261,8 @@ func is_dawn() -> bool:
 # Trả về: true nếu là 19:00 - 22:00
 
 func is_dusk() -> bool:
-	return GameState.current_time >= 19.0 and GameState.current_time < 22.0
+	var t24: float = fposmod(GameState.current_time, 24.0)
+	return t24 >= 19.0 and t24 < 22.0
 
 
 # =============================================================================
@@ -221,9 +273,10 @@ func is_dusk() -> bool:
 # Trả về: String - thời gian dạng "HH:MM"
 
 func get_time_of_day_string() -> String:
+	var t24: float = fposmod(GameState.current_time, 24.0)
 	# Lấy phần nguyên (giờ)
-	var hour: int = int(GameState.current_time)
+	var hour: int = int(t24)
 	# Lấy phần thập phân, chuyển thành phút (nhân 60)
-	var minute: int = int((GameState.current_time - hour) * 60.0)
+	var minute: int = int((t24 - hour) * 60.0)
 	# Format: 02d = luôn có 2 chữ số (01, 02, ... 23)
 	return "%02d:%02d" % [hour, minute]

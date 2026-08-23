@@ -51,8 +51,13 @@ func _update_hud() -> void:
 		coords_label.text = "X:%d Y:%d" % [int(player.position.x), int(player.position.y)]
 
 func _on_time_changed(current_time: float, _is_day: bool) -> void:
-	var hour := int(current_time)
-	var minute := int((current_time - hour) * 60)
+	# current_time có thể vượt 24 trong khoảng giữa 24:00 và 6:00 của ngày
+	# mới (TimeManager KHÔNG clamp). Lấy modulo 24 để hiển thị giờ đúng.
+	var t24: float = fmod(current_time, 24.0)
+	if t24 < 0.0:
+		t24 += 24.0
+	var hour := int(t24)
+	var minute := int((t24 - hour) * 60)
 	time_label.text = "%02d:%02d" % [hour, minute]
 
 func _on_day_changed(new_day: int) -> void:

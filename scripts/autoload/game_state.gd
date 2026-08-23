@@ -19,6 +19,10 @@ extends Node
 # Khi inventory thay đổi, gửi thông báo để UI cập nhật
 signal inventory_changed
 signal day_changed(new_day: int)
+# Emit khi tới 6:00 của ngày mới (sau khi current_day đã +1) — dùng cho
+# farm growth tick + watering reset. Tách khỏi day_changed (UI text day)
+# vì UI có thể listen cả hai để đồng bộ.
+signal farm_day_changed(new_day: int)
 signal energy_changed(new_value: float)
 signal toolbar_changed
 
@@ -50,6 +54,13 @@ var stamina_drain_rate: float = 5.0
 # Tốc độ di chuyển hiện tại (mặc định 1.0 = 100%). Bị giảm 25% mỗi lần
 # knock-out, reset về 1.0 sau khi ngủ qua ngày.
 var move_speed_mult: float = 1.0
+
+# Cờ đánh dấu warning "It's late" đã hiện trong ngày hiện tại. Lưu trong
+# GameState (autoload) để persistent qua scene changes — nếu để ở Player
+# instance var thì scene change tạo Player mới, flag reset, warning lặp lại.
+# Cờ này tự reset khi current_day đổi (lúc 6:00 hoặc khi player ngủ) — xem
+# _reset_sleep_warning_flag_if_new_day() và gọi từ Player._ready / mỗi frame.
+var sleep_warning_shown_for_day: int = 0
 
 # Máu (health) - khi = 0, người chơi chết hoặc bất tỉnh
 var health: float = 100.0
@@ -162,25 +173,41 @@ func reset_inventory_layout() -> void:
 # =============================================================================
 # HÀM CHUYỂN NGÀY (advance_day)
 # =============================================================================
-# Chuyển sang ngày mới khi thời gian đạt 24:00 hoặc khi ngủ
+# Chuyển sang ngày mới khi ngủ tại giường hoặc khi cần force (debug, knock-out
+# kết thúc).
+#
+# KHÔNG dùng để sang calendar midnight — xem advance_calendar_day() bên dưới.
 #
 # Xử lý:
 #   1. Tăng số ngày lên 1
-#   2. Reset giờ về 6:00 sáng
+#   2. Reset giờ về reset_to_hour (mặc định 6:00 sáng — khi ngủ đúng giờ tại
+#      giường; EnergyManager truyền 1.0 cho trường hợp AFK penalty)
 #   3. Khôi phục năng lượng đầy
-#   4. Đặt lại is_day = true (ban ngày)
+#   4. Đặt lại is_day theo reset_to_hour (6:00–21:59 là day; 22:00–5:59 là night)
+#   5. Emit day_changed (UI text day) + farm_day_changed (FarmTickManager) nếu
+#      reset về >= 6:00.
+#
+# Tham số:
+#   reset_to_hour (float, mặc định 6.0) — giờ khởi đầu ngày mới.
 
-func advance_day() -> void:
+func advance_day(reset_to_hour: float = 6.0) -> void:
 	current_day += 1           # Tăng ngày
-	current_time = 6.0        # Reset về 6:00 sáng
+	current_time = reset_to_hour  # Reset theo giờ truyền vào
 	energy = max_energy        # Khôi phục năng lượng đầy
-	is_day = true              # Đặt ban ngày
+	# is_day phải khớp với giờ reset (không hardcode true). Ví dụ reset 1:00 →
+	# vẫn là đêm, is_day = false.
+	is_day = current_time >= 6.0 and current_time < 22.0
 	# move_speed_mult KHÔNG reset ở đây — penalty chỉ được reset khi người chơi
 	# NGỦ ĐÚNG GIỜ (qua đêm tại giường). Nếu qua ngày do kiệt sức hoặc bị
 	# phạt vì không ngủ → speed penalty giữ nguyên.
 	day_changed.emit(current_day)
+	# Farm growth cycle: chỉ tick khi tới 6:00 (đầu ngày mới theo nghĩa canh
+	# tác). Khi AFK reset về 1:00 → KHÔNG emit (chưa đến 6:00, watering chưa
+	# reset, cây chưa +growth).
+	if reset_to_hour >= 6.0:
+		farm_day_changed.emit(current_day)
 	energy_changed.emit(energy)  # Bắn signal để UI cập nhật thanh năng lượng ngay
-	print("[GameState] Day %d begins." % current_day)
+	print("[GameState] Day %d begins at hour %.1f." % [current_day, reset_to_hour])
 
 
 # =============================================================================
@@ -595,7 +622,8 @@ func reset() -> void:
 	is_day = true
 	gold = 200
 	move_speed_mult = 1.0
-	
+	sleep_warning_shown_for_day = 0
+
 	print("[GameState] Game state reset.")
 
 

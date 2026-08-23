@@ -83,19 +83,29 @@ func trigger_knock_out() -> void:
 	_start_fade(false)
 
 # AFK/stand-still knock-out: cùng hiệu ứng nhưng KHÔNG teleport về giường
-# (player tỉnh ngay tại chỗ đang đứng).
+# (player tỉnh ngay tại chỗ đang đứng). Reset về 1:00 (giữa đêm) — khác với
+# kiệt sức giữa ngày (6:00 sáng) và ngủ đúng giờ (cũng 6:00 tại giường).
 func trigger_afk_knock_out() -> void:
 	if _knock_out_active:
 		return
 	_knock_out_active = true
 	knock_out_started.emit()
 	print("[EnergyManager] AFK knock-out triggered!")
-	_start_fade(false)
+	# AFK reset về 6:00 (= "bắt đầu state ngày mới"). TimeManager sẽ tự
+	# trigger advance_day(6.0) khi phát hiện boundary 6:00, tăng current_day +
+	# emit farm_day_changed.
+	_start_fade_with_reset(false, 6.0)
 
 func _start_fade(do_teleport: bool) -> void:
+	_start_fade_with_reset(do_teleport, 6.0)
+
+# Cho phép override giờ reset sau khi knock-out xong:
+#   - AFK penalty (quá 24:00 chưa ngủ) → 1.0 (giữa đêm)
+#   - Kiệt sức (energy = 0 giữa ngày) → 6.0 (sáng sớm, mặc định)
+func _start_fade_with_reset(do_teleport: bool, reset_to_hour: float) -> void:
 	var tree := get_tree()
 	if tree == null:
-		_finish_knock_out(do_teleport)
+		_finish_knock_out(do_teleport, reset_to_hour)
 		return
 	var root := tree.root
 	# Dựng overlay đen che toàn màn hình.
@@ -118,7 +128,7 @@ func _start_fade(do_teleport: bool) -> void:
 		tween.tween_callback(_teleport_to_bed)
 	tween.tween_interval(FADE_DURATION * 0.2)
 	tween.tween_property(overlay, "color:a", 0.0, FADE_DURATION * 0.5)
-	tween.tween_callback(_finish_knock_out.bind(do_teleport))
+	tween.tween_callback(_finish_knock_out.bind(do_teleport, reset_to_hour))
 	tween.tween_callback(layer.queue_free)
 
 func _teleport_to_bed() -> void:
@@ -141,17 +151,19 @@ func _teleport_to_bed() -> void:
 				GameState.set_flag("knockout_spawn_at_bed", true)
 				SceneManager.change_scene(HOUSE_SCENE_PATH)
 
-func _finish_knock_out(do_teleport: bool) -> void:
+func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 	# Knock-out = sang ngày mới (giống ngủ) + penalty vàng + penalty tốc độ.
 	# Energy hiện tại đặt về 5 (chỉ là "an ủi" - sẽ được reset về max khi
 	# người chơi ngủ thật sự qua ngày tiếp theo).
 	#
 	# Proportional days: nếu time đã trôi qua rất lâu (vd. nhiều giờ thực)
 	# mà chưa ai cập nhật, gọi advance_day() nhiều lần để farm/watering
-	# vẫn đồng bộ.
+	# vẫn đồng bộ. Reset về reset_to_hour:
+	#   - AFK penalty (quá 24:00 chưa ngủ) → 1.0 (giữa đêm)
+	#   - Kiệt sức (energy = 0) → 6.0 (sáng sớm, mặc định)
 	var days_passed: int = max(1, int(floor(GameState.current_time / 24.0)))
 	for i in range(days_passed):
-		GameState.advance_day()
+		GameState.advance_day(reset_to_hour)
 
 	# Phạt -25% vàng trong CẢ HAI trường hợp:
 	#   - Cày kiệt sức (trigger_knock_out, có teleport về giường)
@@ -164,9 +176,9 @@ func _finish_knock_out(do_teleport: bool) -> void:
 	GameState.energy_changed.emit(GameState.energy)
 	_knock_out_active = false
 	knock_out_finished.emit()
-	print("[EnergyManager] Knock-out -> day %d, energy %.0f, speed mult %.2f (teleport=%s, days=%d, gold_loss_applied=%s)" % [
+	print("[EnergyManager] Knock-out -> day %d, energy %.0f, speed mult %.2f (teleport=%s, days=%d)" % [
 		GameState.current_day, GameState.energy, GameState.move_speed_mult,
-		str(do_teleport), days_passed, str(do_teleport)
+		str(do_teleport), days_passed
 	])
 
 

@@ -33,9 +33,7 @@ var _current_anim: String = ""
 # Phạt khi quá giờ đi ngủ (24:00) mà vẫn chưa ngủ — không phụ thuộc vào việc
 # player có đang di chuyển hay không. Áp dụng như nhau cho mọi trạng thái.
 const SLEEP_DEADLINE_HOUR: float = 24.0   # quá nửa đêm là quá giờ
-const WARNING_HOUR: float = 24.0          # hiện cảnh báo "Đã muộn rồi!" khi tới mốc này
-var _sleep_warning_shown_today: bool = false
-var _last_day_warning_state: int = -1
+const WARNING_HOUR: float = 22.0          # hiện cảnh báo "It's late" khi tới 22:00 (trời bắt đầu tối)
 var _sleep_deadline_triggered: bool = false
 var _floating_warning: Node = null
 
@@ -142,19 +140,23 @@ func _update_sprite_flip() -> void:
 			sprite.flip_h = false
 
 func _check_sleep_deadline() -> void:
-	# Reset trạng thái cảnh báo khi sang ngày mới.
-	if _last_day_warning_state != GameState.current_day:
-		_last_day_warning_state = GameState.current_day
-		_sleep_warning_shown_today = false
-		_sleep_deadline_triggered = false
+	# Flag `sleep_warning_shown_for_day` được lưu trong GameState (autoload)
+	# nên PERSISTENT qua scene changes — không bị reset khi Player bị
+	# queue_free khi chuyển scene. Cờ tự reset khi current_day đổi (lúc 6:00
+	# hoặc khi player ngủ tại giường) vì ta so sánh với `current_day`.
+	if GameState.sleep_warning_shown_for_day == GameState.current_day:
+		return # đã hiện warning cho ngày này rồi
 
-	# Khi đạt 24:00 và chưa ngủ → hiện cảnh báo (1 lần/ngày).
-	if not _sleep_warning_shown_today and GameState.current_time >= WARNING_HOUR:
-		_sleep_warning_shown_today = true
-		var fw := _get_floating_warning()
-		if fw != null:
-			fw.call("show_text", "Đã muộn rồi! Cần đi ngủ, nếu không sắp bị phạt.")
-		print("[Player] Sleep deadline warning at hour %.1f" % GameState.current_time)
+	if GameState.current_time < WARNING_HOUR:
+		return
+
+	# Khi đạt 22:00 và chưa ngủ → hiện cảnh báo (1 lần/ngày). Text trắng,
+	# cỡ 8, KHÔNG outline/tint, sát trên đầu player, tổng thời gian hiện 1.5s.
+	GameState.sleep_warning_shown_for_day = GameState.current_day
+	var fw := _get_floating_warning()
+	if fw != null:
+		fw.call("show_text_plain_for", "It's late", 1.5)
+	print("[Player] Sleep deadline warning at hour %.1f" % GameState.current_time)
 
 	# Sau khi TimeManager gọi advance_day(), current_time được reset về 6.0
 	# và current_day tăng lên → trigger knock-out bằng energy manager hoặc

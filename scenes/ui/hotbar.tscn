@@ -58,11 +58,11 @@ vertical_alignment = 1
 
 [node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot0"]
 layout_mode = 2
-horizontal_alignment = 2
-vertical_alignment = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
+horizontal_alignment = 2
+vertical_alignment = 2
 
 [node name="Slot1" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
@@ -80,11 +80,11 @@ vertical_alignment = 1
 
 [node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot1"]
 layout_mode = 2
-horizontal_alignment = 2
-vertical_alignment = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
+horizontal_alignment = 2
+vertical_alignment = 2
 
 [node name="Slot2" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
@@ -102,11 +102,11 @@ vertical_alignment = 1
 
 [node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot2"]
 layout_mode = 2
-horizontal_alignment = 2
-vertical_alignment = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
+horizontal_alignment = 2
+vertical_alignment = 2
 
 [node name="Slot3" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
@@ -124,11 +124,11 @@ vertical_alignment = 1
 
 [node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot3"]
 layout_mode = 2
-horizontal_alignment = 2
-vertical_alignment = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
+horizontal_alignment = 2
+vertical_alignment = 2
 
 [node name="Slot4" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
@@ -146,8 +146,8 @@ vertical_alignment = 1
 
 [node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot4"]
 layout_mode = 2
-horizontal_alignment = 2
-vertical_alignment = 2
 bbcode_enabled = true
 fit_content = true
 scroll_active = false
+horizontal_alignment = 2
+vertical_alignment = 2

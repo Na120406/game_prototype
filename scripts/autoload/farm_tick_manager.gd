@@ -32,8 +32,11 @@ signal cell_removed(cell: Vector2i)  # Emit khi cell bị xóa (plowed expire, v
 
 func _ready() -> void:
 	add_to_group("farm_tick_manager")
-	if not GameState.day_changed.is_connected(_on_day_changed):
-		GameState.day_changed.connect(_on_day_changed)
+	# Farm day tick chỉ chạy lúc 6:00 (GameState.farm_day_changed). KHÔNG
+	# listen day_changed vì calendar day có thể đổi lúc 00:00 (qua midnight)
+	# mà farm cycle vẫn phải chờ tới 6:00.
+	if not GameState.farm_day_changed.is_connected(_on_day_changed):
+		GameState.farm_day_changed.connect(_on_day_changed)
 	_restore_from_snapshot()
 	print("[FarmTickManager] Ready. cells=%d day=%d" % [cells.size(), GameState.current_day])
 
@@ -43,6 +46,8 @@ func _on_day_changed(_new_day: int) -> void:
 	_persist_snapshot()
 
 func _process(_delta: float) -> void:
+	# Catch-up: nếu farm_day_changed bị miss (scene reload, signal connection
+	# race), tự check dựa trên _last_day.
 	if _last_day < 0:
 		_last_day = GameState.current_day
 		return
