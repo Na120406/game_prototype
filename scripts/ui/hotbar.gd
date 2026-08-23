@@ -36,7 +36,9 @@ const NUM_SLOTS: int = 5
 
 @export_group("Count Label (góc dưới-phải)")
 ## Font size cho số lượng ("99")
-@export var count_font_size: int = 8
+@export var count_font_size: int = 7
+## Font size cho chữ "x" tiền tố (nhỏ hơn số)
+@export var count_x_font_size: int = 5
 ## Màu số lượng
 @export var count_color: Color = Color(1.0, 0.9, 0.5, 1.0)
 ## Padding phải (px)
@@ -57,7 +59,7 @@ const NUM_SLOTS: int = 5
 @export var unselected_border_width: int = 1
 
 var _slot_panels: Array[PanelContainer] = []
-var _slot_labels: Array[Label] = []  # count labels
+var _slot_labels: Array[RichTextLabel] = []  # count labels
 var _slot_icons: Array[Label] = []
 var _slot_numbers: Array[Label] = []  # number labels "1"..."5"
 
@@ -73,7 +75,64 @@ func _ready() -> void:
 	_refresh()
 	_apply_selection_style(active_slot)
 	GameState.toolbar_changed.connect(_on_toolbar_changed)
+	# Force refresh khi scene chuyển xong: lúc này GameState.toolbar đã được
+	# _ready của Hotbar đọc 1 lần, nhưng nếu scene B khác với scene A về layout
+	# (anchor, position) → offsets của NumLabel đã set ở scene A có thể không
+	# khớp slot panel của scene B. Đợi 2 frame rồi refresh lại.
+	SceneManager.scene_changed.connect(_on_scene_changed_refresh)
 	mouse_exited.connect(_on_hotbar_leave)
+
+func _on_scene_changed_refresh(_scene_path: String) -> void:
+	# Đợi 1 frame để WorldUIManager ở scene mới spawn xong layout, sau đó
+	# tính lại vị trí NumLabel và refresh data từ GameState.toolbar.
+	# Lưu ý: ở scene mới, Hotbar MỚI sẽ _ready riêng — handler này gắn vào
+	# Hotbar CŨ (đang bị free). Khi scene_changed emit, Hotbar cũ đã hoặc đang
+	# bị queue_free — guard is_instance_valid để tránh chạy trên node đã free.
+	if not is_instance_valid(self):
+		return
+	# Tính lại vị trí NumLabel theo panel slot hiện tại (chỉ thực sự cần nếu
+	# cùng instance qua scene change, nhưng an toàn khi gọi).
+	await get_tree().process_frame
+	if not is_instance_valid(self):
+		return
+	_recompute_number_positions()
+	_refresh()
+	_apply_selection_style(active_slot)
+
+func _recompute_number_positions() -> void:
+	# Tính lại anchor/offset của NumLabel cho từng slot dựa trên
+	# global_rect hiện tại (sau khi PanelContainer đã layout xong).
+	var root_global_rect: Rect2 = get_global_rect()
+	for i: int in range(NUM_SLOTS):
+		if i >= _slot_panels.size():
+			continue
+		var panel: PanelContainer = _slot_panels[i]
+		if panel == null:
+			continue
+		var num_lbl: Label = panel.get_node_or_null("NumLabel") as Label
+		if num_lbl == null:
+			continue
+		# Đảm bảo NumLabel là con của Hotbar root (không phải PanelContainer)
+		if num_lbl.get_parent() != self:
+			var parent := num_lbl.get_parent()
+			if parent != null:
+				parent.remove_child(num_lbl)
+			add_child(num_lbl)
+		var slot_global_rect: Rect2 = panel.get_global_rect()
+		var local_pos: Vector2 = slot_global_rect.position - root_global_rect.position
+		var font: Font = num_lbl.get_theme_font("font")
+		var font_height: float = 10.0
+		if font != null:
+			font_height = font.get_height(num_lbl.get_theme_font_size("font_size"))
+		num_lbl.anchor_left = 0.0
+		num_lbl.anchor_top = 0.0
+		num_lbl.anchor_right = 0.0
+		num_lbl.anchor_bottom = 0.0
+		num_lbl.offset_left = local_pos.x + float(number_padding_left)
+		num_lbl.offset_top = local_pos.y + float(number_padding_top)
+		num_lbl.offset_right = local_pos.x + float(number_padding_left) + 8.0
+		num_lbl.offset_bottom = local_pos.y + float(number_padding_top) + font_height + 2.0
+		num_lbl.z_index = 10
 
 func _on_hotbar_leave() -> void:
 	# Mouse rời hoàn toàn khỏi hotbar -> ẩn tooltip của shop
@@ -89,11 +148,23 @@ func _setup_slots() -> void:
 		push_warning("hotbar: slot_node_names phải có đúng %d phần tử" % NUM_SLOTS)
 		return
 
+	# DEBUG: in trạng thái GameState.toolbar để verify persist
+	print("[Hotbar] _setup_slots ENTER, scene=", get_tree().current_scene.scene_file_path if get_tree().current_scene else "<none>", " toolbar=", GameState.toolbar)
+
 	var container: Node = get_node_or_null("SlotsContainer")
 	if container == null:
 		push_error("hotbar: thiếu node 'SlotsContainer'")
 		return
 	container.add_theme_constant_override("separation", slot_separation)
+	# SlotsContainer và Hotbar root mặc định mouse_filter = STOP sẽ nuốt
+	# click phải khi bubble từ slot PanelContainer, khiến HotkeyInputManager/
+	# Player không nhận được _unhandled_input. Đổi sang PASS để event tiếp
+	# tục đi xuống unhandled chain → consume item hotbar active bất kể
+	# click vào slot nào (không bắt buộc trúng đúng slot active).
+	if container is Control:
+		(container as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	if self is Control:
+		mouse_filter = Control.MOUSE_FILTER_PASS
 
 	for i: int in range(NUM_SLOTS):
 		var slot: Node = container.get_node_or_null(slot_node_names[i])
@@ -105,6 +176,11 @@ func _setup_slots() -> void:
 		panel.gui_input.connect(_on_slot_input.bind(i))
 		panel.mouse_entered.connect(_on_slot_hover.bind(i))
 		panel.mouse_exited.connect(_on_slot_leave.bind(i))
+		# Click phải chỉ select slot (xem _on_slot_input) — để Player/
+		# HotkeyInputManager xử lý consume dựa trên slot active. Để event
+		# bubble xuống _unhandled_input sau khi hotbar xử lý, đổi filter
+		# sang PASS (mặc định STOP sẽ nuốt event trước khi tới _unhandled).
+		panel.mouse_filter = Control.MOUSE_FILTER_PASS
 
 		var original_style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
 		var copy_style := StyleBoxFlat.new()
@@ -128,40 +204,15 @@ func _setup_slots() -> void:
 		# Bind 3 label nodes đã có trong scene
 		var num_lbl: Label = slot.get_node_or_null("NumLabel") as Label
 		var icon_lbl: Label = slot.get_node_or_null("IconLabel") as Label
-		var count_lbl: Label = slot.get_node_or_null("CountLabel") as Label
+		var count_lbl: RichTextLabel = slot.get_node_or_null("CountLabel") as RichTextLabel
 
 		if num_lbl != null:
 			num_lbl.add_theme_font_size_override("font_size", number_font_size)
 			num_lbl.add_theme_color_override("font_color", number_color)
 			num_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 			num_lbl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-			# Lấy font height để tính size
-			var font: Font = num_lbl.get_theme_font("font")
-			var font_height: float = 10.0
-			if font != null:
-				font_height = font.get_height(num_lbl.get_theme_font_size("font_size"))
-			# Tính vị trí góc trên-trái của slot (tính theo root Hotbar)
-			await get_tree().process_frame  # đợi container layout xong
-			var slot_global_rect: Rect2 = (slot as Control).get_global_rect()
-			var root_global_rect: Rect2 = get_global_rect()
-			var local_pos: Vector2 = slot_global_rect.position - root_global_rect.position
-			# Reparent NumLabel ra ngoài PanelContainer (vì PanelContainer là Container,
-			# nó sẽ ép children resize full-rect mỗi frame — không cho neo góc trên-trái).
-			# Nếu đã là con root thì khỏi reparent.
-			if num_lbl.get_parent() != self:
-				num_lbl.get_parent().remove_child(num_lbl)
-				add_child(num_lbl)
-			# Anchor 4 góc neo theo điểm local_pos, size cố định
-			num_lbl.anchor_left = 0.0
-			num_lbl.anchor_top = 0.0
-			num_lbl.anchor_right = 0.0
-			num_lbl.anchor_bottom = 0.0
-			num_lbl.offset_left = local_pos.x + float(number_padding_left)
-			num_lbl.offset_top = local_pos.y + float(number_padding_top)
-			num_lbl.offset_right = local_pos.x + float(number_padding_left) + 8.0
-			num_lbl.offset_bottom = local_pos.y + float(number_padding_top) + font_height + 2.0
-			# Đảm bảo NumLabel luôn ở trên icon/count
-			num_lbl.z_index = 10
+			# Click xuyên qua để PanelContainer cha nhận gui_input (kéo item).
+			num_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_slot_numbers.append(num_lbl)
 		else:
 			push_warning("hotbar: slot '%s' thiếu NumLabel" % slot_node_names[i])
@@ -169,16 +220,35 @@ func _setup_slots() -> void:
 		if icon_lbl != null:
 			icon_lbl.add_theme_font_size_override("font_size", icon_font_size)
 			icon_lbl.add_theme_color_override("font_color", icon_default_color)
+			# Click xuyên qua để PanelContainer cha nhận gui_input (kéo item).
+			icon_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_slot_icons.append(icon_lbl)
 
 		if count_lbl != null:
-			count_lbl.add_theme_font_size_override("font_size", count_font_size)
-			count_lbl.add_theme_color_override("font_color", count_color)
+			count_lbl.add_theme_font_size_override("normal_font_size", count_font_size)
+			count_lbl.add_theme_color_override("default_color", count_color)
+			count_lbl.bbcode_enabled = true
+			count_lbl.fit_content = true
+			count_lbl.scroll_active = false
+			count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			count_lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 			count_lbl.offset_left = -10.0
 			count_lbl.offset_top = -10.0
 			count_lbl.offset_right = -float(count_padding_right)
 			count_lbl.offset_bottom = -float(count_padding_bottom)
+			# RichTextLabel mặc định mouse_filter = STOP sẽ nuốt event khi
+			# click vào vùng text, khiến PanelContainer cha không nhận được
+			# gui_input → drag không hoạt động khi amount > 1 (CountLabel
+			# visible và chiếm diện tích). Set IGNORE để click xuyên qua.
+			count_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_slot_labels.append(count_lbl)
+
+	# PanelContainer đã layout xong ở process frame tiếp theo → tính vị trí
+	# NumLabel (reparent ra ngoài PanelContainer để container không ép resize).
+	await get_tree().process_frame
+	if not is_instance_valid(self):
+		return
+	_recompute_number_positions()
 
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton):
@@ -283,7 +353,14 @@ func _apply_selection_style(slot_index: int) -> void:
 			style.border_width_bottom = unselected_border_width
 
 func _on_toolbar_changed() -> void:
+	# Clamp active_slot về range hợp lệ nếu toolbar bị thu ngắn.
+	if not GameState.toolbar.is_empty():
+		if active_slot < 0 or active_slot >= GameState.toolbar.size():
+			active_slot = 0
 	_refresh()
+	# Re-apply selection style để slot active (kể cả khi rỗng) giữ viền
+	# selected sau khi item bị consume/đặt.
+	_apply_selection_style(active_slot)
 	_emit_selected_changed()
 
 func _refresh() -> void:
@@ -296,7 +373,7 @@ func _update_slot(slot_index: int) -> void:
 	if slot_index >= GameState.toolbar.size():
 		return
 	var icon_lbl: Label = _slot_icons[slot_index]
-	var count_lbl: Label = _slot_labels[slot_index]
+	var count_lbl: RichTextLabel = _slot_labels[slot_index]
 	var panel: PanelContainer = _slot_panels[slot_index]
 
 	var entry: Dictionary = GameState.toolbar[slot_index]
@@ -326,7 +403,9 @@ func _update_slot(slot_index: int) -> void:
 		icon_lbl.visible = true
 
 	if amount > 1:
-		count_lbl.text = str(amount)
+		count_lbl.text = "[font_size=%d]x[/font_size][font_size=%d]%d[/font_size]" % [
+			count_x_font_size, count_font_size, amount
+		]
 		count_lbl.visible = true
 	else:
 		count_lbl.visible = false
@@ -366,18 +445,45 @@ func highlight_slot(slot_index: int, on: bool) -> void:
 func _on_slot_input(event: InputEvent, slot_index: int) -> void:
 	if not (event is InputEventMouseButton and event.pressed):
 		return
-	if event.button_index != MOUSE_BUTTON_LEFT:
-		return
 	if slot_index >= GameState.toolbar.size():
 		return
 
-	# Khi inventory đang mở, click vào hotbar slot phải delegate sang
-	# inventory để bắt đầu drag — để có thể kéo item ra khỏi hotbar.
+	# Chuột phải: KHÔNG consume trực tiếp tại đây. Hotbar chỉ chịu trách
+	# nhiệm CHỌN slot — việc consume để HotkeyInputManager/Player xử lý
+	# dựa trên slot đang active. Nếu ta xử lý consume ở đây thì bắt buộc
+	# player phải click đúng vào slot active mới dùng được → trái với
+	# mong muốn: chuột phải ở bất kỳ đâu khi slot active là CONSUMABLE đều
+	# dùng được. Hơn nữa, PanelContainer mặc định mouse_filter = STOP sẽ
+	# nuốt event trước khi tới _unhandled_input — để Player/HotkeyInputManager
+	# xử lý được, hotbar phải bỏ qua (không gọi accept_event, không return).
+	#
+	# Tuy nhiên PanelContainer vẫn nuốt event theo cơ chế GUI dispatch —
+	# nên ta chủ động gọi accept_event() để không nhân đôi logic, nhưng vẫn
+	# không tự consume. Hệ quả: click phải vào hotbar slot chỉ đổi active
+	# slot và bỏ qua — Player/HotkeyInputManager sẽ KHÔNG nhận event này.
+	# Do đó flow đúng là: gọi set_active_slot() rồi ĐỂ event tiếp tục.
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		set_active_slot(slot_index)
+		# Không accept_event — để HotkeyInputManager/Player nhận event và
+		# consume item đang active (theo mong muốn: click ở đâu cũng dùng
+		# được item active, không cần trúng đúng slot đó).
+		return
+
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
+
+	# Khi inventory đang mở, click vào hotbar slot vẫn phải select slot
+	# (đổi active_slot). Đồng thời delegate sang inventory để bắt đầu drag
+	# — preview sẽ di theo chuột; nếu thả cùng slot thì không swap, slot
+	# vẫn ở trạng thái "selected" (đã select trước đó).
 	var inv_ui: CanvasLayer = get_tree().get_first_node_in_group("inventory_ui")
 	if inv_ui != null and inv_ui.visible:
 		var entry: Dictionary = GameState.toolbar[slot_index]
 		if entry.get("id", "") != "":
-			inv_ui.call("_start_drag", 100 + slot_index, entry.get("id", ""), int(entry.get("amount", 0)))
+			set_active_slot(slot_index)
+			inv_ui._start_drag(100 + slot_index, entry.get("id", ""), int(entry.get("amount", 0)))
+		else:
+			set_active_slot(slot_index)
 		return
 
 	var item_id: String = GameState.toolbar[slot_index].get("id", "")

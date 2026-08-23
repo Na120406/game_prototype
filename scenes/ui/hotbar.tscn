@@ -53,11 +53,16 @@ text = "1"
 
 [node name="IconLabel" type="Label" parent="SlotsContainer/Slot0"]
 layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="CountLabel" type="Label" parent="SlotsContainer/Slot0"]
+[node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot0"]
 layout_mode = 2
 horizontal_alignment = 2
 vertical_alignment = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 
 [node name="Slot1" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
@@ -73,10 +78,13 @@ layout_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CountLabel" type="Label" parent="SlotsContainer/Slot1"]
+[node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot1"]
 layout_mode = 2
 horizontal_alignment = 2
 vertical_alignment = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 
 [node name="Slot2" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
@@ -92,10 +100,13 @@ layout_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CountLabel" type="Label" parent="SlotsContainer/Slot2"]
+[node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot2"]
 layout_mode = 2
 horizontal_alignment = 2
 vertical_alignment = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 
 [node name="Slot3" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
@@ -111,10 +122,13 @@ layout_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CountLabel" type="Label" parent="SlotsContainer/Slot3"]
+[node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot3"]
 layout_mode = 2
 horizontal_alignment = 2
 vertical_alignment = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
 
 [node name="Slot4" type="PanelContainer" parent="SlotsContainer"]
 layout_mode = 2
@@ -130,7 +144,10 @@ layout_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="CountLabel" type="Label" parent="SlotsContainer/Slot4"]
+[node name="CountLabel" type="RichTextLabel" parent="SlotsContainer/Slot4"]
 layout_mode = 2
 horizontal_alignment = 2
 vertical_alignment = 2
+bbcode_enabled = true
+fit_content = true
+scroll_active = false

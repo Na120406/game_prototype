@@ -71,6 +71,13 @@ var is_paused: bool = false
 # Dùng để khóa di chuyển khi đang làm gì đó
 var game_interacting: bool = false
 
+# Flag set bởi Area2D portal (world_transition.gd) NGAY TRƯỚC khi gọi
+# SceneManager.change_scene ở frame player nhấn E. Player._interact() sẽ
+# check flag này để SKIP _try_use_active_consumable() — tránh double-handle:
+# vừa đổi scene vừa consume item cùng 1 frame. Reset về false ở đầu mỗi
+# frame player input, hoặc sau khi portal gọi change_scene xong.
+var pending_portal_interaction: bool = false
+
 # =============================================================================
 # HỆ THỐNG ĐỒ (INVENTORY SYSTEM)
 # =============================================================================
@@ -253,27 +260,65 @@ func modify_health(amount: float) -> void:
 
 func add_item(item_id: String, amount: int = 1) -> bool:
 	_ensure_inventory_slots()
-	# Duyệt túi đồ để tìm vật phẩm đã tồn tại chưa
+	# Lấy stack_size và type để biết item này có stack được với toolbar không.
+	var stack_max: int = 99
+	var is_tool: bool = false
+	var db = get_node_or_null("/root/ItemDB")
+	if db != null:
+		var data: ItemData = db.get_item(item_id)
+		if data != null:
+			stack_max = max(1, data.stack_size)
+			is_tool = (data.item_type == ItemData.Type.TOOL)
+	# Bước 1: thử stack vào toolbar trước cho item cùng id, không phải tool.
+	# Tool không stack — mỗi slot chỉ chứa 1 equipment độc lập.
+	if not is_tool:
+		var remaining: int = amount
+		for t: int in range(toolbar.size()):
+			if remaining <= 0:
+				break
+			if toolbar[t].get("id", "") == item_id:
+				var cur_amt: int = toolbar[t].get("amount", 0)
+				var space: int = stack_max - cur_amt
+				if space <= 0:
+					continue
+				var to_add: int = min(remaining, space)
+				toolbar[t]["amount"] = cur_amt + to_add
+				remaining -= to_add
+		if remaining < amount:
+			# Đã stack 1 phần (hoặc toàn bộ) vào toolbar.
+			toolbar_changed.emit()
+		if remaining == 0:
+			return true
+		amount = remaining
+	# Bước 2: stack với item cùng loại đã có trong inventory (cap stack_size).
 	for i: int in range(inventory.size()):
 		var existing_id: String = inventory[i].get("id", "")
-
-		# Nếu tìm thấy vật phẩm cùng loại
 		if existing_id == item_id:
-			# Tăng số lượng lên
-			inventory[i]["amount"] = inventory[i].get("amount", 0) + amount
-			print("[GameState] Added %d x %s (now %d)" % [amount, item_id, inventory[i]["amount"]])
-			inventory_changed.emit()  # Thông báo cho UI cập nhật
-			return true
-
-	# Nếu không tìm thấy, đặt vào ô trống đầu tiên (không vượt quá capacity).
+			var cur_inv: int = inventory[i].get("amount", 0)
+			var inv_space: int = stack_max - cur_inv
+			if inv_space <= 0:
+				continue
+			var add_inv: int = min(amount, inv_space)
+			inventory[i]["amount"] = cur_inv + add_inv
+			amount -= add_inv
+			if amount <= 0:
+				inventory_changed.emit()
+				return true
+	if amount > 0:
+		inventory_changed.emit()
+	if amount == 0:
+		return true
+	# Bước 3: phần dư (hoặc item mới) đặt vào ô trống đầu tiên.
 	for i: int in range(inventory.size()):
 		if inventory[i].get("id", "") == "":
-			inventory[i] = {"id": item_id, "amount": amount}
-			print("[GameState] Added %d x %s to slot %d" % [amount, item_id, i])
-			inventory_changed.emit()
-			return true
+			var fill: int = min(amount, stack_max)
+			inventory[i] = {"id": item_id, "amount": fill}
+			amount -= fill
+			if amount <= 0:
+				return true
 	# Inventory đầy
-	print("[GameState] add_item: inventory full, cannot add ", item_id)
+	if amount > 0:
+		print("[GameState] add_item: %d x %s không còn chỗ chứa." % [amount, item_id])
 	return false
 
 
@@ -333,6 +378,39 @@ func clear_toolbar_slot(idx: int) -> bool:
 		return false
 	toolbar[idx] = {"id": "", "amount": 0}
 	toolbar_changed.emit()
+	return true
+
+# Xóa 1 lượng item khỏi 1 slot cụ thể của toolbar (dùng khi bán / consume từ
+# hotbar). Nếu amount <= 0 thì clear slot. Trả về true nếu có thay đổi.
+func remove_toolbar_item(slot_idx: int, amount: int = 1) -> bool:
+	if slot_idx < 0 or slot_idx >= toolbar.size():
+		return false
+	if toolbar[slot_idx].get("id", "") == "":
+		return false
+	var cur: int = int(toolbar[slot_idx].get("amount", 0))
+	var new_amount: int = cur - amount
+	if new_amount <= 0:
+		toolbar[slot_idx] = {"id": "", "amount": 0}
+	else:
+		toolbar[slot_idx]["amount"] = new_amount
+	toolbar_changed.emit()
+	return true
+
+# Xóa 1 lượng item khỏi 1 slot cụ thể của inventory (theo index, không phải
+# item_id — chính xác hơn khi nhiều slot cùng item_id). Nếu amount <= 0 thì
+# xóa cả entry. Trả về true nếu có thay đổi.
+func remove_inventory_item_at(slot_idx: int, amount: int = 1) -> bool:
+	if slot_idx < 0 or slot_idx >= inventory.size():
+		return false
+	if inventory[slot_idx].get("id", "") == "":
+		return false
+	var cur: int = int(inventory[slot_idx].get("amount", 0))
+	var new_amount: int = cur - amount
+	if new_amount <= 0:
+		inventory.remove_at(slot_idx)
+	else:
+		inventory[slot_idx]["amount"] = new_amount
+	inventory_changed.emit()
 	return true
 
 func swap_toolbar_slots(a: int, b: int) -> bool:
@@ -503,6 +581,7 @@ func reset() -> void:
 	health = max_health
 	is_sleeping = false
 	is_paused = false
+	pending_portal_interaction = false
 	
 	# Xóa toàn bộ túi đồ và cờ sự kiện
 	inventory.clear()

@@ -538,14 +538,36 @@ func _refresh_buy_list() -> void:
 
 func _refresh_sell_list() -> void:
 	var has_items: bool = false
-	for item: Dictionary in GameState.inventory:
-		var item_id: String = item.get("id", "")
-		var amount: int = GameState.get_item_count(item_id)
-		if amount > 0:
-			has_items = true
-			var data: Array = _make_sell_row(item_id, amount)
-			items_list.add_child(data[0])
-			_row_item_cache.append(data[1])
+
+	# Gom item từ cả inventory (slot_kind=0) và hotbar/toolbar (slot_kind=1)
+	# để bán. Thứ tự ưu tiên: inventory trước, hotbar sau. Nếu cùng item_id
+	# xuất hiện ở cả 2 nơi thì gộp amount lại; bán 1 phát sẽ trừ từ inventory
+	# trước, hết rồi trừ tiếp từ hotbar.
+	var ordered_ids: Array[String] = []
+	var merged_amounts: Dictionary = {}  # item_id -> int
+	var sources_by_item: Dictionary = {}  # item_id -> Array[Dictionary] (theo thứ tự inv→hotbar)
+	for slot_kind: int in [0, 1]:
+		var list: Array = GameState.inventory if slot_kind == 0 else GameState.toolbar
+		for i: int in range(list.size()):
+			var entry: Dictionary = list[i]
+			var item_id: String = entry.get("id", "")
+			var amount: int = int(entry.get("amount", 0))
+			if item_id == "" or amount <= 0:
+				continue
+			if not merged_amounts.has(item_id):
+				ordered_ids.append(item_id)
+				merged_amounts[item_id] = 0
+				sources_by_item[item_id] = []
+			merged_amounts[item_id] += amount
+			sources_by_item[item_id].append({"slot_kind": slot_kind, "index": i, "amount": amount})
+
+	for item_id: String in ordered_ids:
+		var total_amount: int = int(merged_amounts[item_id])
+		var row: Array = _make_sell_row(item_id, total_amount)
+		row[0].set_meta("sell_sources", sources_by_item[item_id])
+		items_list.add_child(row[0])
+		_row_item_cache.append(row[1])
+		has_items = true
 
 	if not has_items:
 		var empty_lbl := Label.new()
@@ -722,12 +744,47 @@ func _try_buy(item_data: ItemData) -> void:
 # =============================================================================
 
 func _try_sell(item_id: String) -> void:
-	var amount: int = GameState.get_item_count(item_id)
-	if amount <= 0:
+	var row_button: Node = null
+	# Tìm row đang chứa item_id này (row bán hiện tại). Mỗi row có metadata
+	# "sell_sources" lưu thứ tự inventory → hotbar mà _refresh_sell_list đã set.
+	for child in items_list.get_children():
+		var row: Node = child
+		if row.has_meta("sell_sources"):
+			var sources: Array = row.get_meta("sell_sources")
+			if sources.size() > 0:
+				# Match theo row đầu tiên có chứa item_id — vì mỗi item_id
+				# chỉ tạo 1 row. Lấy sources từ row đó.
+				row_button = row
+				break
+
+	if row_button == null:
 		return
+
+	var sources: Array = row_button.get_meta("sell_sources")
+	var remaining: int = 1  # bán 1 đơn vị mỗi lần click Sell
 	var price: int = _get_sell_price(item_id)
-	GameState.remove_item(item_id, 1)
-	_player_gold += price
+	var sold_total: int = 0
+
+	for src: Dictionary in sources:
+		if remaining <= 0:
+			break
+		var slot_kind: int = int(src.get("slot_kind", 0))
+		var index: int = int(src.get("index", -1))
+		var available: int = int(src.get("amount", 0))
+		if available <= 0:
+			continue
+		var take: int = min(remaining, available)
+		if slot_kind == 0:
+			GameState.remove_inventory_item_at(index, take)
+		else:
+			GameState.remove_toolbar_item(index, take)
+		remaining -= take
+		sold_total += take
+
+	if sold_total <= 0:
+		return
+
+	_player_gold += price * sold_total
 	GameState.gold = _player_gold
 	_refresh_shop()
 

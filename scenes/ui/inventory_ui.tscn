@@ -13,6 +13,10 @@ inner_padding = 2
 title_text_v_offset = -1
 screen_offset_x = -2
 screen_offset_y = -18
+ctx_menu_w = 22
+ctx_menu_h = 12
+ctx_btn_h = 8
+ctx_btn_font_size = 6
 
 [node name="BackdropLayer" type="CanvasLayer" parent="."]
 layer = 0

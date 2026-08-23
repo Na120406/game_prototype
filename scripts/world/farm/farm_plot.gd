@@ -124,8 +124,31 @@ func get_player_facing_cell(player_node: Node) -> Vector2i:
 	return _world_to_cell(world_pos)
 
 func _input(event: InputEvent) -> void:
+	# Chuột TRÁI = kiểm tra trạng thái cây trồng (show growth info) + thu hoạch
+	# nếu đã MATURE. KHÔNG thực hiện plow/water/plant — những hành động đó
+	# giờ dùng chuột phải. Tách khỏi E (portal) và chuột phải (tool/seed/
+	# consumable) để 3 loại input không xung đột.
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			var mp := get_global_mouse_position()
+			if _is_in_farm_zone(mp):
+				var cell := _world_to_cell(mp)
+				if not _is_cell_in_reach(cell):
+					return
+				_update_hotbar_from_hotbar()
+				var state: CropState = _get_cell_state(cell)
+				if state == CropState.MATURE:
+					_try_harvest(cell)
+				elif state == CropState.EMPTY or state == CropState.PLOWED:
+					_play_feedback(cell, "Empty soil", Color(0.6, 0.5, 0.3))
+				else:
+					# SEEDED / SPROUTED / GROWING / WILTED → show growth info
+					_show_growth_info(cell)
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			# Chuột phải = dùng tool/seed đang chọn. CONSUMABLE thì KHÔNG xử
+			# lý ở đây (Player._unhandled_input sẽ lo) — tránh cả 2 nơi cùng
+			# consume cùng 1 frame. Logic cũ của _try_farm_action đã bao gồm
+			# plow/water/plant/harvest/show-info dựa trên state + tool_id.
 			var mp := get_global_mouse_position()
 			if _is_in_farm_zone(mp):
 				var cell := _world_to_cell(mp)
@@ -133,6 +156,9 @@ func _input(event: InputEvent) -> void:
 					_play_feedback(cell, "Too far!", Color(0.8, 0.3, 0.3))
 					return
 				_update_hotbar_from_hotbar()
+				if _get_item_type() == "consumable":
+					# Bỏ qua — để Player xử lý qua _unhandled_input.
+					return
 				_try_farm_action(cell)
 
 	if event is InputEventMouseMotion:
@@ -426,6 +452,7 @@ func _show_soil_visual(cell: Vector2i, data: Dictionary = {}) -> void:
 	# PLOWED (đất đào, chưa trồng cây) → vẽ ColorRect nâu ĐƠN SẮC (không dùng
 	# atlas). Atlas FieldsTileset chứa sẵn 3 chấm xanh trong mọi tile đất —
 	# nếu vẽ sẽ trông như đã gieo hạt. ColorRect nâu sạch báo "đã đào".
+	# Khi đã tưới nước (watered=true) → tô màu tối hơn.
 	if data.get("state", CropState.PLOWED) == CropState.PLOWED:
 		if _soil_visuals.has(cell_key):
 			var existing = _soil_visuals[cell_key]
@@ -434,7 +461,7 @@ func _show_soil_visual(cell: Vector2i, data: Dictionary = {}) -> void:
 			_soil_visuals.erase(cell_key)
 		var rect := ColorRect.new()
 		rect.name = "Soil_" + cell_key
-		rect.color = Color(0.55, 0.42, 0.25, 1.0)
+		rect.color = _get_plowed_color(bool(data.get("watered", false)))
 		rect.position = _cell_to_world(cell)
 		rect.size = CELL_SIZE
 		rect.z_index = 2
@@ -467,17 +494,18 @@ func _update_soil_visual_texture(cell_key: String, data: Dictionary) -> void:
 	# hiện tại là Sprite2D (do trước đó là cây thật) → xóa và vẽ lại ColorRect.
 	if state == CropState.PLOWED:
 		if _soil_visuals.has(cell_key):
-			var n = _soil_visuals[cell_key]
-			if is_instance_valid(n):
-				n.queue_free()
+			var existing = _soil_visuals[cell_key]
+			if is_instance_valid(existing):
+				existing.queue_free()
 			_soil_visuals.erase(cell_key)
 		# Tạo ColorRect nâu trực tiếp từ cell_key (parse lại Vector2i).
+		# Khi đã tưới nước → tô màu tối hơn để phân biệt với đất khô.
 		var parts: PackedStringArray = cell_key.split(",")
 		if parts.size() == 2:
 			var cell := Vector2i(int(parts[0]), int(parts[1]))
 			var rect := ColorRect.new()
 			rect.name = "Soil_" + cell_key
-			rect.color = Color(0.55, 0.42, 0.25, 1.0)
+			rect.color = _get_plowed_color(bool(data.get("watered", false)))
 			rect.position = _cell_to_world(cell)
 			rect.size = CELL_SIZE
 			rect.z_index = 2
@@ -540,6 +568,13 @@ func _get_soil_color_fallback(data: Dictionary) -> Color:
 	if data.get("watered", false):
 		return Color(0.35, 0.22, 0.08, 0.85)
 	return Color(0.55, 0.42, 0.25, 0.65)
+
+# Màu cho ô đất PLOWED: khô = nâu sáng, đã tưới = nâu tối hơn để phân biệt
+# trạng thái đã tưới nước dù chưa có hạt giống.
+func _get_plowed_color(watered: bool) -> Color:
+	if watered:
+		return Color(0.30, 0.20, 0.10, 1.0)
+	return Color(0.55, 0.42, 0.25, 1.0)
 
 func _hide_soil_visual(cell: Vector2i) -> void:
 	var cell_key := _cell_key(cell)

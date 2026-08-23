@@ -53,12 +53,14 @@ func _ensure_prompt_label() -> void:
 
 
 func _process(_delta: float) -> void:
-	# Xử lý input ở đây cho portal (Area2D — raycast KHÔNG reliable).
-	# Dùng Input.is_action_just_pressed thay vì event.is_action_pressed
-	# để tránh duplicate trigger nếu player._interact cũng gọi interact().
-	# is_action_just_pressed chỉ true 1 frame nên double-call là benign
-	# (scene change idempotent, gọi 2 lần vẫn chỉ change 1 lần).
+	# Portal tự check Input E để đổi scene (giữ behavior gốc — player có thể
+	# vẫn trigger scene change ngay cả khi cutscene/vẫn giữ chân player).
+	# Tuy nhiên, TRƯỚC KHI đổi scene, set GameState.pending_portal_interaction
+	# = true để Player._interact() biết mà SKIP _try_use_active_consumable()
+	# ở frame đó — tránh bug "cầm consumable đứng cạnh cửa ấn E thì cả
+	# consume lẫn portal cùng chạy".
 	if _player_inside and Input.is_action_just_pressed("interact"):
+		GameState.pending_portal_interaction = true
 		_change_scene()
 
 
@@ -66,6 +68,17 @@ func _change_scene() -> void:
 	if target_scene == "":
 		return
 	SceneManager.change_scene(target_scene, portal_id)
+
+
+# =============================================================================
+# PUBLIC API — Player dùng để check proximity khi nhấn E
+# =============================================================================
+
+# Trả về true nếu player đang overlap Area2D portal này. Player._interact()
+# dùng để quyết định ưu tiên portal > consumable. Đây là nguồn duy nhất
+# của "Player biết portal gần", vì Area2D không thể raycast bằng RayCast2D.
+func is_player_nearby() -> bool:
+	return _player_inside
 
 
 func _on_body_entered(body: Node) -> void:

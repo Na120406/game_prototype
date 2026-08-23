@@ -192,7 +192,47 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if DialogueManager.is_active:
 			return
-		_interact()
+		# E chỉ để portal tự xử lý ở world_transition.gd._process (đã có flag
+		# pending_portal_interaction để tránh double-handle). Player không gọi
+		# _interact() cho E nữa — _interact() phục vụ NPC/counter/apple/bed,
+		# và bây giờ cũng bỏ luôn fallback consumable (consumable dùng chuột
+		# phải để tách khỏi portal — tránh bug "đứng cạnh cửa ấn E thì cả
+		# portal đổi scene lẫn consumable bị consume cùng lúc").
+		if not _is_ui_blocking_movement():
+			_interact()
+
+	# Chuột phải → dùng item đang select. Tùy theo item mà handler phù hợp
+	# chạy:
+	#   - TOOL/SEED: farm_plot._input xử lý (plow/water/plant/harvest) trong
+	#     farm zone. Nếu click NGOÀI farm zone → tool/seed không có tác dụng,
+	#     Player bỏ qua (không cần phản hồi gì).
+	#   - CONSUMABLE: Player tự xử lý ở đây (dùng được mọi nơi, kể cả khi
+	#     inventory đang đóng hay đang mở — chỉ block khi UI lớn đang che:
+	#     shop/dialogue/sleep). Khi inventory đang mở mà click phải vào ô
+	#     inventory có CONSUMABLE → inventory UI bắt riêng để hiện context
+	#     menu "Use" (giữ behavior cũ cho UX trong inventory).
+	#   - Ô trống / item không xác định: bỏ qua.
+	# Tách biệt hoàn toàn với E (portal) và chuột trái (show-info/harvest)
+	# nên không xung đột 3 loại input.
+	if event.is_action_pressed("mouse_right"):
+		if current_state == State.SLEEPING or current_state == State.DEAD:
+			return
+		if DialogueManager.is_active:
+			return
+		# Block khi shop/sleep-prompt đang che. KHÔNG block vì inventory —
+		# inventory mở vẫn cho phép consum item hotbar active nếu click phải
+		# ngoài vùng context menu (inventory chỉ xử lý nếu click trúng ô có
+		# CONSUMABLE để hiện nút Use).
+		if _is_modal_ui_blocking():
+			return
+		# Nếu click phải trúng ô inventory có CONSUMABLE → inventory UI đã
+		# (hoặc sẽ) bắt event để hiện context menu. Để tránh consume đúp cùng
+		# frame, ta bỏ qua ở đây khi inventory đang mở. Các vùng khác của UI
+		# inventory (grid trống, title, panel background) → vẫn cho Player xử
+		# lý để consume item hotbar active.
+		if _is_mouse_over_inventory_consumable_slot():
+			return
+		_try_use_active_consumable()
 
 	if event.is_action_pressed("ui_cancel"):
 		if current_state == State.INTERACTING:
@@ -201,6 +241,12 @@ func _unhandled_input(event: InputEvent) -> void:
 func _interact() -> void:
 	if current_state == State.SLEEPING or current_state == State.DEAD:
 		return
+
+	# Reset cờ pending_portal_interaction nếu có (phòng trường hợp portal
+	# set flag ở frame này nhưng Player được gọi _interact() bởi E — tuy giờ
+	# E không còn trigger consume ở Player, nhưng các interactable khác
+	# (npc/counter/apple/bed) vẫn chạy qua đây, nên reset cho sạch).
+	GameState.pending_portal_interaction = false
 
 	_set_state(State.INTERACTING)
 	_current_interact_target = null
@@ -217,10 +263,19 @@ func _interact() -> void:
 		if interaction_ray.is_colliding():
 			var collider: Object = interaction_ray.get_collider()
 			if collider.has_method("interact"):
+				# Gán target TRƯỚC khi gọi interact() để các khối fallback
+				# bị skip. Nếu collider.interact() trigger change_scene (portal)
+				# hoặc mở UI/dialogue, scene/UI tự set game_interacting và clear.
 				_current_interact_target = collider
 				collider.interact(self)
 
-	# Fallback: check proximity for interactables
+	# Fallback: check proximity for interactables (kiểm tra theo thứ tự ưu tiên
+	# giảm dần).
+	# Thứ tự: apple → bed → npc → counter → consumable (cuối cùng).
+	# PORTAL KHÔNG ở đây: portal Area2D tự xử lý E qua _process (giữ behavior
+	# cũ) và set GameState.pending_portal_interaction = true trước khi đổi
+	# scene → Player skip consume ở cuối hàm (xem check `portal_will_handle`).
+	# Logic: assign target TRƯỚC khi gọi interact() để các khối sau bị skip.
 	if _current_interact_target == null:
 		var apple: Node = _find_nearby_item()
 		if apple != null:
@@ -230,28 +285,27 @@ func _interact() -> void:
 	if _current_interact_target == null:
 		var bed: Node = _find_nearby_bed()
 		if bed != null and bed.has_method("is_player_nearby") and bed.is_player_nearby():
-			bed.interact(self)
 			_current_interact_target = bed
+			bed.interact(self)
 
 	if _current_interact_target == null:
 		var npc: Node = _find_nearby_npc()
 		if npc != null:
-			npc.interact(self)
 			_current_interact_target = npc
+			npc.interact(self)
 
 	if _current_interact_target == null:
 		var counter: Node = _find_nearby_counter()
 		if counter != null:
-			counter.interact(self)
 			_current_interact_target = counter
+			counter.interact(self)
 
 	if _current_interact_target == null:
-		# Không có interactable nào → dùng CONSUMABLE ở slot đang select
-		# (táo hồi energy, bình máu hồi health). Nếu item đang select là
-		# TOOL/SEED thì E không có tác dụng (dùng TOOL/SEED phải click chuột).
-		var consumed: bool = _try_use_active_consumable()
-		if not consumed:
-			_set_state(State.IDLE)
+		# KHÔNG fallback consumable ở đây — consumable giờ dùng riêng chuột
+		# phải (mouse_right) để tách khỏi E (portal) và chuột trái (farm plot).
+		# Nếu E được nhấn mà không có apple/bed/npc/counter nào gần → idle,
+		# tránh những consume ngoài ý muốn khi player chỉ muốn mở cửa.
+		_set_state(State.IDLE)
 
 	# Restore game_interacting về giá trị ban đầu sau one-shot actions.
 	# Đây là lý do trước đây player bị "đứng im" sau khi nhặt táo bằng E:
@@ -307,11 +361,55 @@ func _is_ui_blocking_movement() -> bool:
 		return true
 	return false
 
+# Kiểm tra có UI modal đang che không (shop/sleep/dialogue/pause). Tách từ
+# _is_ui_blocking_movement ra để chuột phải vẫn consume được consumable khi
+# inventory đang mở — inventory không phải modal, chỉ pause gameplay.
+func _is_modal_ui_blocking() -> bool:
+	if DialogueManager != null and DialogueManager.is_active:
+		return true
+	var shop: CanvasLayer = get_tree().get_first_node_in_group("shop_ui")
+	if shop != null and shop.visible:
+		return true
+	var sleep_nodes := get_tree().get_nodes_in_group("sleep_prompt")
+	for n: Node in sleep_nodes:
+		if n is Control and (n as Control).visible:
+			return true
+	return false
+
+# Trả về true nếu chuột đang nằm trên 1 ô inventory có CONSUMABLE — để
+# Player bỏ qua và để inventory_ui xử lý context menu "Use". Khi click ra
+# ngoài các ô đó (panel background, hotbar, world) → Player consume item
+# hotbar active bình thường.
+func _is_mouse_over_inventory_consumable_slot() -> bool:
+	var inv: CanvasLayer = get_tree().get_first_node_in_group("inventory_ui")
+	if inv == null or not inv.visible:
+		return false
+	var mp: Vector2 = get_viewport().get_mouse_position()
+	# Hotbar nằm dưới inventory; click phải vào hotbar KHÔNG nên skip consume —
+	# nếu skip, hotbar sẽ "nuốt" event và Player không consume được. Chỉ skip
+	# khi chuột trên 1 ô inventory (không phải hotbar).
+	var hotbar: Node = get_tree().get_first_node_in_group("hotbar")
+	if hotbar != null:
+		var slot_names := ["Slot0", "Slot1", "Slot2", "Slot3", "Slot4"]
+		for i: int in range(slot_names.size()):
+			var slot: Control = hotbar.get_node_or_null("SlotsContainer/" + slot_names[i]) as Control
+			if slot != null and is_instance_valid(slot) and slot.get_global_rect().has_point(mp):
+				return false
+	# Gọi helper của inventory_ui nếu có (test nhanh có phải slot consumable).
+	if inv.has_method("_is_mouse_over_consumable_slot"):
+		return inv.call("_is_mouse_over_consumable_slot")
+	return false
+
 func _find_nearby_bed() -> Node:
 	var world: Node = get_parent()
 	if world == null:
 		return null
 	return world.find_child("Bed", true, false)
+
+# (Hàm _find_nearby_portal và _collect_nodes_by_script đã bị xóa — portal
+# không còn trong chuỗi fallback của Player. Portal tự xử lý E qua _process
+# của Area2D world_transition.gd và set flag pending_portal_interaction để
+# Player biết skip consume ở cùng frame nếu cần.)
 
 func _find_nearby_item() -> Node:
 	var world: Node = get_parent()

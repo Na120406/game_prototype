@@ -98,7 +98,7 @@ const SLOT_KIND_TOOLBAR := 1
 
 var _inv_slot_panels: Array[Panel] = []
 var _inv_slot_icons: Array[Label] = []
-var _inv_slot_counts: Array[Label] = []
+var _inv_slot_counts: Array[RichTextLabel] = []
 
 var _tooltip: RichTextLabel = null
 var _tooltip_panel: Panel = null
@@ -114,6 +114,32 @@ var _drop_target_slot: int = -1
 
 var _bright_region: Control = null
 var _inventory_panel: Control = null
+
+# Context menu hiện khi chuột phải vào 1 inventory slot có CONSUMABLE.
+# Hiển thị 1 nút "Dùng" cạnh slot. Bấm "Dùng" → consume; bấm chỗ khác
+# (ô khác, panel khác, phím khác) → ẩn menu.
+@export_group("Context Menu")
+@export var ctx_menu_w: int = 26:
+	set(value):
+		ctx_menu_w = value
+		_apply_ctx_menu_size()
+@export var ctx_menu_h: int = 14:
+	set(value):
+		ctx_menu_h = value
+		_apply_ctx_menu_size()
+@export var ctx_menu_offset: Vector2 = Vector2(6, 0)
+@export var ctx_btn_h: int = 12:
+	set(value):
+		ctx_btn_h = value
+		_apply_ctx_menu_size()
+@export var ctx_btn_font_size: int = 7:
+	set(value):
+		ctx_btn_font_size = value
+		_apply_ctx_menu_font()
+var _context_menu: Panel = null
+var _context_use_btn: Button = null
+var _context_target_slot: int = -1  # inventory slot mà menu đang phục vụ
+var _context_target_item_id: String = ""
 
 func _ready() -> void:
 	print("[InvUI] _ready ENTER, name=", name)
@@ -139,7 +165,8 @@ func _ready() -> void:
 	_inventory_panel = get_node_or_null("Root/Panel")
 	if _bright_region != null:
 		_bright_region.visible = false
-	print("[InvUI] _ready EXIT, _bright_region=", _bright_region, " _inventory_panel=", _inventory_panel)
+	_build_context_menu()
+	print("[InvUI] _ready EXIT, _bright_region=", _bright_region, " _inventory_panel=", _inventory_panel, " _context_menu=", _context_menu)
 
 # Áp style bo góc nhẹ cho PanelContainer (TitleBox / GridBox).
 # bg_color: màu nền nâu, border_color: màu viền vàng nâu,
@@ -300,26 +327,37 @@ func _make_icon_label(name_str: String) -> Label:
 	icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	icon.add_theme_font_size_override("font_size", 14)
+	# Label mặc định mouse_filter = IGNORE, nhưng explicit để chắc chắn click
+	# xuyên qua → Panel cha nhận gui_input.
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return icon
 
-func _make_count_label(name_str: String) -> Label:
-	var count := Label.new()
+func _make_count_label(name_str: String) -> RichTextLabel:
+	var count := RichTextLabel.new()
 	count.name = name_str
 	count.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	count.anchor_left = 1.0
 	count.anchor_top = 1.0
 	count.anchor_right = 1.0
 	count.anchor_bottom = 1.0
-	count.offset_left = -8.0
-	count.offset_top = -8.0
+	count.offset_left = -20.0
+	count.offset_top = -12.0
 	count.offset_right = -1.0
 	count.offset_bottom = -1.0
 	count.grow_horizontal = Control.GROW_DIRECTION_END
 	count.grow_vertical = Control.GROW_DIRECTION_END
 	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	count.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	count.add_theme_font_size_override("font_size", 8)
-	count.add_theme_color_override("font_color", Color(1, 0.92, 0.5, 1))
+	count.bbcode_enabled = true
+	count.fit_content = true
+	count.scroll_active = false
+	count.autowrap_mode = TextServer.AUTOWRAP_OFF
+	count.add_theme_font_size_override("normal_font_size", 7)
+	count.add_theme_color_override("default_color", Color(1, 0.92, 0.5, 1))
+	# RichTextLabel mặc định mouse_filter = STOP sẽ nuốt event khi click vào
+	# vùng text — khiến Panel cha không nhận gui_input → drag không hoạt
+	# động ở slot có amount > 1 (label visible). Set IGNORE để click xuyên.
+	count.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return count
 
 func _build_tooltip() -> void:
@@ -349,6 +387,8 @@ func _build_tooltip() -> void:
 	_tooltip.fit_content = true
 	_tooltip.scroll_active = false
 	_tooltip.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Tooltip không ăn event (parent Panel cũng vậy — tooltip chỉ là read-only).
+	_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tooltip_panel.add_child(_tooltip)
 
 	var tooltip_style := StyleBoxEmpty.new()
@@ -363,6 +403,76 @@ func _build_tooltip() -> void:
 	_tooltip_timer.one_shot = true
 	_tooltip_timer.timeout.connect(_show_tooltip_for_pending)
 	add_child(_tooltip_timer)
+
+# Build context menu (popup nhỏ hiện cạnh inventory slot khi chuột phải).
+# Hiện chỉ có 1 nút "Dùng" cho CONSUMABLE — các loại item khác không hiện
+# menu. Click "Dùng" → consume item. Click bất kỳ đâu khác → ẩn menu.
+func _build_context_menu() -> void:
+	_context_menu = Panel.new()
+	_context_menu.name = "ContextMenu"
+	_context_menu.size = Vector2(ctx_menu_w, ctx_menu_h)
+	_context_menu.visible = false
+	_context_menu.z_index = 110
+	_context_menu.mouse_filter = Control.MOUSE_FILTER_STOP
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = Color(0.04, 0.02, 0.07, 0.97)
+	cs.border_color = Color(0.85, 0.68, 0.38, 1.0)
+	cs.border_width_left = 1
+	cs.border_width_top = 1
+	cs.border_width_right = 1
+	cs.border_width_bottom = 1
+	cs.corner_radius_top_left = 2
+	cs.corner_radius_top_right = 2
+	cs.corner_radius_bottom_right = 2
+	cs.corner_radius_bottom_left = 2
+	_context_menu.add_theme_stylebox_override("panel", cs)
+	add_child(_context_menu)
+
+	# Kích thước nút vừa đủ chữ "Use" — bỏ default style của Button (padding
+# mặc định làm nút phình to) để nút đúng bằng box.
+	_context_use_btn = Button.new()
+	_context_use_btn.name = "UseBtn"
+	_context_use_btn.text = "Use"
+	_context_use_btn.position = Vector2(2, 1)
+	_context_use_btn.size = Vector2(ctx_menu_w - 4, ctx_btn_h)
+	_context_use_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	_context_use_btn.focus_mode = Control.FOCUS_NONE
+	_context_use_btn.add_theme_font_size_override("font_size", ctx_btn_font_size)
+	# Style trong suốt — nền/viền/padding mặc định của Button bị tắt để nút
+	# không vẽ đè lên menu Panel. Hover/pressed đổi màu text để báo click.
+	_context_use_btn.add_theme_constant_override("h_separation", 0)
+	# Tắt style của Button bằng StyleBoxEmpty cho mọi state.
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var empty: StyleBoxEmpty = StyleBoxEmpty.new()
+		_context_use_btn.add_theme_stylebox_override(state, empty)
+	_context_use_btn.add_theme_color_override("font_color", Color(1, 0.92, 0.65, 1))
+	_context_use_btn.add_theme_color_override("font_hover_color", Color(1, 0.97, 0.78, 1))
+	_context_use_btn.add_theme_color_override("font_pressed_color", Color(1, 1, 0.85, 1))
+	_context_use_btn.pressed.connect(_on_context_use_pressed)
+	_context_menu.add_child(_context_use_btn)
+	# Apply 1 lần sau khi build xong (setter không gọi được vì _ready trước
+	# _build → _context_menu = null lúc setter chạy).
+	_apply_ctx_menu_size()
+	_apply_ctx_menu_font()
+
+
+# Apply lại size khi đổi ctx_menu_w / ctx_menu_h / ctx_btn_h trong Inspector.
+func _apply_ctx_menu_size() -> void:
+	if _context_menu == null:
+		return
+	_context_menu.size = Vector2(ctx_menu_w, ctx_menu_h)
+	if _context_use_btn != null:
+		_context_use_btn.position = Vector2(2, 1)
+		_context_use_btn.size = Vector2(ctx_menu_w - 4, ctx_btn_h)
+
+
+func _apply_ctx_menu_font() -> void:
+	if _context_use_btn == null:
+		return
+	_context_use_btn.add_theme_font_size_override("font_size", ctx_btn_font_size)
+	_context_use_btn.add_theme_color_override("font_color", Color(1, 0.92, 0.65, 1))
+	_context_use_btn.add_theme_color_override("font_hover_color", Color(1, 0.97, 0.78, 1))
+	_context_use_btn.add_theme_color_override("font_pressed_color", Color(1, 1, 0.85, 1))
 
 # =============================================================================
 # OPEN / CLOSE
@@ -395,6 +505,19 @@ func _input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_LEFT and _drag_source_slot >= 0:
 			_handle_drag_release()
 			get_viewport().set_input_as_handled()
+
+	# Click bất kỳ (chuột trái HOẶC phải) vào vùng NGOÀI context menu mà
+	# context menu đang hiện → ẩn menu. Click vào chính context menu (Panel
+	# hoặc Button bên trong) sẽ được GUI dispatch nuốt ở mouse_filter STOP,
+	# không vào nhánh này.
+	if _context_menu != null and _context_menu.visible:
+		if event is InputEventMouseButton and event.pressed:
+			var mp: Vector2 = get_viewport().get_mouse_position()
+			if not _context_menu.get_global_rect().has_point(mp):
+				_hide_context_menu()
+		elif event is InputEventKey and event.pressed:
+			# Phím bất kỳ → đóng menu.
+			_hide_context_menu()
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Defensive: khi inventory mở + đang drag, mouse UP cũng có thể bubble
@@ -460,6 +583,7 @@ func _close() -> void:
 	GameState.is_paused = _game_paused_before
 	GameState.game_interacting = false
 	_cancel_drag()
+	_hide_context_menu()
 	_hide_tooltip()
 	_clear_hover()
 	# Defensive reset: nếu backdrop từng được bật (qua code path khác),
@@ -518,7 +642,7 @@ func _update_inv_slot(slot_idx: int) -> void:
 		return
 	var panel: Panel = _inv_slot_panels[slot_idx]
 	var icon: Label = _inv_slot_icons[slot_idx]
-	var count: Label = _inv_slot_counts[slot_idx]
+	var count: RichTextLabel = _inv_slot_counts[slot_idx]
 	var item_id: String = ""
 	var amount: int = 0
 	if slot_idx < GameState.inventory.size():
@@ -527,7 +651,7 @@ func _update_inv_slot(slot_idx: int) -> void:
 		amount = entry.get("amount", 1)
 	_fill_slot(panel, icon, count, item_id, amount, slot_idx)
 
-func _fill_slot(panel: Panel, icon: Label, count: Label, item_id: String, amount: int, slot_idx: int) -> void:
+func _fill_slot(panel: Panel, icon: Label, count: RichTextLabel, item_id: String, amount: int, slot_idx: int) -> void:
 	if item_id == "":
 		icon.text = ""
 		icon.visible = false
@@ -541,7 +665,7 @@ func _fill_slot(panel: Panel, icon: Label, count: Label, item_id: String, amount
 			icon.visible = true
 			_set_slot_border(panel, true, false, slot_idx)
 			if amount > 1:
-				count.text = str(amount)
+				count.text = "[font_size=5]x[/font_size][font_size=7]%d[/font_size]" % amount
 				count.visible = true
 			else:
 				count.visible = false
@@ -620,18 +744,29 @@ func _on_slot_leave(slot_idx: int) -> void:
 func _on_inv_slot_input(event: InputEvent, slot_idx: int) -> void:
 	if not (event is InputEventMouseButton and event.pressed):
 		return
-	if event.button_index != MOUSE_BUTTON_LEFT:
-		# Right click → show info
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			_show_item_info_for(slot_idx)
-		return
 	if slot_idx >= GameState.inventory.size():
 		return
 	var entry: Dictionary = GameState.inventory[slot_idx]
-	if entry.get("id", "") == "":
+	var item_id: String = entry.get("id", "")
+	if item_id == "":
+		_hide_context_menu()
 		return
-	# Bắt đầu drag từ inventory slot
-	_start_drag(slot_idx, entry.get("id", ""), int(entry.get("amount", 1)))
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		# Chuột phải vào 1 ô có item: nếu là CONSUMABLE → hiện context menu
+		# "Dùng" cạnh ô đó. Các loại khác (TOOL/SEED/KEY/CURRENCY) → không
+		# hiện menu, đóng menu cũ nếu đang mở.
+		var data: ItemData = ItemDB.get_item(item_id)
+		if data != null and data.item_type == ItemData.Type.CONSUMABLE:
+			_show_context_menu(slot_idx, item_id)
+		else:
+			_hide_context_menu()
+		return
+	if event.button_index != MOUSE_BUTTON_LEFT:
+		return
+	# Click trái vào slot có item → bắt đầu drag. Đồng thời ẩn context menu
+	# nếu đang mở (click sang ô khác = chọn việc khác).
+	_hide_context_menu()
+	_start_drag(slot_idx, item_id, int(entry.get("amount", 1)))
 
 func _on_toolbar_slot_input(_event: InputEvent, _toolbar_idx: int) -> void:
 	pass
@@ -747,6 +882,72 @@ func _cancel_drag() -> void:
 	_drop_target_slot = -1
 
 # =============================================================================
+# CONTEXT MENU (chuột phải vào inventory slot có CONSUMABLE → nút "Dùng")
+# =============================================================================
+# Hiển thị popup nhỏ cạnh slot. Bấm "Dùng" → consume item; bấm bất kỳ chỗ
+# nào khác (ô khác, panel khác, phím khác) → ẩn menu.
+# =============================================================================
+
+func _show_context_menu(slot_idx: int, item_id: String) -> void:
+	if _context_menu == null:
+		return
+	var panel: Panel = _get_panel_for_slot(slot_idx)
+	if panel == null:
+		return
+	_context_target_slot = slot_idx
+	_context_target_item_id = item_id
+	# Đặt menu cạnh slot. Inventory grid 7 cột — slot nằm trong 3 cột phải
+	# ngoài cùng (col 4,5,6, tức slot_idx % 7 >= 4) thì menu luôn nằm bên
+	# TRÁI slot để không tràn viewport. Các vị trí khác → bên phải, trừ khi
+	# tràn viewport thì tự flip.
+	var slot_rect: Rect2 = panel.get_global_rect()
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var right_col_threshold: int = 4  # 7 cột: 0..6; cột 4,5,6 = 3 cột phải
+	var slot_col: int = slot_idx % 7
+	var place_left: bool = slot_col >= right_col_threshold
+	if place_left:
+		var menu_pos_x: float = slot_rect.position.x - ctx_menu_w - ctx_menu_offset.x
+		_context_menu.position = Vector2(menu_pos_x, slot_rect.position.y)
+	else:
+		var menu_pos_x: float = slot_rect.position.x + slot_rect.size.x + ctx_menu_offset.x
+		# Flip nếu vẫn tràn viewport.
+		if menu_pos_x + ctx_menu_w > viewport_size.x:
+			menu_pos_x = slot_rect.position.x - ctx_menu_w - ctx_menu_offset.x
+		_context_menu.position = Vector2(menu_pos_x, slot_rect.position.y)
+	_context_menu.visible = true
+	# Ẩn tooltip inventory cũ (nếu đang hiện từ hover) để khỏi chồng UI.
+	_hide_tooltip()
+
+func _hide_context_menu() -> void:
+	if _context_menu == null:
+		return
+	_context_menu.visible = false
+	_context_target_slot = -1
+	_context_target_item_id = ""
+
+func _on_context_use_pressed() -> void:
+	# Lưu slot/item_id và reset target TRƯỚC khi gọi consume — để khi
+	# inventory_changed emit, _refresh_inv chạy không bị ảnh hưởng bởi menu.
+	var slot_idx: int = _context_target_slot
+	var item_id: String = _context_target_item_id
+	_hide_context_menu()
+	if slot_idx < 0 or item_id == "":
+		return
+	if slot_idx >= GameState.inventory.size():
+		return
+	if GameState.inventory[slot_idx].get("id", "") != item_id:
+		# Item ở slot đã bị thay đổi giữa lúc mở menu và bấm Dùng → bỏ qua.
+		return
+	var item_handler: Node = get_node_or_null("/root/ItemHandler")
+	if item_handler == null:
+		push_warning("[InvUI] ItemHandler not found")
+		return
+	# Apply effect (energy/health) trước, sau đó remove_item sẽ fire signal
+	# inventory_changed → _refresh_all cập nhật grid.
+	if item_handler.has_method("use_item"):
+		item_handler.use_item(item_id, true)
+
+# =============================================================================
 # TOOLTIP / INFO
 # =============================================================================
 
@@ -832,6 +1033,23 @@ func _show_item_info_for(slot_idx: int) -> void:
 	_tooltip_panel.custom_minimum_size = tt_size
 	_tooltip_panel.visible = true
 	_tooltip_timer.stop()
+
+func _is_mouse_over_consumable_slot() -> bool:
+	if not visible:
+		return false
+	var mp: Vector2 = get_viewport().get_mouse_position()
+	for i: int in range(_inv_slot_panels.size()):
+		var p: Panel = _inv_slot_panels[i]
+		if is_instance_valid(p) and p.get_global_rect().has_point(mp):
+			if i >= GameState.inventory.size():
+				return false
+			var entry: Dictionary = GameState.inventory[i]
+			var item_id: String = entry.get("id", "")
+			if item_id == "":
+				return false
+			var data: ItemData = ItemDB.get_item(item_id)
+			return data != null and data.item_type == ItemData.Type.CONSUMABLE
+	return false
 
 func _get_slot_entry(slot_idx: int) -> Dictionary:
 	if slot_idx < 100:
