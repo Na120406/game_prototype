@@ -46,6 +46,9 @@ var _current_dialogue: Dictionary = {}
 # Tên NPC đang nói
 var _current_npc: String = ""
 
+# ID NPC đang nói (dùng cho quest lookup, vd: "neighbor", "shopkeeper")
+var _current_npc_id: String = ""
+
 # Dòng hội thoại hiện tại (index)
 var _current_line: int = 0
 
@@ -145,7 +148,7 @@ func _connect_to_dialogue_ui() -> void:
 #     Ví dụ: "shopkeeper" sẽ đọc file "res://resources/dialogue/shopkeeper.json"
 #   npc_name: String - tên NPC đang nói
 
-func start_dialogue(dialogue_id: String, npc_name: String) -> void:
+func start_dialogue(dialogue_id: String, npc_name: String, npc_id: String = "") -> void:
 	# Không bắt đầu nếu đang trong hội thoại khác
 	if is_active:
 		print("[DM] Already active, ignoring.")
@@ -190,6 +193,7 @@ func start_dialogue(dialogue_id: String, npc_name: String) -> void:
 	# =================================================================
 	_current_dialogue = json.get_data()  # Lưu nội dung dialogue
 	_current_npc = npc_name              # Lưu tên NPC
+	_current_npc_id = npc_id             # Lưu NPC id (dùng cho quest lookup)
 	_current_line = 0                    # Bắt đầu từ dòng 0
 	_pending_action = ""                 # Chưa có action nào chờ
 	is_active = true                     # Đánh dấu đang active
@@ -300,28 +304,29 @@ func select_choice(index: int) -> void:
 	# Không làm gì nếu không active
 	if not is_active:
 		return
-	
+
 	# Lấy danh sách dòng
 	var lines: Array = _current_dialogue.get("lines", [])
-	
+
 	# Lấy dữ liệu lựa chọn của dòng hiện tại
 	var choice_data: Array = lines[_current_line].get("choices_data", [])
-	
+
 	# Kiểm tra index hợp lệ
 	if index >= choice_data.size():
 		return
-	
+
 	# Lấy action từ lựa chọn
 	var action: String = choice_data[index].get("action", "")
-	
+
 	# Lưu action để thực hiện sau
 	_pending_action = action
-	
-	# Chuyển sang dòng tiếp theo
-	_current_line += 1
-	_show_line()
-	
-	# Thực hiện action
+
+	# Ẩn choices ngay lập tức
+	var ui: Node = _get_dialogue_ui()
+	if ui != null:
+		ui._clear_choices()
+
+	# Thực hiện action ngay
 	_execute_action(action)
 
 
@@ -338,8 +343,50 @@ func _execute_action(action: String) -> void:
 	# Xử lý theo loại action
 	match action:
 		"close":
-			# Đóng dialogue
+			# Đóng dialogue ngay lập tức
 			_end()
+		"confirm_delivery":
+			# Xác nhận giao hàng - hoàn thành quest delivery
+			print("[DM] confirm_delivery action triggered")
+			var ok: bool = _try_complete_delivery()
+			print("[DM] complete_delivery_quest returned: %s" % str(ok))
+			# Chuyển sang dòng cảm ơn (line tiếp theo). Player ấn tiếp/click để tắt.
+			_current_line += 1
+			_show_line()
+		"cancel_delivery":
+			# Hủy giao hàng - chỉ đóng dialogue ngay
+			print("[DM] Delivery cancelled by player.")
+			_end()
+
+
+# =============================================================================
+# HÀM HOÀN THÀNH GIAO HÀNG (_try_complete_delivery)
+# =============================================================================
+# Tìm quest delivery active và hoàn thành nó
+
+func _try_complete_delivery() -> bool:
+	# Tìm delivery quest đang active cho NPC hiện tại (không phải bất kỳ NPC nào)
+	# để tránh complete nhầm quest của NPC khác.
+	var active_quests: Array = QuestSystem.get_active_quests()
+	var lookup_id: String = _current_npc_id if _current_npc_id != "" else _current_npc
+	for quest: Dictionary in active_quests:
+		if quest.get("type", "") != "delivery":
+			continue
+		var giver: String = quest.get("giver", "")
+		if giver != lookup_id:
+			continue
+		var quest_id: String = quest.get("id", "")
+		var req_item: String = quest.get("required_item", "")
+		var req_amount: int = int(quest.get("required_amount", 0))
+		print("[DM] Trying to complete delivery quest %s for %s (need %d x %s)" % [quest_id, giver, req_amount, req_item])
+		var ok: bool = QuestSystem.complete_delivery_quest(quest_id)
+		if ok:
+			print("[DM] Delivery quest %s completed successfully." % quest_id)
+			return true
+		else:
+			print("[DM] Delivery quest %s FAILED to complete." % quest_id)
+	print("[DM] No matching delivery quest found for current NPC '%s'." % lookup_id)
+	return false
 
 
 # =============================================================================
@@ -363,6 +410,7 @@ func _end() -> void:
 	_current_dialogue = {}
 	_current_line = 0
 	_current_npc = ""
+	_current_npc_id = ""
 
 	# Phát tín hiệu kết thúc
 	dialogue_ended.emit()

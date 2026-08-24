@@ -22,6 +22,14 @@ extends Node
 # Tham số: scene_path (String) - đường dẫn scene mới
 signal scene_changed(scene_path: String)
 
+# Phat ra NGAY TRUOC khi scene cu bi remove khoi tree. Listener (NPCManager) dung
+# de detach NPC attached o scene cu truoc khi Godot queue_free scene do — tranh
+# warning "freed instance" khi NPC instance bi free theo scene.
+# Tham số:
+#   old_scene_path (String) - đường dẫn scene cũ ("" nếu là lần đầu load).
+#   new_scene_path (String) - đường dẫn scene mới sắp được add.
+signal scene_changing(old_scene_path: String, new_scene_path: String)
+
 
 # =============================================================================
 # CÁC HẰNG SỐ
@@ -37,6 +45,10 @@ const TRANSITION_DURATION: float = 0.5
 
 # Scene hiện tại
 var current_scene_path: String = ""
+
+# Cache scene instances đang active — key = scene_file_path, value = scene Node.
+# Dùng để sync với NPCManager._loaded_scenes khi SceneManager reuse scene.
+var _loaded_scenes: Dictionary = {}
 
 # Layer overlay để fade
 var _transition_overlay: ColorRect
@@ -123,7 +135,13 @@ func change_scene(scene_path: String, portal_id: String = "", use_transition: bo
 		# Có fade: bắt đầu animation fade
 		_start_fade_to_black(scene_path)
 	else:
-		# Không fade: load trực tiếp
+		# Không fade: load trực tiếp → emit scene_changing ở đây
+		# (vì _load_scene không emit nữa)
+		var old_path: String = ""
+		var current: Node = get_tree().current_scene
+		if current != null:
+			old_path = current.scene_file_path
+		scene_changing.emit(old_path, scene_path)
 		_load_scene(scene_path)
 
 
@@ -202,6 +220,13 @@ func _start_fade_to_black(scene_path: String) -> void:
 # Gọi khi fade đen hoàn tất
 
 func _on_fade_to_black_complete(scene_path: String) -> void:
+	# Emit scene_changing ở đây (trước _load_scene) vì _load_scene không emit nữa.
+	# Đây là điểm duy nhất _load_scene được gọi sau fade — cả fade và non-fade đều đi qua đây.
+	var old_scene_path: String = ""
+	var current: Node = get_tree().current_scene
+	if current != null:
+		old_scene_path = current.scene_file_path
+	scene_changing.emit(old_scene_path, scene_path)
 	# Load scene mới
 	_load_scene(scene_path)
 
@@ -252,14 +277,20 @@ func _load_scene(scene_path: String) -> void:
 	# Snapshot farm state from current scene BEFORE removing it (nếu có farm)
 	_persist_farm_state()
 
-	# Load scene từ file
+	# =================================================================
+	# LOAD SCENE MỚI
+	# =================================================================
+	# Với design mới: NPCs attach trực tiếp vào player's scene, không còn
+	# preload scene riêng. Mỗi lần player đến scene → tạo instance mới.
+	# Scene cũ được queue_free khi player rời đi.
 	var packed := load(scene_path)
 	if packed == null:
 		push_error("[SceneManager] Failed to load: %s" % scene_path)
 		return
-
-	# Tạo instance từ scene
 	var new_scene: Node = packed.instantiate()
+	if new_scene == null:
+		push_error("[SceneManager] Instantiate failed: %s" % scene_path)
+		return
 
 	# Lấy root node
 	var root := get_tree().root
@@ -267,16 +298,18 @@ func _load_scene(scene_path: String) -> void:
 	# =================================================================
 	# XÓA SCENE CŨ
 	# =================================================================
-	var current: Node = get_tree().current_scene
-	if current != null:
-		root.remove_child(current)
-		current.queue_free()  # Xóa sau khi remove
+	_free_current_scene_except_persistent()
 
 	# =================================================================
 	# THÊM SCENE MỚI
 	# =================================================================
 	root.add_child(new_scene)
 	get_tree().current_scene = new_scene
+
+	# Emit scene_changed ĐỂ NPCManager attach NPC vào scene mới (nếu reuse thì
+	# NPC đã attached; nếu scene mới thì NPCManager sẽ attach sau).
+	# Emit trước fade-in để NPCManager sync kịp thời.
+	scene_changed.emit(scene_path)
 
 	# =================================================================
 	# KHÔI PHỤC FARM DATA NẾU SCENE MỚI CÓ FARM
@@ -372,6 +405,77 @@ func _find_player_spawn_marker(scene: Node) -> Node2D:
 
 
 # =============================================================================
+# PUBLIC API — lấy scene instance đang active cho scene_path
+# =============================================================================
+# Dùng bởi NPCManager để lấy scene thực sự SceneManager dùng làm current_scene
+# (reuse từ NPC preload hoặc scene mới). Đảm bảo NPCManager attach NPC vào
+# scene thực sự, không phải scene persistent cũ đã bị free.
+func get_loaded_scene(scene_path: String) -> Node:
+	if scene_path == "":
+		return null
+	if _loaded_scenes.has(scene_path):
+		var cached: Variant = _loaded_scenes[scene_path]
+		if cached != null and is_instance_valid(cached) and cached.is_inside_tree():
+			return cached as Node
+		_loaded_scenes.erase(scene_path)
+	return null
+
+
+# =============================================================================
+# DEBUG — trace all scene instances in tree
+# =============================================================================
+func debug_print_all_scenes_in_tree() -> void:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		print("[SceneManager] debug: tree is null")
+		return
+	print("[SceneManager] === All scenes in tree (root children) ===")
+	for i in range(tree.root.get_child_count()):
+		var child: Node = tree.root.get_child(i)
+		var valid := is_instance_valid(child)
+		var in_tree := valid and child.is_inside_tree()
+		var queued := valid and child.is_queued_for_deletion()
+		var is_current := valid and tree.current_scene != null and child == tree.current_scene
+		print("  [%d] name=%s path=%s valid=%s in_tree=%s queued=%s is_current=%s" % [
+			i, str(child.name), child.scene_file_path if "scene_file_path" in child else "?",
+			str(valid), str(in_tree), str(queued), str(is_current)])
+	print("[SceneManager] ===========================================")
+
+
+# =============================================================================
+# HÀM LẤY SCENE HIỆN TẠI AN TOÀN (_get_current_scene_safe)
+# =============================================================================
+# Wrapper an toàn cho get_tree().current_scene — tránh crash khi tree chưa ready.
+func _get_current_scene_safe() -> Node:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	return tree.current_scene
+
+
+# =============================================================================
+# HÀM FREE SCENE CŨ (_free_current_scene_except_persistent)
+# =============================================================================
+# Xóa scene hiện tại khỏi tree. Scene mới đã được tạo trong _load_scene.
+# NPCs trong scene cũ đã được detach trong _on_scene_changing.
+func _free_current_scene_except_persistent() -> void:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return
+	var current: Node = tree.current_scene
+	if current == null:
+		return
+	# Skip nếu scene đang chờ xóa (prevent crash nếu gọi 2 lần).
+	if current.is_queued_for_deletion():
+		return
+	# Xóa scene cũ bình thường.
+	var old_path: String = current.scene_file_path
+	tree.root.remove_child(current)
+	current.queue_free()
+	print("[SceneManager] Freed scene: %s" % old_path)
+
+
+# =============================================================================
 # HÀM TÌM PORTAL (_find_portal_in_scene)
 # =============================================================================
 # Tìm portal theo ID trong scene đã load
@@ -434,7 +538,10 @@ func _restore_farm_state_for_new_scene(new_scene: Node) -> void:
 		return
 
 	# Đợi một frame để các node con hoàn thành _ready
-	await get_tree().process_frame
+	var tree := get_tree()
+	if tree == null:
+		return
+	await tree.process_frame
 
 	var farm: Node = new_scene.get_tree().get_first_node_in_group("farm_manager")
 	if farm == null:

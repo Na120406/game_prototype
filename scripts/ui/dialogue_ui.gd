@@ -37,6 +37,10 @@ func _input(event: InputEvent) -> void:
 	if not visible:
 		return
 
+	# Nếu đang trong choices - KHÔNG xử lý click để button hoạt động
+	if _choices.size() > 0:
+		return
+
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
@@ -116,18 +120,60 @@ func _show_choices() -> void:
 	if _choices_box == null:
 		return
 	_choices_box.visible = true
+	_choices_box.custom_minimum_size.y = 60  # Đảm bảo có không gian hiển thị
 	for i in range(_choices.size()):
 		var btn := Button.new()
-		btn.text = _choices[i].get("text", "?")
+		# Xử lý 2 format: object {text, action} hoặc string đơn
+		if _choices[i] is Dictionary:
+			btn.text = _choices[i].get("text", "?")
+		else:
+			btn.text = str(_choices[i])
+
+		# Style button như player response
+		btn.add_theme_font_size_override("font_size", 11)
+		btn.custom_minimum_size = Vector2(0, 26)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+		# Tạo StyleBoxFlat cho button
+		var normal_style := StyleBoxFlat.new()
+		normal_style.bg_color = Color(0.2, 0.25, 0.2, 0.85)
+		normal_style.border_color = Color(0.4, 0.6, 0.4, 0.8)
+		normal_style.corner_radius_top_left = 4
+		normal_style.corner_radius_top_right = 4
+		normal_style.corner_radius_bottom_left = 4
+		normal_style.corner_radius_bottom_right = 4
+		normal_style.content_margin_left = 10
+		normal_style.content_margin_right = 10
+		btn.add_theme_stylebox_override("normal", normal_style)
+
+		# Hover style
+		var hover_style := StyleBoxFlat.new()
+		hover_style.bg_color = Color(0.25, 0.35, 0.25, 0.9)
+		hover_style.border_color = Color(0.5, 0.8, 0.5, 1)
+		hover_style.corner_radius_top_left = 4
+		hover_style.corner_radius_top_right = 4
+		hover_style.corner_radius_bottom_left = 4
+		hover_style.corner_radius_bottom_right = 4
+		hover_style.content_margin_left = 10
+		hover_style.content_margin_right = 10
+		btn.add_theme_stylebox_override("hover", hover_style)
+
 		btn.pressed.connect(_on_choice_pressed.bind(i))
 		_choices_box.add_child(btn)
 		_choice_btns.append(btn)
 
 func _on_choice_pressed(idx: int) -> void:
+	print("[DialogueUI] Choice pressed: %d" % idx)
 	for btn in _choice_btns:
 		btn.disabled = true
 	dialogue_choice.emit(idx)
-	visible = false
+
+func _clear_choices() -> void:
+	for btn in _choice_btns:
+		btn.queue_free()
+	_choice_btns.clear()
+	_choices_box.visible = false
+	_choices.clear()
 
 func hide_dialogue() -> void:
 	visible = false

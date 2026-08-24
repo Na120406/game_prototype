@@ -1,28 +1,19 @@
-[gd_scene load_steps=8 format=4 uid="uid://de5kc56thmwpd"]
+[gd_scene load_steps=12 format=3 uid="uid://de5kc56thmwpd"]
 
 [ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_ground"]
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
-[ext_resource type="Script" path="res://scripts/world/world_transition.gd" id="3_trans"]
-[ext_resource type="Script" path="res://scripts/world/world_ui_manager.gd" id="4_uimgr"]
-[ext_resource type="Script" path="res://scripts/world/scene_root.gd" id="5_sceneroot"]
+[ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="3_trans"]
+[ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="4_uimgr"]
+[ext_resource type="Script" uid="uid://csb0usahe6ut0" path="res://scripts/world/scene_root.gd" id="5_sceneroot"]
 
 [sub_resource type="TileSetAtlasSource" id="TSA_town"]
 texture = ExtResource("1_ground")
 0:0/0 = 0
-0:0/0/modulation = Color(0.6, 0.6, 0.65, 1)
 1:0/0 = 0
-1:0/0/modulation = Color(0.65, 0.62, 0.6, 1)
 2:0/0 = 0
-2:0/0/modulation = Color(0.55, 0.55, 0.6, 1)
 
 [sub_resource type="TileSet" id="TS_town"]
 sources/0 = SubResource("TSA_town")
-
-[sub_resource type="RectangleShape2D" id="RS_trans"]
-size = Vector2(20, 40)
-
-[sub_resource type="RectangleShape2D" id="RS_door"]
-size = Vector2(30, 25)
 
 [sub_resource type="RectangleShape2D" id="RS_wall_h"]
 size = Vector2(480, 4)
@@ -30,38 +21,45 @@ size = Vector2(480, 4)
 [sub_resource type="RectangleShape2D" id="RS_wall_v"]
 size = Vector2(4, 270)
 
+[sub_resource type="RectangleShape2D" id="RS_door"]
+size = Vector2(30, 25)
+
+[sub_resource type="RectangleShape2D" id="RS_trans"]
+size = Vector2(20, 40)
+
 [node name="TownMap" type="Node2D"]
 
 [node name="Ground" type="TileMapLayer" parent="."]
 tile_set = SubResource("TS_town")
-format = 2
-layer_0/tile_data = PackedInt32Array(0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5, 0, 0, 6, 0, 0, 7, 0, 0, 8, 0, 0, 9, 0, 0, 65536, 0, 0, 65537, 0, 0, 65538, 0, 0, 65539, 0, 0, 65540, 0, 0, 65541, 0, 0, 65542, 0, 0, 65543, 0, 0, 65544, 0, 0, 65545, 0, 0, 131072, 0, 0, 131073, 0, 0, 131074, 0, 0, 131075, 0, 0, 131076, 0, 0, 131077, 0, 0, 131078, 0, 0, 131079, 0, 0, 131080, 0, 0, 196608, 0, 0, 196609, 0, 0, 196610, 0, 0, 196611, 0, 0, 196612, 0, 0, 196613, 0, 0, 196614, 0, 0, 196615, 0, 0, 196616, 0, 0, 262144, 0, 0, 262145, 0, 0, 262146, 0, 0, 262147, 0, 0, 262148, 0, 0, 262149, 0, 0, 262150, 0, 0, 262151, 0, 0, 262152, 0, 0, 327680, 0, 0, 327681, 0, 0, 327682, 0, 0, 327683, 0, 0, 327684, 0, 0, 327685, 0, 0, 327686, 0, 0, 327687, 0, 0, 327688, 0, 0, 393216, 0, 0, 393217, 0, 0, 393218, 0, 0, 393219, 0, 0, 393220, 0, 0, 393221, 0, 0, 393222, 0, 0, 393223, 0, 0, 393224, 0, 0, 458752, 0, 0, 458753, 0, 0, 458754, 0, 0, 458755, 0, 0, 458756, 0, 0, 458757, 0, 0, 458758, 0, 0, 458759, 0, 0, 458760, 0, 0, 524288, 0, 0, 524289, 0, 0, 524290, 0, 0, 524291, 0, 0, 524292, 0, 0, 524293, 0, 0, 524294, 0, 0, 524295, 0, 0, 524296, 0, 0)
 
 [node name="Walls" type="Node2D" parent="."]
 
-[node name="WallTop" type="StaticBody2D" parent="./Walls"]
+[node name="WallTop" type="StaticBody2D" parent="Walls"]
 position = Vector2(240, 2)
-[node name="CollisionShape2D" type="CollisionShape2D" parent="./Walls/WallTop"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallTop"]
 shape = SubResource("RS_wall_h")
 
-[node name="WallBottom" type="StaticBody2D" parent="./Walls"]
+[node name="WallBottom" type="StaticBody2D" parent="Walls"]
 position = Vector2(240, 268)
-[node name="CollisionShape2D" type="CollisionShape2D" parent="./Walls/WallBottom"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallBottom"]
 shape = SubResource("RS_wall_h")
 
-[node name="WallLeft" type="StaticBody2D" parent="./Walls"]
+[node name="WallLeft" type="StaticBody2D" parent="Walls"]
 position = Vector2(2, 135)
-[node name="CollisionShape2D" type="CollisionShape2D" parent="./Walls/WallLeft"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallLeft"]
 shape = SubResource("RS_wall_v")
 
-[node name="WallRight" type="StaticBody2D" parent="./Walls"]
+[node name="WallRight" type="StaticBody2D" parent="Walls"]
 position = Vector2(478, 135)
-[node name="CollisionShape2D" type="CollisionShape2D" parent="./Walls/WallRight"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallRight"]
 shape = SubResource("RS_wall_v")
 
 [node name="Road" type="ColorRect" parent="."]
 z_index = 1
-offset_left = 0.0
 offset_top = 122.0
 offset_right = 480.0
 offset_bottom = 148.0
@@ -76,7 +74,7 @@ offset_bottom = 180.0
 color = Color(0.4, 0.3, 0.2, 1)
 
 [node name="ShopRoof" type="ColorRect" parent="ShopBuilding"]
-z_index = 0
+layout_mode = 0
 offset_left = -10.0
 offset_top = -15.0
 offset_right = 170.0
@@ -85,6 +83,7 @@ color = Color(0.3, 0.2, 0.1, 1)
 
 [node name="ShopSign" type="ColorRect" parent="ShopBuilding"]
 z_index = 2
+layout_mode = 0
 offset_left = 45.0
 offset_top = -22.0
 offset_right = 125.0
@@ -94,9 +93,8 @@ color = Color(0.7, 0.6, 0.4, 1)
 [node name="ShopDoor" type="Area2D" parent="."]
 position = Vector2(95, 105)
 script = ExtResource("3_trans")
-target_scene = "res://scenes/maps/inside_shop_map.tscn"
 portal_id = "portal_shop"
-prompt = "[E]"
+target_scene = "res://scenes/maps/inside_shop_map.tscn"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ShopDoor"]
 shape = SubResource("RS_door")
@@ -106,7 +104,6 @@ modulate = Color(0.3, 0.18, 0.06, 1)
 scale = Vector2(30, 25)
 
 [node name="Prompt" type="Label" parent="ShopDoor"]
-anchors_preset = -1
 offset_left = -10.0
 offset_top = -10.0
 offset_right = 10.0
@@ -150,15 +147,31 @@ color = Color(0.3, 0.5, 0.2, 1)
 [node name="FromFarm" type="Area2D" parent="."]
 position = Vector2(20, 135)
 script = ExtResource("3_trans")
-target_scene = "res://scenes/maps/farm_map.tscn"
 portal_id = "portal_town"
-prompt = "[E]"
+target_scene = "res://scenes/maps/farm_map.tscn"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="FromFarm"]
 shape = SubResource("RS_trans")
 
 [node name="Prompt" type="Label" parent="FromFarm"]
-anchors_preset = -1
+offset_left = -10.0
+offset_top = -10.0
+offset_right = 10.0
+offset_bottom = -2.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
+[node name="ToMarcusFarm" type="Area2D" parent="."]
+position = Vector2(460, 135)
+script = ExtResource("3_trans")
+portal_id = "portal_marcus_farm_from_town"
+target_scene = "res://scenes/maps/marcus_farm_map.tscn"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ToMarcusFarm"]
+shape = SubResource("RS_trans")
+
+[node name="Prompt" type="Label" parent="ToMarcusFarm"]
 offset_left = -10.0
 offset_top = -10.0
 offset_right = 10.0
@@ -171,18 +184,17 @@ horizontal_alignment = 1
 z_index = 10
 position = Vector2(240, 135)
 
-[node name="SceneRoot" type="Node" parent="."]
-script = ExtResource("5_sceneroot")
-
-[node name="PlayerSpawn" type="Marker2D" parent="."]
-position = Vector2(240, 135)
-
 [node name="Camera2D" type="Camera2D" parent="Player"]
 limit_left = 0
 limit_top = 0
 limit_right = 480
 limit_bottom = 270
-position_smoothing_enabled = false
+
+[node name="SceneRoot" type="Node" parent="."]
+script = ExtResource("5_sceneroot")
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(240, 135)
 
 [node name="UI" type="CanvasLayer" parent="."]
 script = ExtResource("4_uimgr")

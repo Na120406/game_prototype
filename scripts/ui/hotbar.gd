@@ -74,6 +74,8 @@ func _ready() -> void:
 	_setup_slots()
 	_refresh()
 	_apply_selection_style(active_slot)
+	# Sync với GameState
+	GameState.selected_toolbar_slot = active_slot
 	GameState.toolbar_changed.connect(_on_toolbar_changed)
 	# Force refresh khi scene chuyển xong: lúc này GameState.toolbar đã được
 	# _ready của Hotbar đọc 1 lần, nhưng nếu scene B khác với scene A về layout
@@ -92,7 +94,10 @@ func _on_scene_changed_refresh(_scene_path: String) -> void:
 		return
 	# Tính lại vị trí NumLabel theo panel slot hiện tại (chỉ thực sự cần nếu
 	# cùng instance qua scene change, nhưng an toàn khi gọi).
-	await get_tree().process_frame
+	var tree := get_tree()
+	if tree == null:
+		return
+	await tree.process_frame
 	if not is_instance_valid(self):
 		return
 	_recompute_number_positions()
@@ -245,7 +250,10 @@ func _setup_slots() -> void:
 
 	# PanelContainer đã layout xong ở process frame tiếp theo → tính vị trí
 	# NumLabel (reparent ra ngoài PanelContainer để container không ép resize).
-	await get_tree().process_frame
+	var tree := get_tree()
+	if tree == null:
+		return
+	await tree.process_frame
 	if not is_instance_valid(self):
 		return
 	_recompute_number_positions()
@@ -320,6 +328,7 @@ func set_active_slot(slot_idx: int) -> void:
 		return
 	var prev := active_slot
 	active_slot = clamp(slot_idx, 0, GameState.toolbar.size() - 1)
+	GameState.selected_toolbar_slot = active_slot  # Sync với GameState
 	if prev != active_slot:
 		_apply_selection_style(prev)
 		_apply_selection_style(active_slot)

@@ -25,6 +25,16 @@ var interaction_area: Area2D = null
 var navigation_agent: NavigationAgent2D = null
 var prompt_label: Label = null
 
+# Vị trí đích mà NPC đang di chuyển tới theo schedule step hiện tại.
+# Khi schedule chuyển step (current_time đạt ngưỡng) → _target_pos được cập nhật.
+# NPC script con có thể đọc/override giá trị này để điều khiển pathfinding.
+# Trong Milestone 1 chỉ là placeholder — logic movement thật sẽ thêm ở bước sau.
+var _target_pos: Vector2 = Vector2.ZERO
+
+# Tốc độ di chuyển của NPC (px/giây). Override trong scene/script con nếu cần.
+# 85 px/s tương đương 1 ô tile/giây cho viewport 480x270 với tile 32x32.
+@export var move_speed: float = 85.0
+
 @export var prompt_offset_y: float = -32.0
 
 func _ready() -> void:
@@ -160,7 +170,7 @@ func interact(player: Node) -> void:
 	npc_dialogue_started.emit()
 	print("[NPC] %s interacted with player (talk count: %d)." % [npc_name, talk_count])
 
-	DialogueManager.start_dialogue(dialogue_id, npc_name)
+	DialogueManager.start_dialogue(dialogue_id, npc_name, npc_id)
 	DialogueManager.dialogue_ended.connect(_on_dm_ended, CONNECT_ONE_SHOT)
 
 func _on_dm_ended() -> void:
@@ -206,3 +216,50 @@ func set_relationship(delta: int) -> void:
 
 func get_relationship() -> int:
 	return relationship_value
+
+
+# =============================================================================
+# MOVEMENT API — stubs cho Milestone 1, sẽ thay thế bằng NavigationAgent2D
+# pathfinding ở bước sau (xem TODO ở scripts/npc/npc.gd).
+# Hiện tại là no-op để các script con (neighbor.gd) parse được và behavior hiện
+# tại (state machine + print) không bị thay đổi.
+# =============================================================================
+
+# Stub: dừng di chuyển NPC. Hiện tại không làm gì — sẽ integrate NavigationAgent2D
+# + velocity reset ở Milestone 1 khi bạn duyệt plan movement.
+func stop_walking() -> void:
+	# TODO (Milestone 1): velocity = Vector2.ZERO; NavigationAgent2D.target_position = global_position.
+	pass
+
+# Stub: áp dụng schedule step hiện tại lên NPC. Hiện tại không làm gì — logic
+# thật sẽ tính step khớp current_time, cập nhật _target_pos + NavigationAgent2D.
+# NPCManager đang gọi method này qua call("apply_current_step") ở
+# scripts/autoload/npc_manager.gd:595-596 — cần method tồn tại để parse pass.
+func apply_current_step() -> void:
+	# TODO (Milestone 1): tương đương _pick_step(schedule, GameState.current_time).
+	pass
+
+# Stub: trả về schedule hiện tại. NPCManager dùng để resolve step ở
+# npc_manager.gd:295-296.
+func get_schedule() -> Array:
+	return schedule
+
+# Stub: tick schedule với current_time. NPCManager gọi mỗi frame qua
+# time_changed signal (xem npc_manager.gd:582). Hiện tại no-op — sẽ implement
+# logic "tìm step khớp → cập nhật _target_pos → state WALKING" ở Milestone 1.
+func tick_schedule(_current_time: float) -> void:
+	# TODO (Milestone 1): evaluate schedule → set _target_pos + state.
+	pass
+
+# Stub: hook khi NPC được attach vào scene mới (gọi từ NPCManager._attach_npc
+# ở npc_manager.gd:397-398). Dùng để reset movement state, snap pos nếu cần.
+func _on_attached_to_scene() -> void:
+	# TODO (Milestone 1): reset NavigationAgent2D, snap pos nếu NPC đang idle.
+	pass
+
+# Stub: hook khi NPC bị detach khỏi scene (gọi từ NPCManager._detach_npc ở
+# npc_manager.gd:452-453 + npc_manager.gd:524). Dùng để stop movement trước
+# khi instance rời tree.
+func _on_detached_from_scene() -> void:
+	# TODO (Milestone 1): stop_walking(), save state.
+	pass

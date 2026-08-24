@@ -69,6 +69,16 @@ var health: float = 100.0
 var max_health: float = 100.0
 
 # =============================================================================
+# HỆ THỐNG QUEST BOARD (Tỷ lệ xuất hiện)
+# =============================================================================
+# Mỗi ngày không có quest xuất hiện → tăng 10%. Khi quest xuất hiện → reset về 0.
+# Tỷ lệ thực = BASE_QUEST_CHANCE + quest_appearance_bonus
+const BASE_QUEST_CHANCE: float = 0.5   # 50% base
+const QUEST_BONUS_PER_DAY: float = 0.1  # +10% mỗi ngày không thấy quest
+var quest_appearance_bonus: float = 0.0  # Bonus cộng dồn
+var quest_bonus_day: int = 0            # Ngày đã tính bonus (để không tăng 2 lần/ngày)
+
+# =============================================================================
 # CÁC TRẠNG THÁI GAME (GAME STATES)
 # =============================================================================
 
@@ -108,6 +118,9 @@ var toolbar: Array[Dictionary] = [
 	{"id": "", "amount": 0},
 ]
 
+# Slot đang được chọn trên toolbar (0-4)
+var selected_toolbar_slot: int = 0
+
 # Công cụ đang trang bị - tên của công cụ đang dùng
 # Ví dụ: "hoe" (cuốc), "water_can" (bình tưới)
 var equipped_tool: String = "none"
@@ -126,6 +139,26 @@ var world_flags: Dictionary = {}
 
 # Các khu vực đã khám phá - danh sách tên khu vực đã từng vào
 var discovered_areas: Array[String] = []
+
+# =============================================================================
+# HỆ THỐNG RELATIONSHIP (Quan hệ với NPC)
+# =============================================================================
+# Lưu điểm quan hệ với mỗi NPC (mặc định 0)
+var npc_relationships: Dictionary = {}
+
+# =============================================================================
+# HÀM QUẢN LÝ RELATIONSHIP
+# =============================================================================
+
+## Lấy điểm relationship với NPC
+func get_relationship(npc_id: String) -> int:
+	return npc_relationships.get(npc_id, 0)
+
+## Thay đổi relationship với NPC (dương = tăng, âm = giảm)
+func modify_relationship(npc_id: String, amount: int) -> void:
+	var current: int = npc_relationships.get(npc_id, 0)
+	npc_relationships[npc_id] = maxi(current + amount, 0)  # Không âm
+	print("[GameState] Relationship with %s: %d (%+d)" % [npc_id, npc_relationships[npc_id], amount])
 
 # Số mảnh lore đã tìm được - dùng cho hệ thống thu thập
 var lore_fragments_found: int = 0
@@ -197,6 +230,16 @@ func advance_day(reset_to_hour: float = 6.0) -> void:
 	# is_day phải khớp với giờ reset (không hardcode true). Ví dụ reset 1:00 →
 	# vẫn là đêm, is_day = false.
 	is_day = current_time >= 6.0 and current_time < 22.0
+	# Tăng bonus quest nếu chưa đạt cap +10%/ngày (reset khi nhận quest thành công).
+	if quest_bonus_day < current_day:
+		quest_appearance_bonus = minf(quest_appearance_bonus + QUEST_BONUS_PER_DAY, 1.0)
+		quest_bonus_day = current_day
+		print("[GameState] Quest chance increased to %.0f%%" % ((BASE_QUEST_CHANCE + quest_appearance_bonus) * 100))
+	# Kiểm tra quest hết hạn
+	var expired: int = 0
+	var qs = get_node_or_null("/root/QuestSystem")
+	if qs != null and qs.has_method("check_expired_quests"):
+		expired = qs.check_expired_quests()
 	# move_speed_mult KHÔNG reset ở đây — penalty chỉ được reset khi người chơi
 	# NGỦ ĐÚNG GIỜ (qua đêm tại giường). Nếu qua ngày do kiệt sức hoặc bị
 	# phạt vì không ngủ → speed penalty giữ nguyên.
@@ -362,25 +405,28 @@ func add_item(item_id: String, amount: int = 1) -> bool:
 # Trả về: true nếu xóa thành công, false nếu không tìm thấy
 
 func remove_item(item_id: String, amount: int = 1) -> bool:
-	# Duyệt túi đồ để tìm vật phẩm
-	for i: int in range(inventory.size()):
-		var existing_id: String = inventory[i].get("id", "")
-		
-		# Nếu tìm thấy
-		if existing_id == item_id:
-			# Giảm số lượng
-			inventory[i]["amount"] = inventory[i].get("amount", 0) - amount
-			
-			# Nếu số lượng <= 0, xóa hẳn vật phẩm khỏi túi
-			if inventory[i]["amount"] <= 0:
-				inventory.remove_at(i)
-			
-			print("[GameState] Removed %d x %s" % [amount, item_id])
-			inventory_changed.emit()  # Thông báo cho UI cập nhật
-			return true
-	
-	# Không tìm thấy vật phẩm
-	return false
+	if item_id == "" or amount <= 0:
+		return false
+	# CHỈ trừ ở slot hotbar đang được player select. Player phải cầm item quest
+	# trên tay (slot hotbar select) để trả quest. Không đụng inventory hay slot khác.
+	var slot_idx: int = clamp(selected_toolbar_slot, 0, toolbar.size() - 1)
+	var slot: Dictionary = toolbar[slot_idx]
+	var slot_id: String = slot.get("id", "")
+	if slot_id != item_id:
+		print("[GameState] remove_item: slot hotbar select có '%s', không khớp '%s'" % [slot_id, item_id])
+		return false
+	var cur: int = int(slot.get("amount", 0))
+	if cur < amount:
+		print("[GameState] remove_item: slot hotbar có %d, cần %d %s" % [cur, amount, item_id])
+		return false
+	var new_amount: int = cur - amount
+	if new_amount <= 0:
+		toolbar[slot_idx] = {"id": "", "amount": 0}
+	else:
+		toolbar[slot_idx]["amount"] = new_amount
+	toolbar_changed.emit()
+	print("[GameState] Removed %d x %s từ hotbar slot %d" % [amount, item_id, slot_idx])
+	return true
 
 
 # =============================================================================
@@ -536,11 +582,37 @@ func has_item(item_id: String, amount: int = 1) -> bool:
 # Trả về: số lượng của vật phẩm, 0 nếu không có
 
 func get_item_count(item_id: String) -> int:
+	var total: int = 0
+	# Đếm trong inventory
 	for item: Dictionary in inventory:
 		var item_id_found: String = item.get("id", "")
 		if item_id_found == item_id:
-			return item.get("amount", 0)
-	return 0
+			total += int(item.get("amount", 0))
+	# Đếm trong toolbar (hotbar 5 slot)
+	for item: Dictionary in toolbar:
+		var item_id_found: String = item.get("id", "")
+		if item_id_found == item_id:
+			total += int(item.get("amount", 0))
+	return total
+
+# =============================================================================
+# HÀM LẤY SỐ LƯỢNG ITEM TRONG SLOT ĐANG CHỌN TRÊN HOTBAR
+# =============================================================================
+# Chỉ kiểm tra slot đang được select trên hotbar
+# Dùng cho việc trả quest - player phải select đúng item trên hotbar
+#
+# Trả về: Dictionary với "id" và "amount" của item trong slot đang chọn
+
+func get_selected_hotbar_item() -> Dictionary:
+	var slot_idx: int = clamp(selected_toolbar_slot, 0, toolbar.size() - 1)
+	return toolbar[slot_idx].duplicate()
+
+# Kiểm tra xem item trong slot đang chọn có đúng là item_id cần thiết và đủ số lượng không
+func check_selected_hotbar_item(item_id: String, required_amount: int) -> bool:
+	var selected: Dictionary = get_selected_hotbar_item()
+	var selected_id: String = selected.get("id", "")
+	var selected_amount: int = int(selected.get("amount", 0))
+	return selected_id == item_id and selected_amount >= required_amount
 
 
 # =============================================================================

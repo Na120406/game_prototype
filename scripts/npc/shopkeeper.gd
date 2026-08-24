@@ -71,7 +71,7 @@ func interact(_player: Node) -> void:
 	talk_count += 1
 	_hide_prompt()
 	print("[Shopkeeper] Interact called (talk #%d)." % talk_count)
-	DialogueManager.start_dialogue(dialogue_id, npc_name)
+	DialogueManager.start_dialogue(dialogue_id, npc_name, npc_id)
 
 
 func is_player_nearby() -> bool:

@@ -56,9 +56,29 @@ func _ready() -> void:
 # =============================================================================
 
 func _on_node_added(node: Node) -> void:
-	# Tự động nhận diện Camera2D
+	# CHỈ nhận camera từ player's current_scene — KHÔNG nhận camera từ
+	# NPC preload scene (embedded camera). Nếu không check, khi NPC preload
+	# scene được add vào tree → embedded camera ghi đè _camera → camera
+	# bị fixed ở corner của map NPC preload.
+	#
+	# Check: camera phải nằm trong current_scene của tree (scene player đang ở).
+	# Nếu camera từ scene khác (NPC preload) → bỏ qua.
 	if node is Camera2D:
-		_camera = node
+		var tree := get_tree()
+		if tree == null:
+			return
+		var current := tree.current_scene
+		if current == null:
+			return
+		# Kiểm tra camera có nằm trong current_scene không bằng cách
+		# duyệt parent chain từ node lên và so sánh với current_scene.
+		var parent: Node = node.get_parent()
+		while parent != null:
+			if parent == current:
+				_camera = node
+				print("[CameraManager] Registered camera from current_scene: %s" % node.name)
+				return
+			parent = parent.get_parent()
 
 
 # =============================================================================

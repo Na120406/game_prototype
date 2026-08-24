@@ -22,51 +22,55 @@ anchor_bottom = 1.0
 mouse_filter = 2
 
 [node name="Panel" type="PanelContainer" parent="DialogueUI"]
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -70.0
+offset_top = -80.0
 grow_horizontal = 2
 grow_vertical = 0
-
-[node name="BG" type="ColorRect" parent="DialogueUI/Panel"]
-layout_mode = 2
-color = Color(0.08, 0.05, 0.1, 0.95)
 
 [node name="Border" type="ColorRect" parent="DialogueUI/Panel"]
 layout_mode = 2
 color = Color(0.5, 0.4, 0.3, 1)
 
-[node name="VBox" type="VBoxContainer" parent="DialogueUI/Panel"]
+[node name="Margin" type="MarginContainer" parent="DialogueUI/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_bottom = 4
+
+[node name="VBox" type="VBoxContainer" parent="DialogueUI/Panel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Header" type="HBoxContainer" parent="DialogueUI/Panel/VBox"]
+[node name="Header" type="HBoxContainer" parent="DialogueUI/Panel/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Name" type="Label" parent="DialogueUI/Panel/VBox/Header"]
+[node name="Name" type="Label" parent="DialogueUI/Panel/Margin/VBox/Header"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
 theme_override_font_sizes/font_size = 9
 text = "Speaker"
 
-[node name="Spacer" type="Control" parent="DialogueUI/Panel/VBox/Header"]
+[node name="Spacer" type="Control" parent="DialogueUI/Panel/Margin/VBox/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Text" type="RichTextLabel" parent="DialogueUI/Panel/VBox"]
-custom_minimum_size = Vector2(0, 36)
+[node name="Text" type="RichTextLabel" parent="DialogueUI/Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
-size_flags_vertical = 3
 theme_override_colors/default_color = Color(0.95, 0.92, 0.85, 1)
 theme_override_font_sizes/normal_font_size = 9
+theme_override_constants/line_spacing = 0
 scroll_active = false
 autowrap_mode = 2
 
-[node name="Choices" type="VBoxContainer" parent="DialogueUI/Panel/VBox"]
+[node name="Choices" type="VBoxContainer" parent="DialogueUI/Panel/Margin/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 3
 

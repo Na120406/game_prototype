@@ -1,0 +1,155 @@
+[gd_scene load_steps=9 format=3 uid="uid://marcus_house_map_001"]
+
+[ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="1_player"]
+[ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="2_trans"]
+[ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="3_uimgr"]
+[ext_resource type="Script" uid="uid://csb0usahe6ut0" path="res://scripts/world/scene_root.gd" id="8_sceneroot"]
+
+[sub_resource type="RectangleShape2D" id="RS_wall_h"]
+size = Vector2(480, 4)
+
+[sub_resource type="RectangleShape2D" id="RS_wall_v"]
+size = Vector2(4, 270)
+
+[sub_resource type="RectangleShape2D" id="RS_trans"]
+size = Vector2(20, 40)
+
+[sub_resource type="RectangleShape2D" id="RS_bed"]
+size = Vector2(40, 50)
+
+[node name="MarcusHouseMap" type="Node2D"]
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="Floor" type="ColorRect" parent="World"]
+offset_right = 480.0
+offset_bottom = 270.0
+color = Color(0.5, 0.38, 0.25, 1)
+
+[node name="Walls" type="Node2D" parent="World"]
+
+[node name="WallTop" type="StaticBody2D" parent="World/Walls"]
+position = Vector2(240, 2)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Walls/WallTop"]
+shape = SubResource("RS_wall_h")
+
+[node name="WallBottom" type="StaticBody2D" parent="World/Walls"]
+position = Vector2(240, 268)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Walls/WallBottom"]
+shape = SubResource("RS_wall_h")
+
+[node name="WallLeft" type="StaticBody2D" parent="World/Walls"]
+position = Vector2(2, 135)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Walls/WallLeft"]
+shape = SubResource("RS_wall_v")
+
+[node name="WallRight" type="StaticBody2D" parent="World/Walls"]
+position = Vector2(478, 135)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Walls/WallRight"]
+shape = SubResource("RS_wall_v")
+
+[node name="Table" type="ColorRect" parent="World"]
+z_index = 1
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 110.0
+offset_bottom = 85.0
+color = Color(0.45, 0.33, 0.2, 1)
+
+[node name="Candle" type="ColorRect" parent="World/Table"]
+z_index = 2
+layout_mode = 0
+offset_left = 25.0
+offset_top = -12.0
+offset_right = 45.0
+offset_bottom = 1.0
+color = Color(0.9, 0.8, 0.3, 1)
+
+[node name="Bookshelf" type="ColorRect" parent="World"]
+z_index = 1
+offset_left = 350.0
+offset_top = 30.0
+offset_right = 440.0
+offset_bottom = 100.0
+color = Color(0.4, 0.28, 0.18, 1)
+
+[node name="WindowLight" type="ColorRect" parent="World"]
+z_index = 1
+offset_left = 200.0
+offset_top = 5.0
+offset_right = 280.0
+offset_bottom = 22.0
+color = Color(0.85, 0.9, 0.75, 1)
+
+[node name="Rug" type="ColorRect" parent="World"]
+offset_left = 150.0
+offset_top = 100.0
+offset_right = 320.0
+offset_bottom = 200.0
+color = Color(0.5, 0.35, 0.3, 0.8)
+
+[node name="Bed" type="StaticBody2D" parent="World"]
+position = Vector2(60, 180)
+z_index = 1
+
+[node name="Body" type="ColorRect" parent="World/Bed"]
+offset_left = -20.0
+offset_top = -25.0
+offset_right = 20.0
+offset_bottom = 25.0
+color = Color(0.45, 0.3, 0.2, 1)
+
+[node name="Pillow" type="ColorRect" parent="World/Bed"]
+layout_mode = 0
+offset_left = -18.0
+offset_top = -23.0
+offset_right = 18.0
+offset_bottom = -5.0
+color = Color(0.85, 0.78, 0.65, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/Bed"]
+shape = SubResource("RS_bed")
+
+[node name="ToFarm" type="Area2D" parent="World"]
+position = Vector2(420, 146)
+script = ExtResource("2_trans")
+target_scene = "res://scenes/maps/marcus_farm_map.tscn"
+portal_id = "portal_marcus_farm_from_house"
+prompt = "[E]"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="World/ToFarm"]
+shape = SubResource("RS_trans")
+
+[node name="Prompt" type="Label" parent="World/ToFarm"]
+anchors_preset = -1
+offset_left = -10.0
+offset_top = -10.0
+offset_right = 10.0
+offset_bottom = -2.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
+[node name="Player" parent="World" instance=ExtResource("1_player")]
+z_index = 10
+position = Vector2(420, 146)
+
+[node name="Camera2D" type="Camera2D" parent="World/Player"]
+limit_left = 0
+limit_top = 0
+limit_right = 480
+limit_bottom = 270
+position_smoothing_enabled = false
+
+[node name="UI" type="CanvasLayer" parent="."]
+script = ExtResource("3_uimgr")
+
+[node name="SceneRoot" type="Node" parent="."]
+script = ExtResource("8_sceneroot")
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(420, 146)

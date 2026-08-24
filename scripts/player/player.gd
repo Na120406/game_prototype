@@ -292,13 +292,13 @@ func _interact() -> void:
 
 	if _current_interact_target == null:
 		var npc: Node = _find_nearby_npc()
-		if npc != null:
+		if npc != null and npc.has_method("interact"):
 			_current_interact_target = npc
 			npc.interact(self)
 
 	if _current_interact_target == null:
 		var counter: Node = _find_nearby_counter()
-		if counter != null:
+		if counter != null and counter.has_method("interact"):
 			_current_interact_target = counter
 			counter.interact(self)
 
