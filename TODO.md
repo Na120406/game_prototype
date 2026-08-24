@@ -1,6 +1,7 @@
 # TODO.md — Farm Horror Demo
 
-> Last updated: 2026-07-17
+> Last updated: 2026-08-24
+> Reference: [design/gdd/game-demo-gdd-v3.md](./design/gdd/game-demo-gdd-v3.md)
 
 ## Trạng thái Symbols
 - [ ] Chưa làm
@@ -9,7 +10,20 @@
 
 ---
 
-## PHASE 1: Critical Fixes (Ngay lập tức)
+## DOCUMENTATION TASKS (2026-08-24 sync)
+
+- [D] **GDD v3 rewritten** — [design/gdd/game-demo-gdd-v3.md](./design/gdd/game-demo-gdd-v3.md) (2026-08-24)
+- [D] **Old GDDs archived** — [design/gdd/archive/farm-horror-gdd-2026-08-22.md](./design/gdd/archive/farm-horror-gdd-2026-08-22.md)
+- [D] **Old GDD v2 removed** — superseded by v3
+- [D] **README rewritten** — merge conflict resolved, autoloads updated to 30, links to GDD v3
+- [D] **Character sheets created:**
+  - [D] [docs/characters/marcus.md](./docs/characters/marcus.md)
+  - [D] [docs/characters/shopkeeper-family.md](./docs/characters/shopkeeper-family.md)
+  - [D] [docs/characters/hermit.md](./docs/characters/hermit.md)
+
+---
+
+## PHASE 1: Critical Fixes (Ngay lập tức) — From GDD v3 roadmap
 
 ### 1.1 UID Issues ⚠️
 - [ ] **Fix invalid UIDs** — Các UIDs không đúng format cần regenerate trong Godot Editor:
@@ -31,212 +45,97 @@
 3. Chọn "Regenerate UID" hoặc "Change UID"
 4. Save scene
 
-### 1.2 Missing Files
-- [ ] **Create `res://scenes/world/shop.tscn`** — Reference trong ConsequenceResolver
-- [ ] **Create NPC scenes:**
+### 1.2 Missing NPC Scenes
+- [ ] **Create NPC scenes** referenced in `FamilyRegistry`:
   - [ ] `res://scenes/npc/shopkeeper_father.tscn`
   - [ ] `res://scenes/npc/shopkeeper_son.tscn`
   - [ ] `res://scenes/npc/farmer_mother.tscn`
   - [ ] `res://scenes/npc/farmer_daughter.tscn`
   - [ ] `res://scenes/npc/hermit.tscn`
 
-### 1.3 Audio System
-- [D] **Create `assets/` folder structure:**
-  ```
-  assets/
-  ├── audio/
-  │   ├── sfx/
-  │   ├── music/
-  │   └── ambient/
-  ├── sprites/
-  │   ├── characters/
-  │   ├── tilesets/
-  │   └── items/
-  └── fonts/
-  ```
+### 1.3 Missing Shop Scene
+- [ ] **Create `res://scenes/world/shop.tscn`** — Reference trong `ConsequenceResolver.apply_consequence_set("shop_closed")`
+
+### 1.4 Audio System
+- [D] **Create `assets/` folder structure** (done previously)
 - [ ] **Add placeholder audio files** — 10 basic SFX files
 - [ ] **Fix AudioManager** để handle missing files gracefully
 
----
-
-## PHASE 2: Core Gameplay (1-2 tuần)
-
-### 2.1 Farming System
-- [ ] **Expand crop types** — Thêm 5-10 crops mới
-- [ ] **Fertilizer system** — Tăng yield
-- [ ] **Pest/Disease system** — Thêm random blight events
-- [ ] **Greenhouse building** — Mở khóa qua quest
-
-### 2.2 NPC System
-- [ ] **Implement 5 NPC characters:**
-  - [ ] Old Voss (Shopkeeper Father) — Giao dịch, quest giver
-  - [ ] Young Voss (Shopkeeper Son) — Thay thế khi cha mất
-  - [ ] Martha Miller (Farmer Mother) — Quest giver, hints
-  - [ ] Eliza Miller (Farmer Daughter) — Social interactions
-  - [ ] Old Hanz (Hermit) — Mystery, horror elements
-
-- [ ] **Dialogue system expansion:**
-  - [ ] 5 dialogue trees cho mỗi NPC
-  - [ ] Dynamic dialogue based on game state
-  - [ ] Multiple conversation branches
-
-### 2.3 Quest System
-- [ ] **Implement escort quest** (`escort_voss_mountain`)
-  - [ ] NPC follows player
-  - [ ] Risk calculation integration
-  - [ ] Multiple outcomes (safe/injured/dead)
-  - [ ] Player choices affect outcome
-
-- [ ] **Implement delivery quest** (`deliver_medicine`)
-- [ ] **Implement investigation quest** (`investigate_noise`)
-- [ ] **Implement festival quest** (`attend_festival`)
-
-### 2.4 Event Chains
-- [ ] **Complete `shopkeeper_mountain` chain** với player escort system
-- [ ] **Complete `festival_day` chain**
-- [ ] **Complete `harvest_blight` chain**
-- [ ] **Add 5-10 new chains:**
-  - [ ] Merchant caravan arrival
-  - [ ] Strange lights in forest
-  - [ ] Missing villager
-  - [ ] Old mine discovery
-  - [ ] Underground bunker
+### 1.5 Project Configuration Hygiene
+- [ ] **Hard-coded input action names** — `project.godot` has `mouse_left` / `mouse_right` action names with Vietnamese descriptions embedded. Rename or split for clarity.
+- [ ] **Review autoload naming** — `EnergyBar` and `HotkeyInputManager` are UI scripts registered as autoloads. Consider refactoring to scene-side managers (per GDD v3 §10 note).
 
 ---
 
-## PHASE 3: Horror Elements (2-3 tuần)
+## PHASE 2: Polish Farming + Energy Loop — From GDD v3 roadmap
 
-### 3.1 Atmosphere
-- [ ] **Time-based lighting:**
-  - [ ] Dawn (6:00-8:00) — Warm, golden
-  - [ ] Day (8:00-18:00) — Normal
-  - [ ] Dusk (18:00-20:00) — Orange, red
-  - [ ] Night (20:00-6:00) — Blue, dark
+### 2.1 Farming
+- [ ] **Crop art** — Replace placeholder crop visuals with proper sprites
+- [ ] **Energy feedback** — Visual/audio feedback when energy depletes, low-energy warning UX
+- [ ] **"It's late" timing tuning** — Balance the AFK warning vs player agency
 
-- [ ] **Anomaly effects:**
-  - [ ] Screen distortion randomly
-  - [ ] Flickering lights
-  - [ ] Distant sounds (whispers, footsteps)
-  - [ ] Items moved overnight
+### 2.2 NPC Movement
+- [ ] **Implement NPC pathfinding** — Wire `npc.gd` stubs (`move_to`, `_on_path_complete`) with `NavigationServer` or `AStar`
+- [ ] **Visible world tick** — When player is at home, show what NPCs are doing (signals or scene-local preview)
 
-### 3.2 Horror Events
-- [ ] **"Strange events" chain:**
-  - [ ] Crops wilt overnight
-  - [ ] Animal sounds at night
-  - [ ] Shadows in peripheral vision
-  - [ ] Notes/text appearing
-
-- [ ] **Environmental storytelling:**
-  - [ ] Hidden lore fragments (10 total)
-  - [ ] Visual clues about village history
-  - [ ] Foreshadowing events
-
-### 3.3 Audio
-- [ ] **Ambient soundscapes:**
-  - [ ] Forest ambient (day/night variants)
-  - [ ] Rain/thunder
-  - [ ] Village sounds
-  - [ ] Uncanny versions of normal sounds
-
-- [ ] **Music:**
-  - [ ] Main theme (calm, slightly unsettling)
-  - [ ] Shop music
-  - [ ] Night music (droning, tension)
-  - [ ] Horror stingers
+### 2.3 Mystery Content
+- [ ] **Schedule first event chain trigger** — `shopkeeper_mountain` chain exists but isn't called from `NPCSchedules` (gap between schedule and chain)
+- [ ] **Tune 3 event chains** — `shopkeeper_mountain`, `festival_day`, `harvest_blight` — balance weights, add more branches
+- [ ] **Dialogue unlocks** — Add `_grief` suffix dialogue for shopkeeper after REDUCED family status
+- [ ] **Mystery plant hook** — Define what `MYSTERY_PLANT` does beyond `strange_fruit` resource
 
 ---
 
-## PHASE 4: Content Expansion (1-2 tháng)
+## PHASE 3: Economy + Quest — From GDD v3 roadmap
 
-### 4.1 Maps
-- [ ] **Complete existing maps:**
-  - [ ] farm_map.tscn — Add more detail, decorations
-  - [ ] town_map.tscn — Add buildings, NPCs
-  - [ ] inside_house_map.tscn — Polish interior
-  - [ ] inside_shop_map.tscn — Add inventory display
+### 3.1 Economy Balancing
+- [ ] **Sell price rebalance** — `SELL_PRICE_RATIO = 0.5` currently — playtest and adjust
+- [ ] **Add shop items** — Expand from 22 items to richer catalog
+- [ ] **Shop UI polish** — Tooltip timing, transaction feedback
 
-- [ ] **New maps:**
-  - [ ] mountain_path.tscn — For escort quest
-  - [ ] forest_edge.tscn — For investigation quest
-  - [ ] village_square.tscn — For festival
-  - [ ] hermit_cabin.tscn — Hidden area
-  - [ ] underground_bunker.tscn — Late-game area
-
-### 4.2 Items
-- [ ] **Current 23 items** ✓
-- [ ] **Expand to 50+ items:**
-  - [ ] Crafting materials (10)
-  - [ ] Tools upgrades (5)
-  - [ ] Quest items (10)
-  - [ ] Food items (10)
-  - [ ] Key items (5)
-  - [ ] Lore items (5)
-
-### 4.3 UI/UX
-- [ ] **Main Menu:**
-  - [ ] New Game
-  - [ ] Continue
-  - [ ] Settings
-  - [ ] Credits
-
-- [ ] **Pause Menu:**
-  - [ ] Save/Load
-  - [ ] Settings
-  - [ ] Quit to Menu
-
-- [ ] **HUD improvements:**
-  - [ ] Day/Time display
-  - [ ] Weather indicator
-  - [ ] Quest tracker
-  - [ ] Energy bar (more visible)
+### 3.2 Quest Expansion
+- [ ] **Implement escort quest** — Wire `escort_voss_mountain` to existing `shopkeeper_mountain` chain branches
+- [ ] **Delivery quest polish** — Already implemented for Marcus; expand other NPCs
+- [ ] **Investigation quest** — `investigate_noise` from TODO v1
+- [ ] **Festival quest** — `attend_festival` from TODO v1
 
 ---
 
-## PHASE 5: Polish & Release (2-4 tuần)
+## PHASE 4: Open Questions (resolve before later phases)
+
+- [ ] **Mystery plant gameplay hook** — what does harvesting `strange_fruit` do?
+- [ ] **Romance vs friendship split** — separate tracks or combined?
+- [ ] **Audio direction** — SFX library + soundtrack source
+- [ ] **Localization strategy** — Vietnamese hard-coded in dialogue JSON. i18n or VN-only?
+- [ ] **Hermit motivation + arc** — Currently under-defined (see [docs/characters/hermit.md](./docs/characters/hermit.md))
+
+---
+
+## PHASE 5: Polish & Release
 
 ### 5.1 Visual Polish
-- [ ] **Pixel art sprites:**
-  - [ ] All characters (8+)
-  - [ ] All items (50+)
-  - [ ] Tilesets (3+)
-  - [ ] UI elements
-
-- [ ] **Animations:**
-  - [ ] Character walk cycles
-  - [ ] Item pickup effects
-  - [ ] Weather effects (rain, snow)
-  - [ ] UI transitions
+- [ ] **Pixel art sprites** — All characters (8+), items (50+), tilesets (3+), UI elements
+- [ ] **Animations** — Character walk cycles, item pickup, weather effects, UI transitions
 
 ### 5.2 Audio Polish
-- [ ] **Complete audio bank:**
-  - [ ] 50+ SFX
-  - [ ] 10+ music tracks
-  - [ ] 10+ ambient tracks
+- [ ] **Complete audio bank** — 50+ SFX, 10+ music tracks, 10+ ambient tracks
 
 ### 5.3 Testing
-- [ ] **Playtesting:**
-  - [ ] Core loop test (10 hours)
-  - [ ] Quest chain test
-  - [ ] Save/Load test
-  - [ ] Edge cases
-
-- [ ] **Bug fixing:**
-  - [ ] All P0 bugs fixed
-  - [ ] All P1 bugs fixed
-  - [ ] All P2 bugs fixed
+- [ ] **Playtesting** — Core loop (10 hours), quest chains, save/load, edge cases
+- [ ] **Bug fixing** — P0, P1, P2 priority passes
 
 ### 5.4 Documentation
-- [ ] **Update README.md** — Sync với implementation
-- [ ] **Create CHANGELOG.md**
-- [ ] **Create DESIGN.md** — Architecture decisions
-- [ ] **API documentation** cho autoloads
+- [D] **README.md synced with implementation** (rewritten 2026-08-24)
+- [ ] **CHANGELOG.md**
+- [ ] **DESIGN.md** — Architecture decisions
+- [ ] **API documentation** for all 30 autoloads
 
 ---
 
 ## Backlog (Không ưu tiên)
 
 ### Visual Assets
-- [ ] Character portraits cho dialogue
+- [ ] Character portraits for dialogue
 - [ ] Cutscene art
 - [ ] Title screen art
 - [ ] Loading screen art
@@ -254,38 +153,40 @@
 
 ---
 
-## Progress Summary
-
-```
-Phase 1: Critical Fixes      [░░░░░░░░░░]   0%  (0/7 tasks)
-Phase 2: Core Gameplay       [░░░░░░░░░░]   0%  (0/20 tasks)
-Phase 3: Horror Elements     [░░░░░░░░░░]   0%  (0/15 tasks)
-Phase 4: Content Expansion   [░░░░░░░░░░]   0%  (0/18 tasks)
-Phase 5: Polish & Release    [░░░░░░░░░░]   0%  (0/12 tasks)
-───────────────────────────────────────────────
-Total                         [░░░░░░░░░░]   0%  (0/72 tasks)
-```
-
----
-
 ## Known Issues
 
 | Issue | Severity | Status | Notes |
 |-------|----------|--------|-------|
 | Invalid UIDs | Critical | Open | Need regeneration in Godot Editor |
 | Missing shop.tscn | Critical | Open | Reference in ConsequenceResolver |
-| Missing NPC scenes | High | Open | 5 NPC scenes needed |
+| Missing NPC scenes (5) | High | Open | Referenced in FamilyRegistry |
 | AudioManager broken | High | Open | Missing assets folder |
-| README outdated | Medium | Open | 7 autoloads vs 19 actual |
-| No tests | Medium | Open | Need 80%+ coverage |
+| NPC pathfinding stubbed | Medium | Open | `npc.gd` has TODO methods |
+| No automated tests | Medium | Open | Need test coverage |
 | TileMap without tileset | Low | Open | TownMap renders nothing |
+| Hard-coded input config | Low | Open | `project.godot` mouse_left/right |
 
 ---
 
 ## Next Actions (Immediate)
 
-1. [D] Regenerate all invalid UIDs in Godot Editor (See `UID_FIX_INSTRUCTIONS.md`)
-2. [D] Create placeholder assets folder structure
-3. [ ] Add at least 1 SFX and 1 music file
-4. [ ] Test basic gameplay loop
-5. [ ] Update README.md
+1. [ ] Regenerate all invalid UIDs in Godot Editor
+2. [ ] Create the 5 missing NPC scenes
+3. [ ] Create `res://scenes/world/shop.tscn`
+4. [ ] Test basic gameplay loop end-to-end
+5. [ ] Wire `shopkeeper_mountain` chain trigger from NPC schedule
+
+---
+
+## Progress Summary
+
+```
+Documentation sync          [██████████] 100% (5/5 doc tasks)
+Phase 1: Critical Fixes     [░░░░░░░░░░]   0%  (0/15 tasks)
+Phase 2: Polish Farm/Energy [░░░░░░░░░░]   0%  (0/9 tasks)
+Phase 3: Economy + Quest    [░░░░░░░░░░]   0%  (0/7 tasks)
+Phase 4: Open Questions     [░░░░░░░░░░]   0%  (0/5 tasks)
+Phase 5: Polish & Release   [░░░░░░░░░░]   0%  (0/10 tasks)
+───────────────────────────────────────────────
+Total                        [██░░░░░░░░]  15%  (5/51 tasks)
+```

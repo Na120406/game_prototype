@@ -46,8 +46,12 @@ func _toggle_ui() -> void:
 	_open_ui()
 
 func _open_ui() -> void:
-	# Tạo UI popup runtime (tránh phụ thuộc .tscn cho đơn giản). UI là CanvasLayer
-	# add vào root để tồn tại xuyên scene change.
+	# Nếu UI cũ còn tồn tại thì chỉ mở lại, không tạo mới
+	if _current_ui != null and is_instance_valid(_current_ui):
+		if _current_ui.has_method("open"):
+			_current_ui.call("open")
+		return
+	# Load UI popup từ scene quest_board_ui.tscn (CanvasLayer).
 	var ui_scene := load("res://scenes/world/quest_board_ui.tscn") as PackedScene
 	if ui_scene == null:
 		push_error("[QuestBoard] Cannot load quest_board_ui.tscn")
@@ -56,8 +60,13 @@ func _open_ui() -> void:
 	_current_ui.set("board_id", board_id)
 	_current_ui.set("quest_giver_npc_id", quest_giver_npc_id)
 	get_tree().root.add_child(_current_ui)
+	# Mở UI
+	if _current_ui.has_method("open"):
+		_current_ui.call("open")
 
 func _close_ui() -> void:
 	if _current_ui != null and is_instance_valid(_current_ui):
-		_current_ui.queue_free()
-	_current_ui = null
+		if _current_ui.has_method("close"):
+			_current_ui.call("close")
+		else:
+			_current_ui.queue_free()

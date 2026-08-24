@@ -1,6 +1,105 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=2 format=3 uid="uid://bq3board001"]
 
-[ext_resource type="Script" path="res://scripts/world/quest_board_ui.gd" id="1_ui"]
+[ext_resource type="Script" path="res://scripts/world/quest_board_ui.gd" id="1_qboard"]
 
 [node name="QuestBoardUI" type="CanvasLayer"]
-script = ExtResource("1_ui")
+layer = 110
+script = ExtResource("1_qboard")
+
+[node name="BackdropLayer" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="DimBG" type="ColorRect" parent="BackdropLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+visible = false
+color = Color(0, 0, 0, 0.55)
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Panel" type="Control" parent="Root"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -114.0
+offset_top = -93.0
+offset_right = 114.0
+offset_bottom = 93.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TitleBox" type="PanelContainer" parent="Root/Panel"]
+editor_description = "Box chứa text QUEST BOARD (tab). Nằm phía trước ListBox (ListBox che TitleBox ở child index sau)."
+layout_mode = 1
+offset_left = 78.0
+offset_top = 4.0
+offset_right = 158.0
+offset_bottom = 24.0
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Root/Panel"]
+editor_description = "Text QUEST BOARD. Sibling của TitleBox để Label có thể chỉnh position.y tự do."
+layout_mode = 1
+offset_left = 78.0
+offset_top = 4.0
+offset_right = 158.0
+offset_bottom = 24.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 9
+text = "QUEST BOARD"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NoQuestLabel" type="Label" parent="Root/Panel"]
+layout_mode = 1
+offset_left = 8.0
+offset_top = 36.0
+offset_right = 220.0
+offset_bottom = 164.0
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 0.9)
+theme_override_font_sizes/font_size = 8
+text = "Không có nhiệm vụ hôm nay"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ListBox" type="PanelContainer" parent="Root/Panel"]
+editor_description = "Box chứa danh sách quest. Overlap TitleBox (nằm SAU TitleBox trong scene tree → che TitleBox phía dưới)."
+layout_mode = 1
+offset_left = 4.0
+offset_top = 30.0
+offset_right = 224.0
+offset_bottom = 170.0
+mouse_filter = 2
+
+[node name="Scroll" type="ScrollContainer" parent="Root/Panel/ListBox"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="QuestList" type="VBoxContainer" parent="Root/Panel/ListBox/Scroll"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="CloseButton" type="Button" parent="Root/Panel"]
+layout_mode = 1
+offset_left = 200.0
+offset_top = -12.0
+offset_right = 226.0
+offset_bottom = 4.0
+theme_override_font_sizes/font_size = 7
+text = "X"

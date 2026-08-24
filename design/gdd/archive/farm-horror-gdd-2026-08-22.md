@@ -1,7 +1,11 @@
 # Farm Horror Demo — Game Design Document (Bản Master)
 
-> **Trạng thái:** In Review — bản master mở rộng đầy đủ, đối chiếu với code và scene hiện tại  
-> **Ngày cập nhật:** 2026-08-22  
+> **SUPERSEDED by [GDD v3](../game-demo-gdd-v3.md) — 2026-08-24**
+> Tài liệu này giữ lại làm tham khảo cho narrative design pillars (5 trụ cột) và vision horror ban đầu.
+> Vui lòng tham khảo GDD v3 cho trạng thái hiện tại của game.
+>
+> **Trạng thái ban đầu:** In Review — bản master mở rộng đầy đủ, đối chiếu với code và scene hiện tại  
+> **Ngày cập nhật ban đầu:** 2026-08-22  
 > **Phiên bản tài liệu:** 2.0 (master rewrite)  
 > **Engine:** Godot 4.5, GDScript  
 > **Tên kỹ thuật dự án:** `GameDemo`  
