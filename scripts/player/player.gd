@@ -2,16 +2,18 @@ extends CharacterBody2D
 
 signal direction_changed(new_dir: Vector2)
 signal state_changed(new_state: String, old_state: String)
+signal cinematic_walk_complete
 
 enum State { IDLE, WALKING, RUNNING, SPRINTING, INTERACTING, SLEEPING, DEAD }
 enum Direction { DOWN, UP, LEFT, RIGHT }
 
-@export var move_speed: float = 100.0
-@export var run_speed: float = 180.0
-@export var sprint_speed: float = 250.0
-@export var acceleration: float = 800.0
-@export var friction: float = 1200.0
-@export var interaction_range: float = 80.0
+# Speed values (load from ConfigManager)
+var move_speed: float = 100.0
+var run_speed: float = 180.0
+var sprint_speed: float = 250.0
+var acceleration: float = 800.0
+var friction: float = 1200.0
+var interaction_range: float = 80.0
 
 var current_state: State = State.IDLE
 var current_direction: Direction = Direction.DOWN
@@ -25,28 +27,74 @@ var _current_interact_target: Node = null
 var _last_position: Vector2 = Vector2.ZERO
 var _current_anim: String = ""
 
+# Cinematic intro target position (đi tới NPC)
+var _cinematic_target_pos: Vector2 = Vector2.ZERO
+var _cinematic_target_reached: bool = false
+
+# Sleep deadline values (load from ConfigManager)
+var _sleep_deadline_hour: float = 24.0
+var _warning_hour: float = 22.0
+var _warning_late_hour: float = 23.5
+var _sleep_deadline_triggered: bool = false
+var _floating_warning: Node = null
+
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
 @onready var interaction_ray: RayCast2D = $InteractionRay
 @onready var footstep_timer: Timer = $FootstepTimer
-
-# Phạt khi quá giờ đi ngủ (24:00) mà vẫn chưa ngủ — không phụ thuộc vào việc
-# player có đang di chuyển hay không. Áp dụng như nhau cho mọi trạng thái.
-const SLEEP_DEADLINE_HOUR: float = 24.0   # quá nửa đêm là quá giờ
-const WARNING_HOUR: float = 22.0          # hiện cảnh báo "It's late" khi tới 22:00 (trời bắt đầu tối)
-var _sleep_deadline_triggered: bool = false
-var _floating_warning: Node = null
 
 func _ready() -> void:
 	add_to_group("player")
 	GameState.set_flag("player_spawned")
 	_set_state(State.IDLE)
 	DialogueManager.dialogue_closed.connect(_on_dialogue_closed)
+	
+	# Load config from ConfigManager
+	_load_config_from_manager()
+	
 	print("[Player] Ready at position: %s" % str(position))
+
+
+func _load_config_from_manager() -> void:
+	var cm := _get_config_manager()
+	if cm == null:
+		push_warning("[Player] ConfigManager not found, using defaults")
+		return
+	
+	move_speed = cm.get_player_move_speed()
+	run_speed = cm.get_player_run_speed()
+	sprint_speed = cm.get_player_sprint_speed()
+	acceleration = cm.get_player_acceleration()
+	friction = cm.get_player_friction()
+	interaction_range = cm.get_player_interaction_range()
+	
+	_sleep_deadline_hour = cm.get_sleep_deadline_hour()
+	_warning_hour = cm.get_sleep_warning_hour()
+	
+	print("[Player] Loaded player config from ConfigManager")
+
+
+func _get_config_manager() -> Node:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return null
+	return tree.root.get_node_or_null("ConfigManager")
 
 func _physics_process(delta: float) -> void:
 	if current_state == State.SLEEPING or current_state == State.DEAD:
 		velocity = Vector2.ZERO
+		return
+
+	# Lock movement khi đang cutscene/dialogue đặc biệt (nhưng cho phép đi tự động trong cinematic intro)
+	if GameState.player_movement_locked and GameState.cinematic_intro_state == GameState.CINEMATIC_NONE:
+		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+		move_and_slide()
+		return
+
+	# Xử lý cinematic intro - cho phép di chuyển tự động tới vị trí NPC
+	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
+		_handle_cinematic_walk(delta)
+		move_and_slide()
 		return
 
 	if DialogueManager.is_active or GameState.game_interacting:
@@ -94,6 +142,50 @@ func _physics_process(delta: float) -> void:
 
 	# Phạt khi quá giờ đi ngủ — áp dụng cho mọi trạng thái (đứng yên, đi, chạy…)
 	_check_sleep_deadline()
+
+# Xử lý di chuyển tự động trong cinematic intro (đi tới NPC)
+func _handle_cinematic_walk(delta: float) -> void:
+	if _cinematic_target_reached:
+		return
+
+	# Tính hướng tới target
+	var dir := (_cinematic_target_pos - global_position)
+	var dist := dir.length()
+
+	# Nếu đã đến gần đủ thì dừng lại
+	if dist < 5.0:
+		_cinematic_target_reached = true
+		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+		_set_state(State.IDLE)
+		_update_animation(Vector2.ZERO)
+		cinematic_walk_complete.emit()
+		return
+
+	# Normalize direction
+	dir = dir.normalized()
+
+	# Di chuyển với tốc độ bình thường
+	var target_speed: float = move_speed * GameState.move_speed_mult
+	var target_velocity := dir * target_speed
+	velocity = velocity.move_toward(target_velocity, acceleration * delta)
+
+	# Cập nhật animation
+	_update_animation(dir)
+	_set_state(State.WALKING)
+
+# Bắt đầu cinematic intro - đi tới vị trí NPC
+func start_cinematic_intro(target_pos: Vector2) -> void:
+	print("[Player] Starting cinematic intro to: %s" % str(target_pos))
+	_cinematic_target_pos = target_pos
+	_cinematic_target_reached = false
+	GameState.cinematic_intro_state = GameState.CINEMATIC_WALKING_TO_NPC
+
+# Hủy cinematic intro
+func cancel_cinematic_intro() -> void:
+	_cinematic_target_reached = true
+	GameState.cinematic_intro_state = GameState.CINEMATIC_NONE
+	velocity = velocity.move_toward(Vector2.ZERO, friction * 0.016)
+	_set_state(State.IDLE)
 
 func _update_direction(dir: Vector2) -> void:
 	var new_dir: Direction = current_direction
@@ -144,10 +236,21 @@ func _check_sleep_deadline() -> void:
 	# nên PERSISTENT qua scene changes — không bị reset khi Player bị
 	# queue_free khi chuyển scene. Cờ tự reset khi current_day đổi (lúc 6:00
 	# hoặc khi player ngủ tại giường) vì ta so sánh với `current_day`.
+
+	# Cảnh báo 23:30 - "zzZZ" (ngủ rất muộn)
+	if GameState.sleep_late_2330_warning_shown_for_day != GameState.current_day:
+		if GameState.current_time >= _warning_late_hour:
+			GameState.sleep_late_2330_warning_shown_for_day = GameState.current_day
+			var fw := _get_floating_warning()
+			if fw != null:
+				fw.call("show_text_plain_for", "zzZZ", 1.5)
+			print("[Player] Very late sleep warning at hour %.1f" % GameState.current_time)
+
+	# Cảnh báo 22:00 - "It's late"
 	if GameState.sleep_warning_shown_for_day == GameState.current_day:
 		return # đã hiện warning cho ngày này rồi
 
-	if GameState.current_time < WARNING_HOUR:
+	if GameState.current_time < _warning_hour:
 		return
 
 	# Khi đạt 22:00 và chưa ngủ → hiện cảnh báo (1 lần/ngày). Text trắng,
@@ -189,10 +292,18 @@ func _set_state(new_state: State) -> void:
 	state_changed.emit(State.keys()[new_state], old_state_str)
 
 func _unhandled_input(event: InputEvent) -> void:
+	# E chỉ dùng cho dialogue next trong cinematic intro
+	if GameState.cinematic_intro_state == GameState.CINEMATIC_WAITING_DIALOGUE:
+		if event.is_action_pressed("interact"):
+			return  # Chặn E, dialogue tự xử lý
+
 	if event.is_action_pressed("interact"):
 		if current_state == State.INTERACTING:
 			return
 		if DialogueManager.is_active:
+			return
+		# Chặn E khi đang trong cinematic intro (đang chờ dialogue)
+		if GameState.cinematic_intro_state == GameState.CINEMATIC_WAITING_DIALOGUE:
 			return
 		# E chỉ để portal tự xử lý ở world_transition.gd._process (đã có flag
 		# pending_portal_interaction để tránh double-handle). Player không gọi
@@ -220,6 +331,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if current_state == State.SLEEPING or current_state == State.DEAD:
 			return
 		if DialogueManager.is_active:
+			return
+		# Chặn khi đang trong cinematic intro
+		if GameState.cinematic_intro_state != GameState.CINEMATIC_NONE:
 			return
 		# Block khi shop/sleep-prompt đang che. KHÔNG block vì inventory —
 		# inventory mở vẫn cho phép consum item hotbar active nếu click phải

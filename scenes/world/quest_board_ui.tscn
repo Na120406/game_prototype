@@ -1,22 +1,30 @@
 [gd_scene load_steps=2 format=3 uid="uid://bq3board001"]
 
-[ext_resource type="Script" path="res://scripts/world/quest_board_ui.gd" id="1_qboard"]
+[ext_resource type="Script" uid="uid://di6djnrkec43r" path="res://scripts/world/quest_board_ui.gd" id="1_qboard"]
 
 [node name="QuestBoardUI" type="CanvasLayer"]
 layer = 110
 script = ExtResource("1_qboard")
+panel_width = 196
+panel_height = 135
+offset_y = -23
+title_width = 70
+title_height = 16
+title_font_size = 8
+title_vertical_alignment = 0
+title_offset_y = 6
 
 [node name="BackdropLayer" type="CanvasLayer" parent="."]
 layer = 0
 
 [node name="DimBG" type="ColorRect" parent="BackdropLayer"]
+visible = false
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-visible = false
 color = Color(0, 0, 0, 0.55)
 
 [node name="Root" type="Control" parent="."]
@@ -94,12 +102,3 @@ mouse_filter = 2
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 4
-
-[node name="CloseButton" type="Button" parent="Root/Panel"]
-layout_mode = 1
-offset_left = 200.0
-offset_top = -12.0
-offset_right = 226.0
-offset_bottom = 4.0
-theme_override_font_sizes/font_size = 7
-text = "X"

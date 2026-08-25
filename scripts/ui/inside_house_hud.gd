@@ -43,6 +43,18 @@ func _on_sleep_chosen() -> void:
 		player = world.find_child("Player", true, false)
 	if player != null and player.has_method("set_sleeping"):
 		player.set_sleeping(true)
+
+	# Đánh dấu đã ngủ sau 23:30 nếu thời gian hiện tại >= 23.5
+	# Lưu ý: current_time được wrap về 0-24 trong TimeManager._process, nên nếu
+	# đã qua nửa đêm (00:00-05:59) thì current_time sẽ là 0.0-5.9, không khớp
+	# điều kiện >= 23.5. Cần check cả 2 range.
+	var sleep_time_raw: float = GameState.current_time
+	var wrapped_hour: float = fposmod(sleep_time_raw, 24.0)
+	var slept_late: bool = (wrapped_hour >= 23.5) or (wrapped_hour < 6.0)
+	if slept_late:
+		GameState.slept_after_2330 = true
+		print("[InsideHouseHUD] Slept at %.2f (raw=%.2f) — flagged slept_after_2330" % [wrapped_hour, sleep_time_raw])
+
 	TimeManager.pause()
 	await get_tree().create_timer(0.8).timeout
 	GameState.advance_day()

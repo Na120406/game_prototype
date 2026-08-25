@@ -1,0 +1,74 @@
+{
+	"ui": {
+		"interact_prompt": "[E]",
+		"day_label": "Day %d",
+		"gold_label": "%d G",
+
+		"map_labels": {
+			"village_town": "VILLAGE TOWN",
+			"shop": "SHOP",
+			"farm_home": "FARM HOME",
+			"inside_house": "INSIDE HOUSE"
+		},
+
+		"inventory": {
+			"title": "Inventory",
+			"use_button": "Use",
+			"tooltip_no_item": ""
+		},
+
+		"shop": {
+			"buy_tab": "> BUY <",
+			"sell_tab": "  SELL  ",
+			"buy_tab_inactive": "  BUY  ",
+			"sell_tab_inactive": "> SELL <",
+			"empty_sell_message": " No items to sell",
+			"buy_button": "Buy",
+			"sell_button": "Sell",
+			"price_format": "%d G",
+			"sell_price_format": "+%d G",
+			"item_amount_format": "x%d"
+		},
+
+		"quest_board": {
+			"title": "Quest Board",
+			"no_quest_text": "No quests available today.",
+			"accept_button": "Accept",
+			"reward_icon": "💰",
+			"reward_format": "%d G"
+		},
+
+		"energy": {
+			"tooltip_format": "E %d/%d"
+		},
+
+		"sleep_warning": {
+			"late_warning": "It's late",
+			"very_late_warning": "zzZZ"
+		},
+
+		"tooltips": {
+			"energy_restore": "+%d Energy",
+			"health_restore": "+%d Health",
+			"days_to_harvest": "%dd to harvest",
+			"equip": "Equip"
+		},
+
+		"farm_plot": {
+			"needs_water": "(%d/%d days without water — will wilt tomorrow!)"
+		}
+	},
+
+	"dialogue": {
+		"continue_prompt": "Continue",
+		"close_prompt": "Close"
+	},
+
+	"menus": {
+		"pause_title": "Paused",
+		"save_game": "Save Game",
+		"load_game": "Load Game",
+		"options": "Options",
+		"quit": "Quit"
+	}
+}

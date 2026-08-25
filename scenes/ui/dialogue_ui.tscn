@@ -1,6 +1,6 @@
-[gd_scene load_steps=1 format=3 uid="uid://dlg_ui_fixed"]
+[gd_scene load_steps=2 format=3 uid="uid://dqjcs3c31i8d4"]
 
-[ext_resource type="Script" path="res://scripts/ui/dialogue_ui.gd" id="1_dui"]
+[ext_resource type="Script" uid="uid://46lmulhha6py" path="res://scripts/ui/dialogue_ui.gd" id="1_dui"]
 
 [node name="DialogueLayer" type="CanvasLayer"]
 layer = 50
@@ -13,12 +13,18 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_dui")
+name_font_size = 11
+text_font_size = 8
+panel_min_height = 73
+panel_height_offset = 4.0
 
 [node name="ClickCatcher" type="Control" parent="DialogueUI"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 
 [node name="Panel" type="PanelContainer" parent="DialogueUI"]
@@ -39,8 +45,8 @@ color = Color(0.5, 0.4, 0.3, 1)
 [node name="Margin" type="MarginContainer" parent="DialogueUI/Panel"]
 layout_mode = 2
 theme_override_constants/margin_left = 5
-theme_override_constants/margin_right = 5
 theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 4
 
 [node name="VBox" type="VBoxContainer" parent="DialogueUI/Panel/Margin"]
@@ -66,7 +72,7 @@ custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
 theme_override_colors/default_color = Color(0.95, 0.92, 0.85, 1)
 theme_override_font_sizes/normal_font_size = 9
-theme_override_constants/line_spacing = 0
+fit_content = true
 scroll_active = false
 autowrap_mode = 2
 
@@ -75,5 +81,3 @@ layout_mode = 2
 theme_override_constants/separation = 3
 
 [node name="TypeTimer" type="Timer" parent="DialogueUI"]
-process_mode = 0
-wait_mode = 1

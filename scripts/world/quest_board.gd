@@ -10,6 +10,10 @@ extends Area2D
 #   1. Player E + QuestBoard → spawn UI (CanvasLayer)
 #   2. UI liệt kê `get_quests_for_board(quest_giver_npc_id)`
 #   3. Player nhấn Accept → QuestSystem.accept_quest() + đóng UI
+#
+# Tương tác:
+#   - Player có thể mở/đóng bảng quest thoải mái khi đang đứng trong vùng
+#     (không giới hạn số lần toggle). Rời khỏi vùng → UI tự đóng.
 # =============================================================================
 
 @export var board_id: String = "neighbor_board"
@@ -38,7 +42,8 @@ func _on_body_exited(body: Node) -> void:
 		_player_inside = false
 		_close_ui()
 
-# Mở UI nếu chưa mở, đóng nếu đã mở (toggle).
+# Toggle mở/đóng UI. Player có thể ấn E bao nhiêu lần cũng được khi đang
+# đứng trong vùng — không giới hạn session, không cần rời khỏi vùng để mở lại.
 func _toggle_ui() -> void:
 	if _current_ui != null and is_instance_valid(_current_ui):
 		_close_ui()
@@ -46,11 +51,6 @@ func _toggle_ui() -> void:
 	_open_ui()
 
 func _open_ui() -> void:
-	# Nếu UI cũ còn tồn tại thì chỉ mở lại, không tạo mới
-	if _current_ui != null and is_instance_valid(_current_ui):
-		if _current_ui.has_method("open"):
-			_current_ui.call("open")
-		return
 	# Load UI popup từ scene quest_board_ui.tscn (CanvasLayer).
 	var ui_scene := load("res://scenes/world/quest_board_ui.tscn") as PackedScene
 	if ui_scene == null:
@@ -66,7 +66,5 @@ func _open_ui() -> void:
 
 func _close_ui() -> void:
 	if _current_ui != null and is_instance_valid(_current_ui):
-		if _current_ui.has_method("close"):
-			_current_ui.call("close")
-		else:
-			_current_ui.queue_free()
+		_current_ui.queue_free()
+	_current_ui = null

@@ -1,12 +1,12 @@
 {
   "lines": [
-    {
-      "speaker": "Marcus",
-      "text": "Vẫn đang làm à? Không vội đâu — ghi chú trên bảng còn đó cả ngày mà."
-    },
-    {
-      "speaker": "Marcus",
-      "text": "Có gì thì quay lại khi đã mang theo thứ tôi cần nhé."
-    }
+	{
+	  "speaker": "Marcus",
+	  "text": "Vẫn đang làm à? Không vội đâu — ghi chú trên bảng còn đó cả ngày mà."
+	},
+	{
+	  "speaker": "Marcus",
+	  "text": "Có gì thì quay lại khi đã mang theo thứ tôi cần nhé."
+	}
   ]
 }

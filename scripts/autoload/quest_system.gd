@@ -702,7 +702,7 @@ func _regenerate_daily_quests() -> void:
 
 	for npc_id: String in npcs_with_boards:
 		# Roll xác suất xuất hiện quest (chỉ roll 1 lần mỗi ngày)
-		var chance: float = GameState.BASE_QUEST_CHANCE + GameState.quest_appearance_bonus
+		var chance: float = GameState.base_quest_chance + GameState.quest_appearance_bonus
 		var rolled: bool = randf() <= chance
 
 		if not rolled:

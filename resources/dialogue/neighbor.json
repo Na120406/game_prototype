@@ -1,28 +1,32 @@
 {
   "lines": [
-    {
-      "speaker": "Marcus",
-      "text": "À, cuối cùng cậu cũng dậy! Tôi cứ tưởng cậu ngủ quên cả tuần rồi chứ."
-    },
-    {
-      "speaker": "Marcus",
-      "text": "Tôi là Marcus, nhà ở ngay đầu đường. Tôi ghé qua xem cậu ở đây có ổn không."
-    },
-    {
-      "speaker": "Marcus",
-      "text": "Trang trại hơi bừa bộn, nhưng đất ở đây tốt. Cứ gieo hạt, tưới nước mỗi ngày, chẳng mấy chốc sẽ có mùa thu hoạch thôi."
-    },
-    {
-      "speaker": "Marcus",
-      "text": "Có một cửa hàng trong thị trấn nếu cậu cần dụng cụ. Ông Khong quản lý đó, tính hơi khó tính một chút."
-    },
-    {
-      "speaker": "Marcus",
-      "text": "Có một điều — đừng thức khuya quá nửa đêm. Ở vùng này, ai liều mạng quá thường gặp chuyện chẳng lành."
-    },
-    {
-      "speaker": "Marcus",
-      "text": "Thôi, chúc may mắn nhé. Có gì cần thì tìm tôi lúc nào cũng được."
-    }
+	{
+	  "speaker": "Người Đàn Ông",
+	  "text": "À, cuối cùng cậu cũng dậy! Tôi cứ tưởng cậu ngủ quên cả tuần rồi chứ."
+	},
+	{
+	  "speaker": "Người Đàn Ông",
+	  "text": "Tôi là Marcus, hàng xóm mới của cậu. Tôi ghé qua xem cậu ở đây có ổn không. Cậu mới chuyển tới hôm trước nhỉ?"
+	},
+	{
+	  "speaker": "Marcus",
+	  "text": "Trang trại tuy có hơi bừa bộn, nhưng đất ở đây khá tốt. Cứ gieo hạt, tưới nước mỗi ngày, chẳng mấy chốc sẽ có mùa thu hoạch thôi."
+	},
+	{
+	  "speaker": "Marcus",
+	  "text": "Có một cửa hàng trong thị trấn nếu cậu cần dụng cụ và hạt giống. Ông Vos quản lý nơi ấy, có khó tính một chút thôi. Nếu có thắc mắc thì thị trấn nằm bên phải nhà của cậu đó."
+	},
+	{
+	  "speaker": "Marcus",
+	  "text": "Còn trang trại của tôi thì nằm bên phải thị trấn. Nếu chán quá cứ tới gặp tôi trò chuyện."
+	},
+	{
+	  "speaker": "Marcus",
+	  "text": "Và hãy nhớ ngủ sớm để giữ sức khỏe nhé. Làm nông không nhẹ nhàng đâu, cậu có thể kiệt sức mà bất tỉnh đó!"
+	},
+	{
+	  "speaker": "Marcus",
+	  "text": "Vậy nhé! Chúc cậu một ngày tốt lành."
+	}
   ]
 }

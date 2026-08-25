@@ -1,0 +1,38 @@
+{
+  "game": {
+	"start_day": 1,
+	"start_time": 6.0,
+	"max_energy": 20.0,
+	"max_health": 100.0,
+	"stamina_drain_rate": 5.0,
+	"move_speed_mult_default": 1.0,
+	"sleep_deadline_hour": 24.0,
+	"sleep_warning_hour": 22.0
+  },
+  "quest": {
+	"base_quest_chance": 0.5,
+	"bonus_per_day_no_quest": 0.1
+  },
+  "inventory": {
+	"slots": 21,
+	"toolbar_size": 5
+  },
+  "scene": {
+	"transition_duration": 0.5
+  },
+  "player": {
+	"move_speed": 100.0,
+	"run_speed": 180.0,
+	"sprint_speed": 250.0,
+	"acceleration": 800.0,
+	"friction": 1200.0,
+	"interaction_range": 80.0
+  },
+  "cinematic_intro": {
+	"delay_before_walk_seconds": 1.5,
+	"player_offset_from_npc": {
+	  "x": -50,
+	  "y": 0
+	}
+  }
+}

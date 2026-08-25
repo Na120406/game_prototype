@@ -124,6 +124,32 @@ prompt = "[E]"
 [node name="CollisionShape2D" type="CollisionShape2D" parent="World/ToFarm"]
 shape = SubResource("RS_trans")
 
+[node name="Door" type="ColorRect" parent="World/ToFarm"]
+z_index = 2
+offset_left = -15.0
+offset_top = -20.0
+offset_right = 15.0
+offset_bottom = 20.0
+color = Color(0.4, 0.25, 0.12, 1)
+
+[node name="DoorFrame" type="ColorRect" parent="World/ToFarm"]
+z_index = 1
+layout_mode = 0
+offset_left = -18.0
+offset_top = -23.0
+offset_right = 18.0
+offset_bottom = 23.0
+color = Color(0.3, 0.2, 0.1, 1)
+
+[node name="DoorKnob" type="ColorRect" parent="World/ToFarm"]
+z_index = 3
+layout_mode = 0
+offset_left = 8.0
+offset_top = -2.0
+offset_right = 12.0
+offset_bottom = 2.0
+color = Color(0.7, 0.6, 0.3, 1)
+
 [node name="Prompt" type="Label" parent="World/ToFarm"]
 anchors_preset = -1
 offset_left = -10.0

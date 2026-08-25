@@ -12,9 +12,10 @@ size = Vector2(28, 28)
 [node name="Shopkeeper" type="CharacterBody2D"]
 z_index = 5
 script = ExtResource("2_script")
-npc_name = "Old Merchant"
+npc_name = "Vos"
 npc_id = "shopkeeper"
 dialogue_id = "shopkeeper"
+dialogue_first_id = "shopkeeper_first"
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(0, -4)

@@ -1,26 +1,26 @@
 {
   "lines": [
-    {
-      "speaker": "Marcus",
-      "text": "Cậu mang những thứ này cho tôi sao?",
-      "choices": [
-        "Phải",
+	{
+	  "speaker": "Marcus",
+	  "text": "Cậu mang những thứ này cho tôi sao?",
+	  "choices": [
+		"Phải",
         "Không"
-      ],
-      "choices_data": [
-        {
-          "text": "Phải",
-          "action": "confirm_delivery"
-        },
-        {
-          "text": "Không",
-          "action": "cancel_delivery"
-        }
-      ]
-    },
-    {
-      "speaker": "Marcus",
-      "text": "Cảm ơn cậu nhiều! Đây là phần thưởng cho cậu."
-    }
+	  ],
+	  "choices_data": [
+		{
+		  "text": "Phải",
+		  "action": "confirm_delivery"
+		},
+		{
+		  "text": "Không",
+		  "action": "cancel_delivery"
+		}
+	  ]
+	},
+	{
+	  "speaker": "Marcus",
+	  "text": "Cảm ơn cậu nhiều! Đây là phần thưởng cho cậu."
+	}
   ]
 }

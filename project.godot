@@ -18,6 +18,7 @@ config/icon="res://scenes/icon.svg"
 [autoload]
 
 FarmEnums="*res://scripts/autoload/farm_enums.gd"
+ConfigManager="*res://scripts/autoload/config_manager.gd"
 GameState="*res://scripts/autoload/game_state.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
 CameraManager="*res://scripts/autoload/camera_manager.gd"

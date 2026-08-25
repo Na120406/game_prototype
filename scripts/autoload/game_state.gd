@@ -9,6 +9,8 @@ extends Node
 #   - Túi đồ (inventory)
 #   - Các cờ sự kiện (world flags)
 #
+# Thông số mặc định được load từ ConfigManager (resources/config/game_config.json)
+#
 # CÁCH SỬ DỤNG: Gọi GameState.ten_bien từ bất kỳ đâu
 # Ví dụ: GameState.gold += 10 (thêm 10 vàng)
 # =============================================================================
@@ -33,7 +35,7 @@ signal toolbar_changed
 # Tên nhân vật người chơi - mặc định là "Player"
 var player_name: String = "Player"
 
-# Ngày hiện tại trong game - bắt đầu từ ngày 1
+# Ngày hiện tại trong game - bắt đầu từ ngày 1 (load từ config)
 var current_day: int = 1
 
 # Thời gian hiện tại (định dạng 24 giờ)
@@ -62,6 +64,14 @@ var move_speed_mult: float = 1.0
 # _reset_sleep_warning_flag_if_new_day() và gọi từ Player._ready / mỗi frame.
 var sleep_warning_shown_for_day: int = 0
 
+# Cờ đánh dấu warning "zzZZ" (ngủ rất muộn) đã hiện trong ngày hiện tại.
+# Lưu trong GameState để persistent qua scene changes.
+var sleep_late_2330_warning_shown_for_day: int = 0
+
+# Cờ đánh dấu đã ngủ sau 23:30 — nếu true, ngày mai năng lượng chỉ hồi 75%.
+# Reset về false khi ngủ đúng giờ (trước 23:30) hoặc khi bắt đầu ngày mới.
+var slept_after_2330: bool = false
+
 # Máu (health) - khi = 0, người chơi chết hoặc bất tỉnh
 var health: float = 100.0
 
@@ -73,8 +83,8 @@ var max_health: float = 100.0
 # =============================================================================
 # Mỗi ngày không có quest xuất hiện → tăng 10%. Khi quest xuất hiện → reset về 0.
 # Tỷ lệ thực = BASE_QUEST_CHANCE + quest_appearance_bonus
-const BASE_QUEST_CHANCE: float = 0.5   # 50% base
-const QUEST_BONUS_PER_DAY: float = 0.1  # +10% mỗi ngày không thấy quest
+var base_quest_chance: float = 0.5
+var quest_bonus_per_day: float = 0.1
 var quest_appearance_bonus: float = 0.0  # Bonus cộng dồn
 var quest_bonus_day: int = 0            # Ngày đã tính bonus (để không tăng 2 lần/ngày)
 
@@ -98,6 +108,21 @@ var game_interacting: bool = false
 # vừa đổi scene vừa consume item cùng 1 frame. Reset về false ở đầu mỗi
 # frame player input, hoặc sau khi portal gọi change_scene xong.
 var pending_portal_interaction: bool = false
+
+# Lock player di chuyển khi đang cutscene/dialogue đặc biệt (VD: day1 intro
+# với Marcus). Set true khi cutscene bắt đầu, false khi kết thúc.
+var player_movement_locked: bool = false
+
+# Flag set bởi SceneManager khi player vừa rời inside_house_map.
+# Dùng để trigger day1 intro cutscene với Marcus.
+var just_left_inside_house: bool = false
+
+# Cinematic intro state cho day 1 - quản lý luồng intro với Marcus:
+# 0 = không có intro, 1 = đang đi tới NPC, 2 = đang đợi dialogue
+var cinematic_intro_state: int = 0
+const CINEMATIC_NONE: int = 0
+const CINEMATIC_WALKING_TO_NPC: int = 1
+const CINEMATIC_WAITING_DIALOGUE: int = 2
 
 # =============================================================================
 # HỆ THỐNG ĐỒ (INVENTORY SYSTEM)
@@ -179,21 +204,55 @@ var farm_cells_data: Dictionary = {}
 # HÀM KHỞI TẠO (_ready)
 # =============================================================================
 # Được gọi KHI script được load lần đầu
-# Dùng để khởi tạo giá trị ban đầu
+# Dùng để khởi tạo giá trị ban đầu từ ConfigManager
 
 func _ready() -> void:
+	# Load config từ JSON files
+	_load_config()
 	# In ra thông báo khởi tạo để debug
 	print("[GameState] Initialized — Day %d, %.0f:00" % [current_day, current_time])
 	_ensure_inventory_slots()
 
 
+func _load_config() -> void:
+	# Đợi ConfigManager load xong (thường là 1 frame)
+	await get_tree().process_frame
+	
+	var cm := _get_config_manager()
+	if cm == null:
+		push_warning("[GameState] ConfigManager not found, using defaults")
+		return
+	
+	# Load game config
+	current_day = cm.get_start_day()
+	current_time = cm.get_start_time()
+	max_energy = cm.get_max_energy()
+	energy = max_energy  # Reset energy về max khi start
+	max_health = cm.get_max_health()
+	health = max_health
+	stamina_drain_rate = cm.get_value("game.stamina_drain_rate", 5.0)
+	
+	# Quest config
+	base_quest_chance = cm.get_base_quest_chance()
+	quest_bonus_per_day = cm.get_quest_bonus_per_day()
+	
+	print("[GameState] Loaded config from JSON files")
+
+
+func _get_config_manager() -> Node:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return null
+	return tree.root.get_node_or_null("ConfigManager")
+
+
 # Inventory UI có 21 ô cố định (3 hàng × 7 cột). Mỗi ô map 1:1 với index
 # trong GameState.inventory; các ô trống từ đầu cũng phải có entry {"id":"",
 # "amount":0} để drag/swap giữa tất cả các ô hoạt động nhất quán.
-const INVENTORY_SLOTS: int = 21
+var _inventory_slots: int = 21
 
 func _ensure_inventory_slots() -> void:
-	while inventory.size() < INVENTORY_SLOTS:
+	while inventory.size() < _inventory_slots:
 		inventory.append({"id": "", "amount": 0})
 
 
@@ -226,15 +285,30 @@ func reset_inventory_layout() -> void:
 func advance_day(reset_to_hour: float = 6.0) -> void:
 	current_day += 1           # Tăng ngày
 	current_time = reset_to_hour  # Reset theo giờ truyền vào
-	energy = max_energy        # Khôi phục năng lượng đầy
+
+	# Khôi phục năng lượng:
+	# - Ngủ sau 23:30 (tính cả nửa đêm 00:00-05:59 do current_time wrap về 0-24):
+	#   giới hạn max 75% của thanh năng lượng (không tăng, không giảm)
+	# - Ngủ đúng giờ: hồi đầy 100%
+	var cap_energy_at_75: bool = slept_after_2330
+	if cap_energy_at_75:
+		var max_allowed_energy: float = max_energy * 0.75
+		# Nếu năng lượng hiện tại < 75% → hồi lên 75%
+		# Nếu năng lượng hiện tại >= 75% → giữ nguyên (không tăng, không giảm)
+		if energy < max_allowed_energy:
+			energy = max_allowed_energy
+		print("[GameState] Slept after 23:30 — energy capped at 75%% (%.1f/%.1f)" % [energy, max_energy])
+	else:
+		energy = max_energy
+	slept_after_2330 = false  # Reset cờ ngủ muộn cho ngày mới
 	# is_day phải khớp với giờ reset (không hardcode true). Ví dụ reset 1:00 →
 	# vẫn là đêm, is_day = false.
 	is_day = current_time >= 6.0 and current_time < 22.0
 	# Tăng bonus quest nếu chưa đạt cap +10%/ngày (reset khi nhận quest thành công).
 	if quest_bonus_day < current_day:
-		quest_appearance_bonus = minf(quest_appearance_bonus + QUEST_BONUS_PER_DAY, 1.0)
+		quest_appearance_bonus = minf(quest_appearance_bonus + quest_bonus_per_day, 1.0)
 		quest_bonus_day = current_day
-		print("[GameState] Quest chance increased to %.0f%%" % ((BASE_QUEST_CHANCE + quest_appearance_bonus) * 100))
+		print("[GameState] Quest chance increased to %.0f%%" % ((base_quest_chance + quest_appearance_bonus) * 100))
 	# Kiểm tra quest hết hạn
 	var expired: int = 0
 	var qs = get_node_or_null("/root/QuestSystem")

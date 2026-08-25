@@ -4,12 +4,14 @@ extends "res://scripts/npc/npc.gd"
 # =============================================================================
 # NPC "Old Marcus" — hàng xóm sống ở khu marcus_farm_map (bên phải town).
 #
+# Thông số được load từ ConfigManager (resources/config/npc_config.json)
+#
 # NPCManager quản lý 1 instance duy nhất của Marcus. Lịch trình quyết định:
 #   - Marcus ở scene nào theo từng giờ.
-#   - Marcus đứng ở đâu trong scene đó.
+#   - Marcus đứng ở đâu trong sceneaaa đó.
 #   - Marcus đang làm gì (state + action).
 #
-# LỊCH TRÌNH NGÀY 1 (DAY 1 INTRO FLOW):
+# LỊCH TRÌNH NGÀY 1 (DAY 1 INTRO FLOW):a
 #   Trước khi player rời nhà lần đầu (sáng 6:00+):
 #     06:00-… marcus_at_player_house_map (đứng TRƯỚC cửa nhà PLAYER đợi
 #     player ra khỏi nhà → auto-cutscene dialogue "neighbor").
@@ -35,32 +37,23 @@ extends "res://scripts/npc/npc.gd"
 #   - day >= 2: chọn dialogue dựa trên quest state (như cũ).
 # =============================================================================
 
-@export var home_position: Vector2 = Vector2(375, 200)
-# Vị trí cửa nhà Marcus trong marcus_farm_map.
-@export var farm_work_position: Vector2 = Vector2(160, 200)
-# Vị trí giữa garden beds — Marcus làm vườn.
-@export var house_sleep_position: Vector2 = Vector2(225, 145)
-# Vị trí giường ngủ trong marcus_house_map.
-@export var town_position: Vector2 = Vector2(430, 90)
-# Vị trí Marcus ở town_map (cạnh portal ToMarcusFarm).
-@export var player_house_door_position: Vector2 = Vector2(85, 200)
-# Vị trí Marcus đứng TRƯỚC cửa nhà PLAYER trong farm_map khi chờ gặp day 1.
-# Cách cửa (60, 146) vài pixel về phía nam để Marcus không block portal.
-@export var marcus_farm_entry_position: Vector2 = Vector2(40, 200)
-# Vị trí Marcus ở rìa trái marcus_farm_map (nơi portal ToTown) khi vừa đi
-# từ town về farm sau 11:00.
+# Vị trí mặc định (sẽ được load từ ConfigManager)
+var home_position: Vector2 = Vector2(375, 200)
+var farm_work_position: Vector2 = Vector2(160, 200)
+var house_sleep_position: Vector2 = Vector2(225, 145)
+var town_position: Vector2 = Vector2(430, 90)
+var player_house_door_position: Vector2 = Vector2(85, 200)
+var marcus_farm_entry_position: Vector2 = Vector2(40, 200)
 
-# Paths scene — dùng constant để dễ refactor.
-const SCENE_MARCUS_FARM := "res://scenes/maps/marcus_farm_map.tscn"
-const SCENE_MARCUS_HOUSE := "res://scenes/maps/marcus_house_map.tscn"
-const SCENE_TOWN := "res://scenes/maps/town_map.tscn"
-const SCENE_PLAYER_FARM := "res://scenes/maps/farm_map.tscn"
-const SCENE_INSIDE_HOUSE := "res://scenes/maps/inside_house_map.tscn"
+# Scene paths (load from ConfigManager)
+var SCENE_MARCUS_FARM: String = "res://scenes/maps/marcus_farm_map.tscn"
+var SCENE_MARCUS_HOUSE: String = "res://scenes/maps/marcus_house_map.tscn"
+var SCENE_TOWN: String = "res://scenes/maps/town_map.tscn"
+var SCENE_PLAYER_FARM: String = "res://scenes/maps/farm_map.tscn"
+var SCENE_INSIDE_HOUSE: String = "res://scenes/maps/inside_house_map.tscn"
 
-# Giờ cutoff cho day 1 intro. Nếu player rời nhà TRƯỚC giờ này → Marcus
-# chuyển sang town sau dialogue. Nếu SAU → Marcus giữ schedule marcus_farm
-# (không đổi scene).
-const INTRO_DEADLINE_HOUR: float = 11.0
+# Giờ cutoff cho day 1 intro (load from ConfigManager)
+var _intro_deadline_hour: float = 11.0
 
 # Cờ nội bộ — Marcus đã hoàn thành intro day 1 chưa. Sau khi intro → set
 # flag marcus_met_day1 và rebuild schedule. Lưu local để không gọi rebuild lặp.
@@ -72,6 +65,12 @@ var has_met_player_day1: bool = false
 
 
 func _ready() -> void:
+	# Load config from ConfigManager
+	_load_config_from_manager()
+
+	# Đồng bộ has_met_player_day1 từ GameState flag (để handle load save)
+	has_met_player_day1 = GameState.get_flag("neighbor_met_day1", false)
+	
 	# move_speed lấy từ base npc.gd (mặc định 85 px/s).
 	# Gọi _ready của base npc.gd → add_to_group + schedule build.
 	super._ready()
@@ -84,15 +83,65 @@ func _ready() -> void:
 			sm.scene_changed.connect(_on_scene_changed_marcus)
 
 
+func _load_config_from_manager() -> void:
+	var cm := _get_config_manager()
+	if cm == null:
+		push_warning("[Neighbor] ConfigManager not found, using defaults")
+		return
+	
+	# Load scene paths - CHỈ ghi đè nếu config có giá trị (không empty)
+	var scene_marcus_farm = cm.get_scene_path("marcus_farm")
+	var scene_marcus_house = cm.get_scene_path("marcus_house")
+	var scene_town = cm.get_scene_path("town")
+	var scene_player_farm = cm.get_scene_path("player_farm")
+	var scene_inside_house = cm.get_scene_path("inside_house")
+	
+	if scene_marcus_farm != "": SCENE_MARCUS_FARM = scene_marcus_farm
+	if scene_marcus_house != "": SCENE_MARCUS_HOUSE = scene_marcus_house
+	if scene_town != "": SCENE_TOWN = scene_town
+	if scene_player_farm != "": SCENE_PLAYER_FARM = scene_player_farm
+	if scene_inside_house != "": SCENE_INSIDE_HOUSE = scene_inside_house
+	
+	# Load neighbor positions - CHỈ ghi đè nếu config có giá trị
+	var cfg_home = cm.get_npc_position("neighbor", "home_position")
+	var cfg_farm_work = cm.get_npc_position("neighbor", "farm_work_position")
+	var cfg_house_sleep = cm.get_npc_position("neighbor", "house_sleep_position")
+	var cfg_town = cm.get_npc_position("neighbor", "town_position")
+	var cfg_player_door = cm.get_npc_position("neighbor", "player_house_door_position")
+	var cfg_marcus_entry = cm.get_npc_position("neighbor", "marcus_farm_entry_position")
+	
+	if cfg_home != Vector2.ZERO: home_position = cfg_home
+	if cfg_farm_work != Vector2.ZERO: farm_work_position = cfg_farm_work
+	if cfg_house_sleep != Vector2.ZERO: house_sleep_position = cfg_house_sleep
+	if cfg_town != Vector2.ZERO: town_position = cfg_town
+	if cfg_player_door != Vector2.ZERO: player_house_door_position = cfg_player_door
+	if cfg_marcus_entry != Vector2.ZERO: marcus_farm_entry_position = cfg_marcus_entry
+	
+	# Load intro deadline hour
+	_intro_deadline_hour = cm.get_intro_deadline_hour()
+	
+	print("[Neighbor] Config loaded - SCENE_PLAYER_FARM: '%s'" % SCENE_PLAYER_FARM)
+	
+	# Rebuild schedule với config đã load
+	_build_default_schedule()
+
+
+func _get_config_manager() -> Node:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return null
+	return tree.root.get_node_or_null("ConfigManager")
+
+
 # Schedule được build linh hoạt dựa trên 3 trạng thái:
-#   - day == 1 + chưa gặp player     → _schedule_waiting_at_player_house (đứng
+#   - day == 1 + CHƯA gặp player (flag neighbor_met_day1 = false) → _schedule_waiting_at_player_house (đứng
 #     trước cửa nhà player).
-#   - day == 1 + đã gặp + cutscene chuyển sang town (chỉ khi gặp trước 11:00)
-#     → _schedule_after_intro_to_town (town → 11:00, farm sau 11:00).
-#   - Còn lại (day >= 2, day 1 sau 11:00, day 1 đã gặp sau 11:00)
-#     → _schedule_in_farm (sinh hoạt quanh farm).
+#   - day == 1 + ĐÃ gặp + cutscene chuyển sang town (flag marcus_at_town_post_intro = true) → _schedule_after_intro_to_town (town → 11:00, farm sau 11:00).
+#   - Còn lại (day >= 2, day 1 sau 11:00, day 1 đã gặp sau 11:00) → _schedule_in_farm (sinh hoạt quanh farm).
 func _build_default_schedule() -> void:
-	if GameState.current_day == 1 and not has_met_player_day1:
+	# Kiểm tra flag trong GameState (persistent) thay vì biến local
+	# để đảm bảo schedule đúng khi load save
+	if GameState.current_day == 1 and not GameState.get_flag("neighbor_met_day1", false):
 		_schedule_waiting_at_player_house()
 		return
 	if GameState.current_day == 1 and GameState.get_flag("marcus_at_town_post_intro", false):
@@ -110,7 +159,7 @@ func _schedule_waiting_at_player_house() -> void:
 	]
 
 
-# Schedule NGAY SAU intro (chỉ trigger khi gặp player trước INTRO_DEADLINE_HOUR).
+# Schedule NGAY SAU intro (chỉ trigger khi gặp player trước _intro_deadline_hour).
 # Marcus đứng ở town cho tới 11:00, sau 11:00 trở về marcus_farm_map.
 # Lưu ý: step ở 11:00 chuyển từ town → marcus_farm (vị trí marcus_farm_entry)
 # để Marcus "đi bộ" từ town về farm thay vì teleport.
@@ -119,7 +168,7 @@ func _schedule_after_intro_to_town() -> void:
 		{"time": 0.0, "state": NPCState.WAKING, "action": "waiting_in_town", "scene": SCENE_TOWN, "pos": town_position},
 		# 11:00 — Marcus rời town, đi về marcus_farm_map. Đặt ở rìa trái
 		# farm (gần portal ToTown) để Marcus "vừa đến" từ town.
-		{"time": INTRO_DEADLINE_HOUR, "state": NPCState.WALKING, "action": "go_home_from_town", "scene": SCENE_MARCUS_FARM, "pos": marcus_farm_entry_position},
+		{"time": _intro_deadline_hour, "state": NPCState.WALKING, "action": "go_home_from_town", "scene": SCENE_MARCUS_FARM, "pos": marcus_farm_entry_position},
 		# 12:00 — Marcus bắt đầu làm vườn tại farm của mình.
 		{"time": 12.0, "state": NPCState.WORKING, "action": "tend_garden", "scene": SCENE_MARCUS_FARM, "pos": farm_work_position},
 		{"time": 17.0, "state": NPCState.WALKING, "action": "go_home", "scene": SCENE_MARCUS_FARM, "pos": home_position},
@@ -159,6 +208,13 @@ func interact(player: Node) -> void:
 	print("[Neighbor] interact() called, is_interacting=%s" % is_interacting)
 	if is_interacting:
 		return
+
+	# Cancel cinematic intro if player presses E manually
+	GameState.cinematic_intro_state = GameState.CINEMATIC_NONE
+
+	# Lock player movement khi dialogue bắt đầu
+	GameState.player_movement_locked = true
+
 	stop_walking()
 	is_interacting = true
 	talk_count += 1
@@ -172,28 +228,33 @@ func interact(player: Node) -> void:
 
 
 # Callback khi dialogue kết thúc. Day 1 lần đầu:
-#   - Nếu current_time < INTRO_DEADLINE_HOUR (11:00): Marcus chuyển sang town
+#   - Nếu current_time < _intro_deadline_hour (11:00): Marcus chuyển sang town
 #     cho tới 11:00, sau 11:00 về farm (schedule _schedule_after_intro_to_town).
 #   - Nếu current_time >= 11:00: Marcus giữ _schedule_in_farm (đang ở farm
 #     theo schedule, không teleport vì step hiện tại đã khớp farm).
 func _on_dm_ended() -> void:
 	is_interacting = false
 	npc_dialogue_finished.emit()
+
+	# Unlock player movement và reset cinematic state sau khi dialogue kết thúc
+	GameState.player_movement_locked = false
+	GameState.cinematic_intro_state = GameState.CINEMATIC_NONE
+
 	if GameState.current_day <= 1 and not has_met_player_day1:
 		has_met_player_day1 = true
 		GameState.set_flag("neighbor_met_day1", true)
 		var ct := GameState.current_time
-		if ct < INTRO_DEADLINE_HOUR:
+		if ct < _intro_deadline_hour:
 			# Trước 11:00 → Marcus chuyển sang town (chờ player ở town), sau
 			# 11:00 về farm.
 			GameState.set_flag("marcus_at_town_post_intro", true)
 			_schedule_after_intro_to_town()
-			print("[NPC] %s: intro complete before %.1f → moving to town until %.1f, then farm." % [npc_name, INTRO_DEADLINE_HOUR, INTRO_DEADLINE_HOUR])
+			print("[NPC] %s: intro complete before %.1f → moving to town until %.1f, then farm." % [npc_name, _intro_deadline_hour, _intro_deadline_hour])
 		else:
 			# Sau 11:00 → Marcus đã đang ở farm theo schedule, giữ nguyên.
 			GameState.set_flag("marcus_at_town_post_intro", false)
 			_schedule_in_farm()
-			print("[NPC] %s: intro complete after %.1f → staying at marcus_farm per normal schedule." % [npc_name, INTRO_DEADLINE_HOUR])
+			print("[NPC] %s: intro complete after %.1f → staying at marcus_farm per normal schedule." % [npc_name, _intro_deadline_hour])
 		_sync_now()
 
 
@@ -213,35 +274,113 @@ var _was_inside_house: bool = false
 
 # scene_changing — track player vừa rời inside_house.
 func _on_scene_changing_marcus(old_path: String, _new_path: String) -> void:
+	print("[Neighbor] _on_scene_changing_marcus: old=%s, new=%s" % [old_path, _new_path])
 	if old_path == SCENE_INSIDE_HOUSE:
 		_was_inside_house = true
+		print("[Neighbor] _was_inside_house set to TRUE")
 
 
 # scene_changed — check trigger cutscene (1 frame sau để NPC sync ổn định).
 func _on_scene_changed_marcus(_scene_path: String) -> void:
-	call_deferred("_check_intro_trigger")
+	print("[Neighbor] _on_scene_changed_marcus called for: %s" % _scene_path)
+	# Check GameState flag nếu signal không hoạt động
+	if GameState.just_left_inside_house:
+		print("[Neighbor] Detected via GameState.just_left_inside_house flag")
+		_was_inside_house = true
+
+	# Gọi sync deferred để đảm bảo NPCManager đã sync trước
+	# Sau đó mới check trigger cutscene
+	call_deferred("_delayed_intro_check")
 
 
-# Thực sự check + trigger cutscene.
+# Được gọi deferred sau _on_scene_changed_marcus để đảm bảo NPCManager đã sync
+func _delayed_intro_check() -> void:
+	_sync_now()
+	_check_intro_trigger()
+
+
+# Thực sự check + trigger cutscene với cinematic intro.
 func _check_intro_trigger() -> void:
+	# Reset flag ngay để tránh trigger lại
+	GameState.just_left_inside_house = false
+
 	if not _should_trigger_intro_cutscene():
 		return
 	_intro_attach_handled = true
 	_was_inside_house = false
-	print("[NPC] %s: auto-trigger intro cutscene (player left house)." % npc_name)
+	print("[NPC] %s: starting cinematic intro (player left house)." % npc_name)
+
+	# Lock player movement ngay lập tức
+	GameState.player_movement_locked = true
+
 	# Snap NPC về đúng pos trước cửa nhà player.
 	position = player_house_door_position
 	_target_pos = position
 	stop_walking()
+
+	# Tính vị trí cho player đứng bên trái NPC (từ ConfigManager)
+	var cm := _get_config_manager()
+	var offset: Vector2 = Vector2(-50, 0)
+	if cm != null and cm.has_method("get_cinematic_player_offset"):
+		offset = cm.get_cinematic_player_offset()
+	var player_target_pos: Vector2 = position + offset
+	print("[NPC] Player will walk to: %s (offset: %s)" % [str(player_target_pos), str(offset)])
+
+	# Delay từ ConfigManager
+	var delay: float = 1.5
+	if cm != null and cm.has_method("get_cinematic_delay"):
+		delay = cm.get_cinematic_delay()
+	await get_tree().create_timer(delay).timeout
+
+	# Kiểm tra lại điều kiện (player có thể đã làm gì đó)
+	if GameState.current_day != 1 or has_met_player_day1 or DialogueManager.is_active:
+		print("[NPC] Intro cancelled - conditions changed")
+		GameState.player_movement_locked = false
+		GameState.cinematic_intro_state = GameState.CINEMATIC_NONE
+		return
+
+	# Bắt đầu cinematic walk
+	var player: Node = get_tree().get_first_node_in_group("player")
+	if player != null and player.has_method("start_cinematic_intro"):
+		player.start_cinematic_intro(player_target_pos)
+		player.cinematic_walk_complete.connect(_on_player_reached_npc_for_intro)
+		print("[NPC] Player cinematic walk started")
+	else:
+		# Fallback: không tìm thấy player, trigger dialogue ngay
+		_start_intro_dialogue()
+
+
+# Called when player reaches NPC position during cinematic intro
+func _on_player_reached_npc_for_intro() -> void:
+	print("[NPC] Player reached NPC position, starting dialogue")
+	var player: Node = get_tree().get_first_node_in_group("player")
+	if player != null and player.has_method("cancel_cinematic_intro"):
+		player.cancel_cinematic_intro()
+	if player != null:
+		player.cinematic_walk_complete.disconnect(_on_player_reached_npc_for_intro)
+
+	# Bắt đầu dialogue
+	_start_intro_dialogue()
+
+
+# Bắt đầu dialogue intro
+func _start_intro_dialogue() -> void:
 	is_interacting = true
 	talk_count += 1
 	npc_dialogue_started.emit()
+	GameState.cinematic_intro_state = GameState.CINEMATIC_WAITING_DIALOGUE
 	DialogueManager.start_dialogue("neighbor", npc_name, npc_id)
 	DialogueManager.dialogue_ended.connect(_on_dm_ended, CONNECT_ONE_SHOT)
 
 
 # Check điều kiện trigger cutscene (gọi ngay + gọi lại sau defer).
 func _should_trigger_intro_cutscene() -> bool:
+	# Check NPC is valid and in tree
+	if not is_inside_tree():
+		return false
+	if not is_instance_valid(self):
+		return false
+
 	if not enable_auto_intro:
 		return false
 	if GameState.current_day != 1:
@@ -250,7 +389,7 @@ func _should_trigger_intro_cutscene() -> bool:
 		return false
 	if GameState.get_flag("neighbor_met_day1", false):
 		return false
-	if DialogueManager.is_active:
+	if DialogueManager != null and DialogueManager.is_active:
 		return false
 	if is_interacting:
 		return false
@@ -262,13 +401,15 @@ func _should_trigger_intro_cutscene() -> bool:
 	if schedule[0].get("action", "") != "wait_at_player_house":
 		return false
 	# Player phải vừa rời inside_house_map (không phải teleport từ scene khác).
-	if not _was_inside_house:
+	if not _was_inside_house and not GameState.just_left_inside_house:
+		_was_inside_house = false  # Reset nếu không phải vừa rời nhà
 		return false
 	# Player hiện đang ở farm_map.
-	var tree := get_tree()
-	if tree == null or tree.current_scene == null:
+	var scene_tree := get_tree()
+	if scene_tree == null or scene_tree.current_scene == null:
 		return false
-	if tree.current_scene.scene_file_path != SCENE_PLAYER_FARM:
+	if scene_tree.current_scene.scene_file_path != SCENE_PLAYER_FARM:
+		_was_inside_house = false  # Reset nếu không đúng scene
 		return false
 	return true
 
@@ -296,7 +437,8 @@ func _get_scene_manager() -> Node:
 func _pick_dialogue_id() -> String:
 	print("[Neighbor] _pick_dialogue_id() called, day=%d, npc_id=%s" % [GameState.current_day, npc_id])
 
-	if GameState.current_day <= 1:
+	# Day 1 lần đầu gặp: dialogue intro
+	if GameState.current_day <= 1 and talk_count <= 1:
 		return "neighbor"
 
 	# Kiểm tra có quest delivery active không
@@ -333,7 +475,53 @@ func _pick_dialogue_id() -> String:
 	if not available.is_empty():
 		return "neighbor_day2_plus"
 
-	return "neighbor_idle"
+	# Kiểm tra bảng tin có quest hôm nay không (CHỈ từ day 2 trở lên)
+	if GameState.current_day >= 2 and QuestSystem.has_quests_today(npc_id):
+		print("[Neighbor] Board has quests today → neighbor_day2_plus")
+		return "neighbor_day2_plus"
+
+	# Dialogue idle theo thời gian trong ngày
+	return _pick_idle_by_time()
+
+
+func _pick_idle_by_time() -> String:
+	# Random idle dialogue dựa trên giờ hiện tại
+	# Mỗi file JSON idle chứa DUY NHẤT 1 dòng thoại → tránh NPC đọc hết tất cả
+	# các câu khi player tương tác. Chọn ngẫu nhiên 1 file trong mốc giờ.
+	#
+	# Sáng: 6:00 - 11:59
+	# Chiều: 12:00 - 17:59
+	# Tối: 18:00 - 21:59
+	var current_time: float = GameState.current_time
+	var wrapped_hour: float = fposmod(current_time, 24.0)
+
+	var dialogues: Array = []
+	if wrapped_hour >= 6.0 and wrapped_hour < 12.0:
+		# Sáng
+		dialogues = [
+			"neighbor_idle_morning",
+			"neighbor_idle_morning_2",
+			"neighbor_idle_morning_3",
+			"neighbor_idle"
+		]
+	elif wrapped_hour >= 12.0 and wrapped_hour < 18.0:
+		# Chiều
+		dialogues = [
+			"neighbor_idle_afternoon",
+			"neighbor_idle_afternoon_2",
+			"neighbor_idle_afternoon_3",
+			"neighbor_idle"
+		]
+	else:
+		# Tối (18:00 - 21:59) — fallback khi giờ ngoài khoảng
+		dialogues = [
+			"neighbor_idle_evening",
+			"neighbor_idle_evening_2",
+			"neighbor_idle_evening_3",
+			"neighbor_idle"
+		]
+
+	return dialogues[randi() % dialogues.size()]
 
 
 # Lấy step hiện tại + apply cho NPC. Base class đã có `apply_current_step()` —

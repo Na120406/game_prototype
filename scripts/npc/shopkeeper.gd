@@ -7,6 +7,7 @@ enum NPCState { IDLE, WALKING, WORKING, RESTING, SPECIAL }
 @export var npc_name: String = "NPC"
 @export var npc_id: String = "npc_01"
 @export var dialogue_id: String = "generic_greeting"
+@export var dialogue_first_id: String = "generic_greeting_first"
 @export var prompt_offset_y: float = -32.0
 @export var interaction_priority: int = 5
 
@@ -71,7 +72,13 @@ func interact(_player: Node) -> void:
 	talk_count += 1
 	_hide_prompt()
 	print("[Shopkeeper] Interact called (talk #%d)." % talk_count)
-	DialogueManager.start_dialogue(dialogue_id, npc_name, npc_id)
+
+	# Chọn dialogue: lần đầu dùng dialogue_first_id, từ lần 2 dùng dialogue_id
+	var selected_dialogue: String = dialogue_id
+	if talk_count == 1 and dialogue_first_id != "":
+		selected_dialogue = dialogue_first_id
+
+	DialogueManager.start_dialogue(selected_dialogue, npc_name, npc_id)
 
 
 func is_player_nearby() -> bool:

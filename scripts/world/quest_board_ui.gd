@@ -23,64 +23,107 @@ extends CanvasLayer
 @export_group("Panel Layout")
 ## Tổng chiều rộng panel (bao gồm padding)
 @export_range(100, 400, 1) var panel_width: int = 228 :
-	set(v): panel_width = v; _apply_layout_if_ready()
+	set(v): panel_width = v; _apply_layout_if_ready(); _save_config()
 ## Tổng chiều cao panel (bao gồm padding)
 @export_range(80, 300, 1) var panel_height: int = 186 :
-	set(v): panel_height = v; _apply_layout_if_ready()
+	set(v): panel_height = v; _apply_layout_if_ready(); _save_config()
 ## Độ dời X từ tâm viewport
 @export_range(-500, 500, 1) var offset_x: int = 0 :
-	set(v): offset_x = v; _apply_layout_if_ready()
+	set(v): offset_x = v; _apply_layout_if_ready(); _save_config()
 ## Độ dời Y từ tâm viewport
 @export_range(-500, 500, 1) var offset_y: int = 0 :
-	set(v): offset_y = v; _apply_layout_if_ready()
+	set(v): offset_y = v; _apply_layout_if_ready(); _save_config()
 
 @export_group("Title Box")
 ## Text hiển thị trên title tab
 @export var title_text: String = "QUEST BOARD" :
-	set(v): title_text = v; _apply_title_text_if_ready()
+	set(v): title_text = v; _apply_title_text_if_ready(); _save_config()
 ## Chiều rộng title box
 @export_range(40, 150, 1) var title_width: int = 80 :
-	set(v): title_width = v; _apply_layout_if_ready()
+	set(v): title_width = v; _apply_layout_if_ready(); _save_config()
 ## Chiều cao title box
 @export_range(16, 50, 1) var title_height: int = 20 :
-	set(v): title_height = v; _apply_layout_if_ready()
+	set(v): title_height = v; _apply_layout_if_ready(); _save_config()
 ## Font size của title text
 @export_range(6, 24, 1) var title_font_size: int = 9 :
-	set(v): title_font_size = v; _apply_title_font_if_ready()
+	set(v): title_font_size = v; _apply_title_font_if_ready(); _save_config()
 ## Màu title text
 @export var title_text_color: Color = Color(1, 1, 1, 1) :
-	set(v): title_text_color = v; _apply_title_font_if_ready()
+	set(v): title_text_color = v; _apply_title_font_if_ready(); _save_config()
+## Canh lề ngang text (0=Trái, 1=Giữa, 2=Phải)
+@export_range(0, 2, 1, "or_greater") var title_horizontal_alignment: int = 1 :
+	set(v): title_horizontal_alignment = v; _apply_title_alignment_if_ready(); _save_config()
+## Canh lề dọc text (0=Trên, 1=Giữa, 2=Dưới)
+@export_range(0, 2, 1, "or_greater") var title_vertical_alignment: int = 1 :
+	set(v): title_vertical_alignment = v; _apply_title_alignment_if_ready(); _save_config()
+## Độ dời X của title box (từ tâm panel)
+@export_range(-200, 200, 1) var title_offset_x: int = 0 :
+	set(v): title_offset_x = v; _apply_layout_if_ready(); _save_config()
+## Độ dời Y của title box (từ vị trí mặc định)
+@export_range(-200, 200, 1) var title_offset_y: int = 0 :
+	set(v): title_offset_y = v; _apply_layout_if_ready(); _save_config()
+
+@export_group("Quest List Box")
+## Độ dời X của list box (từ mép trái panel)
+@export_range(-100, 100, 1) var list_offset_x: int = 0 :
+	set(v): list_offset_x = v; _apply_layout_if_ready(); _save_config()
+## Độ dời Y của list box (từ title box)
+@export_range(-100, 100, 1) var list_offset_y: int = 0 :
+	set(v): list_offset_y = v; _apply_layout_if_ready(); _save_config()
+## Chiều rộng list box
+@export_range(50, 400, 1) var list_width: int = 0 :
+	set(v): list_width = v; _apply_layout_if_ready(); _save_config()
+## Chiều cao list box
+@export_range(50, 300, 1) var list_height: int = 0 :
+	set(v): list_height = v; _apply_layout_if_ready(); _save_config()
+
+@export_group("No Quest Label")
+## Text khi không có quest
+@export var no_quest_text: String = "Khong co nhiem vu hom nay" :
+	set(v): no_quest_text = v; _apply_no_quest_text_if_ready(); _save_config()
+## Canh lề ngang (0=Trái, 1=Giữa, 2=Phải)
+@export_range(0, 2, 1, "or_greater") var no_quest_horizontal_alignment: int = 1 :
+	set(v): no_quest_horizontal_alignment = v; _apply_no_quest_alignment_if_ready(); _save_config()
+## Canh lề dọc (0=Trên, 1=Giữa, 2=Dưới)
+@export_range(0, 2, 1, "or_greater") var no_quest_vertical_alignment: int = 1 :
+	set(v): no_quest_vertical_alignment = v; _apply_no_quest_alignment_if_ready(); _save_config()
+## Độ dời X của label
+@export_range(-100, 100, 1) var no_quest_offset_x: int = 0 :
+	set(v): no_quest_offset_x = v; _apply_no_quest_position_if_ready(); _save_config()
+## Độ dời Y của label
+@export_range(-100, 100, 1) var no_quest_offset_y: int = 0 :
+	set(v): no_quest_offset_y = v; _apply_no_quest_position_if_ready(); _save_config()
 
 @export_group("Colors")
 ## Màu nền panel
 @export var bg_color: Color = Color(0.06, 0.04, 0.1, 0.97) :
-	set(v): bg_color = v; _apply_colors_if_ready()
+	set(v): bg_color = v; _apply_colors_if_ready(); _save_config()
 ## Màu viền
 @export var border_color: Color = Color(0.85, 0.68, 0.38, 1.0) :
-	set(v): border_color = v; _apply_colors_if_ready()
+	set(v): border_color = v; _apply_colors_if_ready(); _save_config()
 ## Bán kính bo góc
 @export_range(0, 16, 1) var corner_radius: int = 4 :
-	set(v): corner_radius = v; _apply_colors_if_ready()
+	set(v): corner_radius = v; _apply_colors_if_ready(); _save_config()
 ## Độ dày viền
 @export_range(0, 8, 1) var border_width: int = 2 :
-	set(v): border_width = v; _apply_colors_if_ready()
+	set(v): border_width = v; _apply_colors_if_ready(); _save_config()
 ## Màu backdrop nền (0 = trong suốt)
 @export_range(0, 1, 0.01) var backdrop_alpha: float = 0.55 :
-	set(v): backdrop_alpha = v; _apply_backdrop_if_ready()
+	set(v): backdrop_alpha = v; _apply_backdrop_if_ready(); _save_config()
 
 @export_group("Quest Item")
 ## Chiều cao mỗi quest item
 @export_range(30, 120, 1) var quest_item_height: int = 56 :
-	set(v): quest_item_height = v; _apply_item_style_if_ready()
+	set(v): quest_item_height = v; _apply_item_style_if_ready(); _save_config()
 ## Màu nền item
 @export var item_bg_color: Color = Color(0.04, 0.02, 0.07, 0.97) :
-	set(v): item_bg_color = v; _apply_item_style_if_ready()
+	set(v): item_bg_color = v; _apply_item_style_if_ready(); _save_config()
 ## Màu item khi hover
 @export var item_hover_color: Color = Color(0.12, 0.08, 0.18, 1.0) :
-	set(v): item_hover_color = v; _apply_item_style_if_ready()
+	set(v): item_hover_color = v; _apply_item_style_if_ready(); _save_config()
 ## Màu reward (vàng)
 @export var reward_color: Color = Color(1.0, 0.85, 0.5, 1.0) :
-	set(v): reward_color = v; _apply_item_style_if_ready()
+	set(v): reward_color = v; _apply_item_style_if_ready(); _save_config()
 
 var _dim_bg: ColorRect = null
 var _panel: Control = null
@@ -92,17 +135,103 @@ var _quest_list: VBoxContainer = null
 var _no_quest_label: Label = null
 var _close_button: Button = null
 
+# --- Config save/load ---
+const CONFIG_PATH := "user://quest_board_ui_config.cfg"
+var _config: ConfigFile = null
+var _is_loading_config := false
+
+func _load_config() -> void:
+	_is_loading_config = true
+	_config = ConfigFile.new()
+	var err := _config.load(CONFIG_PATH)
+	if err == OK:
+		panel_width = _config.get_value("panel", "panel_width", panel_width)
+		panel_height = _config.get_value("panel", "panel_height", panel_height)
+		offset_x = _config.get_value("panel", "offset_x", offset_x)
+		offset_y = _config.get_value("panel", "offset_y", offset_y)
+		title_offset_x = _config.get_value("title", "title_offset_x", title_offset_x)
+		title_offset_y = _config.get_value("title", "title_offset_y", title_offset_y)
+		title_width = _config.get_value("title", "title_width", title_width)
+		title_height = _config.get_value("title", "title_height", title_height)
+		title_font_size = _config.get_value("title", "title_font_size", title_font_size)
+		title_horizontal_alignment = _config.get_value("title", "title_horizontal_alignment", title_horizontal_alignment)
+		title_vertical_alignment = _config.get_value("title", "title_vertical_alignment", title_vertical_alignment)
+		list_offset_x = _config.get_value("list", "list_offset_x", list_offset_x)
+		list_offset_y = _config.get_value("list", "list_offset_y", list_offset_y)
+		list_width = _config.get_value("list", "list_width", list_width)
+		list_height = _config.get_value("list", "list_height", list_height)
+		no_quest_text = _config.get_value("noquest", "no_quest_text", no_quest_text)
+		no_quest_horizontal_alignment = _config.get_value("noquest", "no_quest_horizontal_alignment", no_quest_horizontal_alignment)
+		no_quest_vertical_alignment = _config.get_value("noquest", "no_quest_vertical_alignment", no_quest_vertical_alignment)
+		no_quest_offset_x = _config.get_value("noquest", "no_quest_offset_x", no_quest_offset_x)
+		no_quest_offset_y = _config.get_value("noquest", "no_quest_offset_y", no_quest_offset_y)
+		bg_color = _config.get_value("colors", "bg_color", bg_color)
+		border_color = _config.get_value("colors", "border_color", border_color)
+		corner_radius = _config.get_value("colors", "corner_radius", corner_radius)
+		border_width = _config.get_value("colors", "border_width", border_width)
+		backdrop_alpha = _config.get_value("colors", "backdrop_alpha", backdrop_alpha)
+		item_bg_color = _config.get_value("items", "item_bg_color", item_bg_color)
+		item_hover_color = _config.get_value("items", "item_hover_color", item_hover_color)
+		reward_color = _config.get_value("items", "reward_color", reward_color)
+		quest_item_height = _config.get_value("items", "quest_item_height", quest_item_height)
+		print("[QuestBoardUI] Config loaded from %s" % CONFIG_PATH)
+	_is_loading_config = false
+
+func _save_config() -> void:
+	if _is_loading_config:
+		return
+	_config = ConfigFile.new()
+	_config.set_value("panel", "panel_width", panel_width)
+	_config.set_value("panel", "panel_height", panel_height)
+	_config.set_value("panel", "offset_x", offset_x)
+	_config.set_value("panel", "offset_y", offset_y)
+	_config.set_value("title", "title_offset_x", title_offset_x)
+	_config.set_value("title", "title_offset_y", title_offset_y)
+	_config.set_value("title", "title_width", title_width)
+	_config.set_value("title", "title_height", title_height)
+	_config.set_value("title", "title_font_size", title_font_size)
+	_config.set_value("title", "title_horizontal_alignment", title_horizontal_alignment)
+	_config.set_value("title", "title_vertical_alignment", title_vertical_alignment)
+	_config.set_value("list", "list_offset_x", list_offset_x)
+	_config.set_value("list", "list_offset_y", list_offset_y)
+	_config.set_value("list", "list_width", list_width)
+	_config.set_value("list", "list_height", list_height)
+	_config.set_value("noquest", "no_quest_text", no_quest_text)
+	_config.set_value("noquest", "no_quest_horizontal_alignment", no_quest_horizontal_alignment)
+	_config.set_value("noquest", "no_quest_vertical_alignment", no_quest_vertical_alignment)
+	_config.set_value("noquest", "no_quest_offset_x", no_quest_offset_x)
+	_config.set_value("noquest", "no_quest_offset_y", no_quest_offset_y)
+	_config.set_value("colors", "bg_color", bg_color)
+	_config.set_value("colors", "border_color", border_color)
+	_config.set_value("colors", "corner_radius", corner_radius)
+	_config.set_value("colors", "border_width", border_width)
+	_config.set_value("colors", "backdrop_alpha", backdrop_alpha)
+	_config.set_value("items", "item_bg_color", item_bg_color)
+	_config.set_value("items", "item_hover_color", item_hover_color)
+	_config.set_value("items", "reward_color", reward_color)
+	_config.set_value("items", "quest_item_height", quest_item_height)
+	var err := _config.save(CONFIG_PATH)
+	if err == OK:
+		print("[QuestBoardUI] Config saved to %s" % CONFIG_PATH)
+	else:
+		print("[QuestBoardUI] Failed to save config: %d" % err)
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	# Ẩn mặc định — chỉ hiện khi gọi open()
 	visible = false
 	_cache_nodes()
+	_load_config()
 	_apply_layout()
 	_apply_colors()
 	_apply_title_text()
 	_apply_title_font()
+	_apply_title_alignment()
+	_apply_no_quest_text()
+	_apply_no_quest_alignment()
+	_apply_no_quest_position()
 	_apply_item_style_for_all()
-	_close_button.pressed.connect(_close)
+	if _close_button != null:
+		_close_button.pressed.connect(_close)
 	QuestSystem.quest_rejected_duplicate_item.connect(_on_quest_rejected_duplicate_item)
 	set_process_unhandled_input(true)
 
@@ -131,25 +260,32 @@ func _apply_layout() -> void:
 	if _title_box != null:
 		var tw := float(title_width)
 		var th := float(title_height)
-		_title_box.offset_left = (pw - tw) * 0.5
-		_title_box.offset_top = 4.0
-		_title_box.offset_right = (pw + tw) * 0.5
-		_title_box.offset_bottom = 4.0 + th
+		_title_box.offset_left = (pw - tw) * 0.5 + float(title_offset_x)
+		_title_box.offset_top = 4.0 + float(title_offset_y)
+		_title_box.offset_right = (pw + tw) * 0.5 + float(title_offset_x)
+		_title_box.offset_bottom = 4.0 + th + float(title_offset_y)
 
-	# Title Label đặt đè lên TitleBox (sibling, điều khiển vị trí tự do)
 	if _title_label != null:
-		_title_label.offset_left = (pw - float(title_width)) * 0.5
-		_title_label.offset_top = 4.0
-		_title_label.offset_right = (pw + float(title_width)) * 0.5
-		_title_label.offset_bottom = 4.0 + float(title_height)
+		_title_label.offset_left = (pw - float(title_width)) * 0.5 + float(title_offset_x)
+		_title_label.offset_top = 4.0 + float(title_offset_y)
+		_title_label.offset_right = (pw + float(title_width)) * 0.5 + float(title_offset_x)
+		_title_label.offset_bottom = 4.0 + float(title_height) + float(title_offset_y)
 
 	if _list_box != null:
-		var lw := pw - 8.0
-		var lh := ph - float(title_height) - 16.0
-		_list_box.offset_left = 4.0
-		_list_box.offset_top = float(title_height) + 10.0
-		_list_box.offset_right = pw - 4.0
-		_list_box.offset_bottom = ph - 4.0
+		var lw: float
+		var lh: float
+		if list_width == 0:
+			lw = pw - 8.0
+		else:
+			lw = float(list_width)
+		if list_height == 0:
+			lh = ph - float(title_height) - 16.0
+		else:
+			lh = float(list_height)
+		_list_box.offset_left = 4.0 + float(list_offset_x)
+		_list_box.offset_top = float(title_height) + 10.0 + float(list_offset_y)
+		_list_box.offset_right = _list_box.offset_left + lw
+		_list_box.offset_bottom = _list_box.offset_top + lh
 
 func _apply_layout_if_ready() -> void:
 	if _panel != null:
@@ -172,6 +308,46 @@ func _apply_title_font() -> void:
 func _apply_title_font_if_ready() -> void:
 	if _title_label != null:
 		_apply_title_font()
+
+func _apply_title_alignment() -> void:
+	if _title_label != null:
+		_title_label.horizontal_alignment = title_horizontal_alignment as HorizontalAlignment
+		_title_label.vertical_alignment = title_vertical_alignment as VerticalAlignment
+
+func _apply_title_alignment_if_ready() -> void:
+	if _title_label != null:
+		_apply_title_alignment()
+
+# --- No Quest Label ---
+func _apply_no_quest_text() -> void:
+	if _no_quest_label != null:
+		_no_quest_label.text = no_quest_text
+
+func _apply_no_quest_text_if_ready() -> void:
+	if _no_quest_label != null:
+		_apply_no_quest_text()
+
+func _apply_no_quest_alignment() -> void:
+	if _no_quest_label != null:
+		_no_quest_label.horizontal_alignment = no_quest_horizontal_alignment as HorizontalAlignment
+		_no_quest_label.vertical_alignment = no_quest_vertical_alignment as VerticalAlignment
+
+func _apply_no_quest_alignment_if_ready() -> void:
+	if _no_quest_label != null:
+		_apply_no_quest_alignment()
+
+func _apply_no_quest_position() -> void:
+	if _no_quest_label != null and _panel != null:
+		var pw := float(panel_width)
+		var ph := float(panel_height)
+		_no_quest_label.offset_left = 8.0 + float(no_quest_offset_x)
+		_no_quest_label.offset_top = float(title_height) + 16.0 + float(no_quest_offset_y)
+		_no_quest_label.offset_right = pw - 8.0 + float(no_quest_offset_x)
+		_no_quest_label.offset_bottom = ph - 8.0 + float(no_quest_offset_y)
+
+func _apply_no_quest_position_if_ready() -> void:
+	if _no_quest_label != null and _panel != null:
+		_apply_no_quest_position()
 
 # --- Colors ---
 func _apply_colors() -> void:
@@ -260,9 +436,10 @@ func _close() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		close()
-		get_viewport().set_input_as_handled()
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_ESCAPE or event.keycode == KEY_E:
+			close()
+			get_viewport().set_input_as_handled()
 
 # --- Quest list ---
 func _refresh_quests() -> void:
@@ -271,7 +448,8 @@ func _refresh_quests() -> void:
 	for child in _quest_list.get_children():
 		child.queue_free()
 
-	var quests: Array = QuestSystem.get_available_quests_for_npc(quest_giver_npc_id)
+	# Dùng get_quests_for_board để lấy quests hiển thị trên bảng (bao gồm cả dynamic quests)
+	var quests: Array = QuestSystem.get_quests_for_board(quest_giver_npc_id)
 	if quests.is_empty():
 		if _no_quest_label != null:
 			_no_quest_label.visible = true
@@ -298,9 +476,9 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	item.add_child(vbox)
 
-	# Title
+	# Title - dùng "name" hoặc "title" tùy quest type
 	var title := Label.new()
-	title.text = str(quest_data.get("title", "?"))
+	title.text = str(quest_data.get("name", quest_data.get("title", "?")))
 	title.add_theme_font_size_override("font_size", 9)
 	title.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
@@ -323,10 +501,20 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 	hbox.add_theme_constant_override("separation", 4)
 	vbox.add_child(hbox)
 
+	# Lấy reward từ quest data (hỗ trợ cả reward dict và reward_gold/reward_xp)
+	var reward_dict: Dictionary = quest_data.get("reward", {})
+	var gold: int = int(reward_dict.get("gold", quest_data.get("reward_gold", 0)))
+	var relationship: int = int(reward_dict.get("relationship", 0))
+	var reward_text := ""
+	if gold > 0:
+		reward_text = "💰 %d" % gold
+	if relationship > 0:
+		if reward_text != "":
+			reward_text += " "
+		reward_text += "❤️ %d" % relationship
+
 	var reward := Label.new()
-	var gold: int = int(quest_data.get("reward_gold", 0))
-	var xp: int = int(quest_data.get("reward_xp", 0))
-	reward.text = "💰 %d   ⭐ %d" % [gold, xp]
+	reward.text = reward_text if reward_text != "" else ""
 	reward.add_theme_font_size_override("font_size", 7)
 	reward.add_theme_color_override("font_color", reward_color)
 	reward.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -334,14 +522,13 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 
 	var quest_id := str(quest_data.get("id", ""))
 	var accept := Button.new()
-	accept.text = "Nhận"
+	accept.text = "Nhan"
 	accept.add_theme_font_size_override("font_size", 7)
 	accept.custom_minimum_size = Vector2(40, 14)
 	accept.pressed.connect(_on_accept_pressed.bind(quest_id, quest_data))
 	hbox.add_child(accept)
 
 	# Hover effect
-	var hovered := false
 	item.mouse_entered.connect(_on_item_hover.bind(item, true))
 	item.mouse_exited.connect(_on_item_hover.bind(item, false))
 	return item

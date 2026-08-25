@@ -1,0 +1,207 @@
+{
+  "scenes": {
+    "marcus_farm": "res://scenes/maps/marcus_farm_map.tscn",
+    "marcus_house": "res://scenes/maps/marcus_house_map.tscn",
+    "town": "res://scenes/maps/town_map.tscn",
+    "player_farm": "res://scenes/maps/farm_map.tscn",
+    "inside_house": "res://scenes/maps/inside_house_map.tscn"
+  },
+  "npcs": {
+    "neighbor": {
+      "name": "Marcus",
+      "npc_id": "neighbor",
+      "scene_path": "res://scenes/npc/neighbor.tscn",
+      "default_scene": "res://scenes/maps/marcus_farm_map.tscn",
+      "spawn_position": {
+        "x": 375,
+        "y": 200
+      },
+      "intro_deadline_hour": 11.0,
+      "home_position": {
+        "x": 375,
+        "y": 200
+      },
+      "farm_work_position": {
+        "x": 160,
+        "y": 200
+      },
+      "house_sleep_position": {
+        "x": 225,
+        "y": 145
+      },
+      "town_position": {
+        "x": 430,
+        "y": 90
+      },
+      "player_house_door_position": {
+        "x": 85,
+        "y": 200
+      },
+      "marcus_farm_entry_position": {
+        "x": 40,
+        "y": 200
+      },
+      "schedule_waiting_at_player_house": [
+        {
+          "time": 0.0,
+          "state": "WAKING",
+          "action": "wait_at_player_house",
+          "scene": "player_farm"
+        }
+      ],
+      "schedule_after_intro_to_town": [
+        {
+          "time": 0.0,
+          "state": "WAKING",
+          "action": "waiting_in_town",
+          "scene": "town",
+          "position": {
+            "x": 430,
+            "y": 90
+          }
+        },
+        {
+          "time": 11.0,
+          "state": "WALKING",
+          "action": "go_home_from_town",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 40,
+            "y": 200
+          }
+        },
+        {
+          "time": 12.0,
+          "state": "WORKING",
+          "action": "tend_garden",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 160,
+            "y": 200
+          }
+        },
+        {
+          "time": 17.0,
+          "state": "WALKING",
+          "action": "go_home",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 375,
+            "y": 200
+          }
+        },
+        {
+          "time": 20.0,
+          "state": "IDLE",
+          "action": "chat_door",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 375,
+            "y": 200
+          }
+        },
+        {
+          "time": 22.0,
+          "state": "SLEEPING",
+          "action": "sleep",
+          "scene": "marcus_house",
+          "position": {
+            "x": 225,
+            "y": 145
+          }
+        }
+      ],
+      "schedule_in_farm": [
+        {
+          "time": 6.0,
+          "state": "WAKING",
+          "action": "wake_up",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 375,
+            "y": 200
+          }
+        },
+        {
+          "time": 8.0,
+          "state": "WALKING",
+          "action": "go_to_farm",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 160,
+            "y": 200
+          }
+        },
+        {
+          "time": 11.0,
+          "state": "IDLE",
+          "action": "go_home_early",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 375,
+            "y": 200
+          }
+        },
+        {
+          "time": 12.0,
+          "state": "WORKING",
+          "action": "tend_garden",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 160,
+            "y": 200
+          }
+        },
+        {
+          "time": 17.0,
+          "state": "WALKING",
+          "action": "go_home",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 375,
+            "y": 200
+          }
+        },
+        {
+          "time": 20.0,
+          "state": "IDLE",
+          "action": "chat_door",
+          "scene": "marcus_farm",
+          "position": {
+            "x": 375,
+            "y": 200
+          }
+        },
+        {
+          "time": 22.0,
+          "state": "SLEEPING",
+          "action": "sleep",
+          "scene": "marcus_house",
+          "position": {
+            "x": 225,
+            "y": 145
+          }
+        }
+      ]
+    },
+    "shopkeeper": {
+      "name": "Voss",
+      "npc_id": "shopkeeper",
+      "scene_path": "res://scenes/npc/shopkeeper.tscn",
+      "default_scene": "res://scenes/maps/inside_shop_map.tscn",
+      "spawn_position": {
+        "x": 360,
+        "y": 68
+      }
+    }
+  },
+  "dialogues": {
+    "neighbor": "res://resources/dialogue/neighbor.json",
+    "neighbor_day2_plus": "res://resources/dialogue/neighbor_day2_plus.json",
+    "neighbor_delivery": "res://resources/dialogue/neighbor_delivery.json",
+    "neighbor_still_need": "res://resources/dialogue/neighbor_still_need.json",
+    "neighbor_idle": "res://resources/dialogue/neighbor_idle.json",
+    "neighbor_quest_complete": "res://resources/dialogue/neighbor_quest_complete.json",
+    "shopkeeper": "res://resources/dialogue/shopkeeper.json"
+  }
+}

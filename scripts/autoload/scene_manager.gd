@@ -9,6 +9,8 @@ extends Node
 #   - Tự động đặt player tại vị trí portal
 #   - Hỗ trợ chuyển scene không có fade
 #
+# Thời gian fade được load từ ConfigManager (resources/config/game_config.json)
+#
 # CÁCH SỬ DỤNG:
 #   SceneManager.change_scene("res://scenes/farm.tscn") - chuyển scene
 #   SceneManager.change_scene("res://scenes/town.tscn", "shop_door") - chuyển đến vị trí portal
@@ -32,11 +34,11 @@ signal scene_changing(old_scene_path: String, new_scene_path: String)
 
 
 # =============================================================================
-# CÁC HẰNG SỐ
+# BIẾN CẤU HÌNH
 # =============================================================================
 
-# Thời gian fade (giây)
-const TRANSITION_DURATION: float = 0.5
+# Thời gian fade (load từ ConfigManager)
+var transition_duration: float = 0.5
 
 
 # =============================================================================
@@ -82,11 +84,29 @@ var _is_via_portal: bool = false
 # =============================================================================
 
 func _ready() -> void:
+	# Load config from ConfigManager
+	_load_config_from_manager()
 	print("[SceneManager] Ready — portal transition system active.")
 	# Persist in-memory farm data whenever the scene changes
 	scene_changed.connect(_on_scene_changed)
 	# Reset hoàn toàn khi SceneTree sẵn sàng
 	get_tree().tree_changed.connect(_on_tree_changed)
+
+
+func _load_config_from_manager() -> void:
+	var cm := _get_config_manager()
+	if cm == null:
+		push_warning("[SceneManager] ConfigManager not found, using defaults")
+		return
+	transition_duration = cm.get_scene_transition_duration()
+	print("[SceneManager] Loaded transition_duration: %.1f" % transition_duration)
+
+
+func _get_config_manager() -> Node:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return null
+	return tree.root.get_node_or_null("ConfigManager")
 
 # Reset toàn bộ state khi tree thay đổi (game start/restart)
 func _on_tree_changed() -> void:
@@ -209,7 +229,7 @@ func _start_fade_to_black(scene_path: String) -> void:
 	# =================================================================
 	_transition_tween = create_tween()
 	# Tween màu từ trong suốt -> đen trong TRANSITION_DURATION giây
-	_transition_tween.tween_property(_transition_overlay, "color", Color.BLACK, TRANSITION_DURATION)
+	_transition_tween.tween_property(_transition_overlay, "color", Color.BLACK, transition_duration)
 	# Khi fade xong -> gọi hàm load scene
 	_transition_tween.finished.connect(_on_fade_to_black_complete.bind(scene_path))
 
@@ -226,12 +246,18 @@ func _on_fade_to_black_complete(scene_path: String) -> void:
 	var current: Node = get_tree().current_scene
 	if current != null:
 		old_scene_path = current.scene_file_path
+
+	# Set flag để trigger day1 intro cutscene với Marcus
+	if old_scene_path == "res://scenes/maps/inside_house_map.tscn":
+		GameState.just_left_inside_house = true
+		print("[SceneManager] Player just left inside_house_map")
+
 	scene_changing.emit(old_scene_path, scene_path)
 	# Load scene mới
 	_load_scene(scene_path)
 
 	# Chờ fade duration trước khi fade in
-	var delay_timer := get_tree().create_timer(TRANSITION_DURATION)
+	var delay_timer := get_tree().create_timer(transition_duration)
 	delay_timer.timeout.connect(_on_fade_in.bind(scene_path))
 
 
@@ -249,7 +275,7 @@ func _on_fade_in(scene_path: String) -> void:
 
 	# Tạo animation fade
 	_transition_tween = create_tween()
-	_transition_tween.tween_property(_transition_overlay, "color", Color.TRANSPARENT, TRANSITION_DURATION)
+	_transition_tween.tween_property(_transition_overlay, "color", Color.TRANSPARENT, transition_duration)
 	_transition_tween.finished.connect(_cleanup_transition)
 
 	# Phát tín hiệu scene đã đổi (sau khi đã load scene mới)

@@ -1,0 +1,22 @@
+{
+	"quest_text": {
+		"delivery_quest_prefix": "Delivery Quest",
+		"daily_quest_prefix": "Daily Quest",
+		"description_templates": {
+			"deliver_crops": "Deliver %d %s to %s",
+			"deliver_items": "Deliver %d %s",
+			"harvest": "Harvest %d crops from your farm",
+			"explore": "Explore the %s area"
+		},
+		"completion_messages": {
+			"quest_complete": "Quest Complete!",
+			"reward_received": "Received: %d gold"
+		}
+	},
+
+	"npc_names": {
+		"neighbor": "Marcus",
+		"shopkeeper": "Voss",
+		"player": "Player"
+	}
+}

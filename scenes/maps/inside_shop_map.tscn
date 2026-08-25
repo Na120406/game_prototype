@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://bmoe7haqi2wl4" path="res://scripts/world/counter.gd" id="4_cz"]
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="4_trans"]
 [ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="5_uimgr"]
-[ext_resource type="PackedScene" path="res://scenes/ui/dialogue_ui.tscn" id="6_dui"]
+[ext_resource type="PackedScene" uid="uid://dqjcs3c31i8d4" path="res://scenes/ui/dialogue_ui.tscn" id="6_dui"]
 [ext_resource type="Script" uid="uid://csb0usahe6ut0" path="res://scripts/world/scene_root.gd" id="8_sceneroot"]
 
 [sub_resource type="RectangleShape2D" id="RS_wall_h"]
@@ -59,36 +59,36 @@ shape = SubResource("RS_wall_v")
 
 [node name="Shelf" type="ColorRect" parent="."]
 z_index = 1
-offset_left = 40.0
-offset_top = 40.0
-offset_right = 160.0
-offset_bottom = 90.0
+offset_left = 49.0
+offset_top = 41.0
+offset_right = 169.0
+offset_bottom = 91.0
 color = Color(0.45, 0.35, 0.22, 1)
 
 [node name="ShelfItem1" type="ColorRect" parent="Shelf"]
 z_index = 1
 layout_mode = 0
-offset_left = 10.0
-offset_top = 8.0
-offset_right = 30.0
-offset_bottom = 30.0
+offset_left = 86.0
+offset_top = 21.0
+offset_right = 106.0
+offset_bottom = 43.0
 color = Color(0.7, 0.6, 0.4, 1)
 
 [node name="ShelfItem2" type="ColorRect" parent="Shelf"]
 z_index = 1
 layout_mode = 0
-offset_left = 40.0
-offset_top = 8.0
-offset_right = 60.0
-offset_bottom = 30.0
+offset_left = 45.0
+offset_top = 21.0
+offset_right = 65.0
+offset_bottom = 43.0
 color = Color(0.6, 0.5, 0.35, 1)
 
 [node name="ShelfItem3" type="ColorRect" parent="Shelf"]
 z_index = 1
 layout_mode = 0
-offset_left = 70.0
+offset_left = 69.0
 offset_top = 8.0
-offset_right = 90.0
+offset_right = 89.0
 offset_bottom = 30.0
 color = Color(0.5, 0.55, 0.4, 1)
 
@@ -107,6 +107,30 @@ target_scene = "res://scenes/maps/town_map.tscn"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ToTown"]
 shape = SubResource("RS_trans")
+
+[node name="Door" type="ColorRect" parent="ToTown"]
+z_index = 2
+offset_left = -15.0
+offset_top = -20.0
+offset_right = 15.0
+offset_bottom = 20.0
+color = Color(0.35, 0.2, 0.1, 1)
+
+[node name="DoorFrame" type="ColorRect" parent="ToTown"]
+z_index = 1
+offset_left = -18.0
+offset_top = -23.0
+offset_right = 18.0
+offset_bottom = 23.0
+color = Color(0.25, 0.18, 0.1, 1)
+
+[node name="DoorKnob" type="ColorRect" parent="ToTown"]
+z_index = 3
+offset_left = 8.0
+offset_top = -2.0
+offset_right = 12.0
+offset_bottom = 2.0
+color = Color(0.7, 0.6, 0.3, 1)
 
 [node name="Prompt" type="Label" parent="ToTown"]
 offset_left = -10.0
@@ -153,10 +177,10 @@ collision_layer = 0
 shape = SubResource("RS_counter_zone")
 
 [node name="Prompt" type="Label" parent="Counter"]
-offset_left = -18.0
-offset_top = -10.0
-offset_right = 18.0
-offset_bottom = -2.0
+offset_left = -17.0
+offset_top = 14.0
+offset_right = 19.0
+offset_bottom = 23.0
 theme_override_font_sizes/font_size = 6
 text = "[E]"
 horizontal_alignment = 1
@@ -183,5 +207,5 @@ script = ExtResource("5_uimgr")
 [node name="DialogueUI" parent="UI" instance=ExtResource("6_dui")]
 
 [node name="QuestBoard" parent="." instance=ExtResource("3_qboard")]
-position = Vector2(80, 90)
 z_index = 2
+position = Vector2(72, 67)
