@@ -10,14 +10,9 @@ extends Node
 #   - Trừ 25% vàng hiện có (làm tròn lên)
 #   - Tốc độ di chuyển bị giảm 25% sau khi tỉnh
 #
-# BED_WORLD_POSITION được giữ làm tài liệu tham khảo cho điểm spawn của
-# Player trong scene inside_house_map.tscn (chỉ dùng khi F5 chạy game).
-
 signal knock_out_started
 signal knock_out_finished
 
-const BED_WORLD_POSITION := Vector2(360, 110)
-const HOUSE_SCENE_PATH := "res://scenes/maps/inside_house_map.tscn"
 const FADE_DURATION: float = 1.0
 const GOLD_LOSS_RATIO: float = 0.25
 
@@ -61,14 +56,13 @@ func _on_energy_changed(new_value: float) -> void:
 # Gọi từ mỗi action tiêu hao (đào, tưới, plant, harvest, clear wilted).
 # amount = 1 (mỗi action tốn 1 energy).
 func spend_energy(amount: int = 1) -> bool:
-	if _knock_out_active:
+	if _knock_out_active or amount <= 0:
 		return false
-	if GameState.energy <= 0.0:
-		# Năng lượng đã 0 — kích hoạt knock-out thay vì cho action chạy.
+	if GameState.energy < float(amount):
+		# Do not report an action as successful when it cannot be paid for.
 		trigger_knock_out()
 		return false
 	GameState.modify_energy(-float(amount))
-	# Sau khi trừ, nếu rơi xuống 0 → ngay lập tức knock-out.
 	if GameState.energy <= 0.0:
 		trigger_knock_out()
 	return true
@@ -123,33 +117,15 @@ func _start_fade_with_reset(do_teleport: bool, reset_to_hour: float) -> void:
 
 	var tween := overlay.create_tween()
 	tween.tween_property(overlay, "color:a", 1.0, FADE_DURATION * 0.5)
-	# Teleport (nếu có) xảy ra khi màn hình đã tối — không nhìn thấy player dịch chuyển.
-	if do_teleport:
-		tween.tween_callback(_teleport_to_bed)
+	# Không tự teleport Player tới Bed. Scene transition/spawn chỉ được quyết định
+	# bởi portal hoặc vị trí mặc định hợp lệ của SceneManager.
 	tween.tween_interval(FADE_DURATION * 0.2)
 	tween.tween_property(overlay, "color:a", 0.0, FADE_DURATION * 0.5)
 	tween.tween_callback(_finish_knock_out.bind(do_teleport, reset_to_hour))
 	tween.tween_callback(layer.queue_free)
 
-func _teleport_to_bed() -> void:
-	# Teleport player về cạnh giường (nếu không ở trong nhà). Phạt vàng
-	# đã được _finish_knock_out() áp dụng đồng thời cho cả 2 dạng knock-out.
-	# Đặt player ra cạnh giường (offset một chút để không kẹt vào bed).
-	var player := get_tree().get_first_node_in_group("player")
-	if player != null:
-		# Nếu đang ở scene nhà thì set vị trí; nếu không, đổi scene.
-		var current_scene := get_tree().current_scene
-		if current_scene != null and current_scene.scene_file_path.ends_with("inside_house_map.tscn"):
-			if player.has_method("force_position"):
-				player.force_position(BED_WORLD_POSITION + Vector2(0, 16))
-		else:
-			# Chuyển sang scene nhà và spawn ở bed.
-			# Bed world position + offset.
-			if SceneManager != null:
-				# Dùng portal_id rỗng — sau khi load, sẽ đặt player bằng force_position.
-				# Tạm lưu target vào GameState để spawn handler áp dụng.
-				GameState.set_flag("knockout_spawn_at_bed", true)
-				SceneManager.change_scene(HOUSE_SCENE_PATH)
+# Legacy knockout bed teleport removed. Player spawn is handled exclusively by
+# the active SceneManager portal/default spawn rules.
 
 func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 	# Knock-out = sang ngày mới (giống ngủ) + penalty vàng + penalty tốc độ.

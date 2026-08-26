@@ -26,8 +26,8 @@
         "y": 200
       },
       "house_sleep_position": {
-        "x": 225,
-        "y": 145
+        "x": 20,
+        "y": 29
       },
       "town_position": {
         "x": 430,
@@ -106,8 +106,8 @@
           "action": "sleep",
           "scene": "marcus_house",
           "position": {
-            "x": 225,
-            "y": 145
+            "x": 20,
+            "y": 29
           }
         }
       ],
@@ -178,8 +178,8 @@
           "action": "sleep",
           "scene": "marcus_house",
           "position": {
-            "x": 225,
-            "y": 145
+            "x": 20,
+            "y": 29
           }
         }
       ]

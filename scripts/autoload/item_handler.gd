@@ -128,14 +128,14 @@ func get_use_message(item_id: String) -> String:
 				ItemData.Effect.RESTORE_ENERGY:
 					return "Restores %.0f energy." % data.energy_restore
 		ItemData.Type.TOOL:
-			return data.description
+			return data.get_description() if data.has_method("get_description") else data.description
 		ItemData.Type.SEED:
 			return "Plant it to grow %s in %d days." % [data.harvest_item_id, data.grow_days]
 		ItemData.Type.KEY_ITEM:
 			return "A key item. Cannot be used."
 		ItemData.Type.CURRENCY:
 			return "Currency."
-	return data.description
+	return data.get_description() if data.has_method("get_description") else data.description
 
 func _on_item_planted(seed_id: String, harvest_id: String) -> void:
 	var farm: Node = get_tree().get_first_node_in_group("farm_manager")

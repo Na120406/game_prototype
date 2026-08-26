@@ -36,7 +36,7 @@ extends CanvasLayer
 
 @export_group("Title Box")
 ## Text hiển thị trên title tab
-@export var title_text: String = "QUEST BOARD" :
+@export var title_text: String = "BẢNG NHIỆM VỤ" :
 	set(v): title_text = v; _apply_title_text_if_ready(); _save_config()
 ## Chiều rộng title box
 @export_range(40, 150, 1) var title_width: int = 80 :
@@ -294,7 +294,7 @@ func _apply_layout_if_ready() -> void:
 # --- Title text ---
 func _apply_title_text() -> void:
 	if _title_label != null:
-		_title_label.text = title_text
+		_title_label.text = _tr("ui.quest.title", title_text)
 
 func _apply_title_text_if_ready() -> void:
 	if _title_label != null:
@@ -321,7 +321,7 @@ func _apply_title_alignment_if_ready() -> void:
 # --- No Quest Label ---
 func _apply_no_quest_text() -> void:
 	if _no_quest_label != null:
-		_no_quest_label.text = no_quest_text
+		_no_quest_label.text = _tr("ui.quest.no_quest", no_quest_text)
 
 func _apply_no_quest_text_if_ready() -> void:
 	if _no_quest_label != null:
@@ -466,6 +466,10 @@ func _refresh_quests() -> void:
 		var item := _create_quest_item(quest_data)
 		_quest_list.add_child(item)
 
+func _tr(key: String, fallback: String = "") -> String:
+	var cm: Node = get_node_or_null("/root/ConfigManager")
+	return cm.translate_text(key, fallback) if cm != null and cm.has_method("translate_text") else fallback
+
 func _create_quest_item(quest_data: Dictionary) -> Control:
 	var item := PanelContainer.new()
 	item.custom_minimum_size = Vector2(float(panel_width) - 24.0, float(quest_item_height))
@@ -478,7 +482,8 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 
 	# Title - dùng "name" hoặc "title" tùy quest type
 	var title := Label.new()
-	title.text = str(quest_data.get("name", quest_data.get("title", "?")))
+	var title_key: String = str(quest_data.get("name_key", ""))
+	title.text = _tr(title_key, str(quest_data.get("name", quest_data.get("title", "?")))) if title_key != "" else str(quest_data.get("name", quest_data.get("title", "?")))
 	title.add_theme_font_size_override("font_size", 9)
 	title.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
@@ -486,7 +491,8 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 	vbox.add_child(title)
 
 	# Description (truncate)
-	var desc_text := str(quest_data.get("description", ""))
+	var desc_key: String = str(quest_data.get("description_key", ""))
+	var desc_text := _tr(desc_key, str(quest_data.get("description", ""))) if desc_key != "" else str(quest_data.get("description", ""))
 	if desc_text.length() > 60:
 		desc_text = desc_text.substr(0, 57) + "..."
 	var desc := Label.new()
@@ -522,7 +528,7 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 
 	var quest_id := str(quest_data.get("id", ""))
 	var accept := Button.new()
-	accept.text = "Nhan"
+	accept.text = _tr("ui.quest.accept_button", "Nhận")
 	accept.add_theme_font_size_override("font_size", 7)
 	accept.custom_minimum_size = Vector2(40, 14)
 	accept.pressed.connect(_on_accept_pressed.bind(quest_id, quest_data))

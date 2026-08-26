@@ -1,7 +1,8 @@
 # TODO.md — Farm Horror Demo
 
 > Last updated: 2026-08-24
-> Reference: [design/gdd/game-demo-gdd-v3.md](./design/gdd/game-demo-gdd-v3.md)
+> Authoritative GDD: [GameDemo_GDD_Portfolio_v1.md](./GameDemo_GDD_Portfolio_v1.md)
+> Technical archive/reference: [design/gdd/game-demo-gdd-v3.md](./design/gdd/game-demo-gdd-v3.md)
 
 ## Trạng thái Symbols
 - [ ] Chưa làm
@@ -155,16 +156,20 @@
 
 ## Known Issues
 
+> Cập nhật theo GDD chuẩn `GameDemo_GDD_Portfolio_v1.md` sau stabilization pass.
+
 | Issue | Severity | Status | Notes |
 |-------|----------|--------|-------|
-| Invalid UIDs | Critical | Open | Need regeneration in Godot Editor |
-| Missing shop.tscn | Critical | Open | Reference in ConsequenceResolver |
-| Missing NPC scenes (5) | High | Open | Referenced in FamilyRegistry |
-| AudioManager broken | High | Open | Missing assets folder |
-| NPC pathfinding stubbed | Medium | Open | `npc.gd` has TODO methods |
-| No automated tests | Medium | Open | Need test coverage |
-| TileMap without tileset | Low | Open | TownMap renders nothing |
-| Hard-coded input config | Low | Open | `project.godot` mouse_left/right |
+| Invalid UIDs | Critical | Open | Need regeneration/validation in Godot Editor |
+| Missing shop.tscn | Critical | Open | Consequence path still has no target scene |
+| Missing NPC scenes (5) | High | Open | FamilyRegistry references absent scenes |
+| AudioManager broken | High | Open | Audio is outside prototype scope but must fail gracefully |
+| NPC pathfinding stubbed | Medium | Open | Schedule APIs remain incomplete |
+| No automated tests | Medium | Open | Godot unavailable on PATH; static checks only |
+| Farm texture path missing | Medium | Open | `Tile Maps/...` reference not found in workspace |
+| Event chain content incomplete | High | Open | Several consequence IDs lack handlers |
+| Save/load runtime validation | High | In progress | SaveManager registered and state schema expanded; round-trip unverified |
+| Invalid farm action energy | High | In progress | Hoe/water validation patched; harvest cost/yield still needs playtest |
 
 ---
 
@@ -179,6 +184,8 @@
 ---
 
 ## Progress Summary
+
+> Game-design assessment: state transactions and calendar scheduling were stabilized, but the GDD hypothesis remains unproven until missing references, NPC visibility, event evidence/decision window and runtime smoke tests pass.
 
 ```
 Documentation sync          [██████████] 100% (5/5 doc tasks)

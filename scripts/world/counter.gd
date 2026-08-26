@@ -61,8 +61,8 @@ func _ensure_prompt_area() -> void:
 
 
 func interact(_player: Node) -> void:
-	if not _is_npc_nearby():
-		return
+	# Counter interaction is valid while Player is at the counter; the shopkeeper
+	# is visual/social context, not a second proximity gate.
 	var shop_ui: Node = _get_shop_ui()
 	if shop_ui == null:
 		return
@@ -94,13 +94,16 @@ func _get_shop_ui() -> Node:
 func _is_npc_nearby() -> bool:
 	if linked_npc_path == null or linked_npc_path.is_empty():
 		return true
-	if not has_node(linked_npc_path):
-		return false
-	var npc: Node2D = get_node(linked_npc_path)
-	var player: Node2D = _get_player()
-	if player == null or npc == null:
-		return false
-	return player.global_position.distance_to(npc.global_position) < 80.0
+	if has_node(linked_npc_path):
+		var npc: Node2D = get_node(linked_npc_path)
+		var player: Node2D = _get_player()
+		if player != null and npc != null:
+			return player.global_position.distance_to(npc.global_position) < 80.0
+	# Runtime NPC may be reparented by NPCManager; resolve the authoritative
+	# instance by id instead of failing because the authored relative path broke.
+	var manager: Node = get_node_or_null("/root/NPCManager")
+	var runtime_npc: Node2D = manager.get_active_npc_in_current_scene("shopkeeper") if manager != null and manager.has_method("get_active_npc_in_current_scene") else null
+	return runtime_npc != null
 
 
 func _get_player() -> Node2D:

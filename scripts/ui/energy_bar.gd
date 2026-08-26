@@ -163,4 +163,8 @@ func _refresh() -> void:
 	_fill.offset_bottom = BORDER_THICK + BAR_H
 
 	if _tooltip != null:
-		_tooltip.text = "E %d/%d" % [int(round(cur)), int(round(max_e))]
+		var cm: Node = get_node_or_null("/root/ConfigManager")
+		var format_text: String = "Năng lượng %d/%d"
+		if cm != null and cm.has_method("translate_text"):
+			format_text = cm.translate_text("ui.energy.tooltip_format", format_text)
+		_tooltip.text = format_text % [int(round(cur)), int(round(max_e))]

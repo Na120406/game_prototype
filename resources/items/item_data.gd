@@ -76,19 +76,29 @@ func get_sell_price() -> int:
 	return int(buy_price * 0.5)
 
 func get_display_name() -> String:
-	if display_name != "":
-		return display_name
-	return item_id.capitalize().replace("_", " ")
+	var main_loop: MainLoop = Engine.get_main_loop()
+	var root: Node = main_loop.root if main_loop != null else null
+	var cm: Node = root.get_node_or_null("ConfigManager") if root != null else null
+	var fallback: String = display_name if display_name != "" else item_id.capitalize().replace("_", " ")
+	return cm.translate_text("item.%s.name" % item_id, fallback) if cm != null and cm.has_method("translate_text") else fallback
+
+func get_description() -> String:
+	var main_loop: MainLoop = Engine.get_main_loop()
+	var root: Node = main_loop.root if main_loop != null else null
+	var cm: Node = root.get_node_or_null("ConfigManager") if root != null else null
+	return cm.translate_text("item.%s.description" % item_id, description) if cm != null and cm.has_method("translate_text") else description
 
 func get_type_name() -> String:
-	match item_type:
-		Type.CONSUMABLE: return "Consumable"
-		Type.TOOL: return "Tool"
-		Type.SEED: return "Seed"
-		Type.KEY_ITEM: return "Key Item"
-		Type.CURRENCY: return "Currency"
-		Type.MISC: return "Misc"
-	return "Unknown"
+	var keys := ["consumable", "tool", "seed", "key_item", "currency", "misc"]
+	var fallbacks := ["Vật phẩm tiêu hao", "Dụng cụ", "Hạt giống", "Vật phẩm nhiệm vụ", "Tiền tệ", "Vật phẩm khác"]
+	var index: int = int(item_type)
+	return _translate("item.type.%s" % keys[index], fallbacks[index]) if index >= 0 and index < keys.size() else "Vật phẩm"
+
+func _translate(key: String, fallback: String) -> String:
+	var main_loop: MainLoop = Engine.get_main_loop()
+	var root: Node = main_loop.root if main_loop != null else null
+	var cm: Node = root.get_node_or_null("ConfigManager") if root != null else null
+	return cm.translate_text(key, fallback) if cm != null and cm.has_method("translate_text") else fallback
 
 func get_category_name() -> String:
 	match item_category:

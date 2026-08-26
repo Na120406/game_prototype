@@ -31,6 +31,7 @@ signal scene_changed(scene_path: String)
 #   old_scene_path (String) - đường dẫn scene cũ ("" nếu là lần đầu load).
 #   new_scene_path (String) - đường dẫn scene mới sắp được add.
 signal scene_changing(old_scene_path: String, new_scene_path: String)
+signal persistent_npc_handed_off(npc: Node2D, scene_path: String)
 
 
 # =============================================================================
@@ -163,6 +164,10 @@ func change_scene(scene_path: String, portal_id: String = "", use_transition: bo
 			old_path = current.scene_file_path
 		scene_changing.emit(old_path, scene_path)
 		_load_scene(scene_path)
+		call_deferred("_emit_scene_changed_once", scene_path)
+
+func _emit_scene_changed_once(scene_path: String) -> void:
+	scene_changed.emit(scene_path)
 
 
 # =============================================================================
@@ -326,16 +331,22 @@ func _load_scene(scene_path: String) -> void:
 	# =================================================================
 	_free_current_scene_except_persistent()
 
+	# Xóa scene Player cũ theo path nếu có instance stale cùng root. Không chạm
+	# PersistentNPCScenes/background maps.
+	for child: Node in root.get_children():
+		if child != new_scene and child != get_node_or_null("PersistentNPCScenes") and child.scene_file_path == scene_path:
+			root.remove_child(child)
+			child.queue_free()
+
 	# =================================================================
 	# THÊM SCENE MỚI
 	# =================================================================
 	root.add_child(new_scene)
 	get_tree().current_scene = new_scene
 
-	# Emit scene_changed ĐỂ NPCManager attach NPC vào scene mới (nếu reuse thì
-	# NPC đã attached; nếu scene mới thì NPCManager sẽ attach sau).
-	# Emit trước fade-in để NPCManager sync kịp thời.
-	scene_changed.emit(scene_path)
+	# scene_changed is emitted once by _on_fade_in after the new scene and
+	# Player have completed setup. Emitting here caused two competing rehome
+	# passes while the old scene was still being freed.
 
 	# =================================================================
 	# KHÔI PHỤC FARM DATA NẾU SCENE MỚI CÓ FARM
@@ -344,11 +355,10 @@ func _load_scene(scene_path: String) -> void:
 
 	# =================================================================
 	# ĐẶT PLAYER THEO PRIORITY:
-	#   1) Saved position (player thực sự di chuyển ở scene này trước đó)
-	#   2) Portal target (nếu vừa chuyển qua portal)
-	#   3) Bed (nếu flag knockout_spawn_at_bed)
-	#   4) PlayerSpawn Marker2D (F5 playtest trực tiếp scene này)
-	#   5) Scene-default position từ .tscn (giữ nguyên pos gốc)
+	#   1) Portal target (nếu vừa chuyển qua portal)
+	#   2) Saved position (chỉ khi không qua portal)
+	#   3) PlayerSpawn Marker2D (chỉ khi chạy scene trực tiếp)
+	#   4) Scene-default position
 	# =================================================================
 	var player: Node = get_tree().get_first_node_in_group("player")
 	if player == null:
@@ -379,20 +389,26 @@ func _load_scene(scene_path: String) -> void:
 # Áp dụng priority: saved > portal > bed > PlayerSpawn marker > scene-default.
 
 func _pick_spawn_position(new_scene: Node, scene_path: String) -> Vector2:
-	# Ưu tiên 0: Bed nếu flag knockout đang active (giữ behavior cũ)
-	if GameState.get_flag("knockout_spawn_at_bed", false):
-		GameState.set_flag("knockout_spawn_at_bed", false)
-		var bed := _find_bed_in_scene(new_scene)
-		if bed != null:
-			print("[SceneManager] Spawn: knockout at bed")
-			return bed.global_position + Vector2(0, 16)
-
+	# Marcus House has exactly one valid entry point. It must win over every
+	# stale saved/default position whenever this scene is entered from a portal.
+	if scene_path == "res://scenes/maps/marcus_house_map.tscn" and _pending_portal_id != "":
+		var house_portal: Node = _find_portal_in_scene(new_scene, _pending_portal_id)
+		if house_portal == null:
+			house_portal = _find_portal_in_scene(new_scene, "portal_marcus_farm_from_house")
+		if house_portal != null and house_portal is Node2D:
+			_pending_portal_id = ""
+			_is_via_portal = true
+			GameState.set_flag("knockout_spawn_at_bed", false)
+			return (house_portal as Node2D).global_position
+	# Portal target is always authoritative. Knockout no longer overrides the
+	# destination portal with a Bed node from the loaded scene.
 	# Ưu tiên 1: Portal target nếu vừa chuyển qua portal
 	if _pending_portal_id != "":
 		var portal := _find_portal_in_scene(new_scene, _pending_portal_id)
 		if portal != null:
 			print("[SceneManager] Spawn: portal '%s'" % _pending_portal_id)
 			_pending_portal_id = ""
+			GameState.set_flag("knockout_spawn_at_bed", false)
 			return portal.global_position
 		else:
 			push_warning("[SceneManager] Portal '%s' not found in %s" % [_pending_portal_id, scene_path])
@@ -436,6 +452,136 @@ func _find_player_spawn_marker(scene: Node) -> Node2D:
 # Dùng bởi NPCManager để lấy scene thực sự SceneManager dùng làm current_scene
 # (reuse từ NPC preload hoặc scene mới). Đảm bảo NPCManager attach NPC vào
 # scene thực sự, không phải scene persistent cũ đã bị free.
+func _prepare_npc_background_scene(scene: Node, preserved_npc: Node2D = null) -> void:
+	# Background scenes must not run player-facing world systems. Never strip
+	# scripts from the persistent NPC or its children; it must keep simulating.
+	if preserved_npc != null:
+		preserved_npc.set_meta("preserve_npc_script", true)
+	# The map root
+	# itself may carry WorldUIManager, so remove its script before add_child;
+	# disabling process alone is too late because _ready() already ran.
+	if scene.get_script() != null:
+		scene.set_script(null)
+	var removable_names: Array[String] = ["SceneRoot", "WorldUIManager", "UI", "HUD", "DialogueUI", "Hotbar"]
+	for child: Node in scene.find_children("*", "Node", true, false):
+		if child == null:
+			continue
+		if str(child.name) in removable_names:
+			if child.get_parent() != null:
+				child.get_parent().remove_child(child)
+			child.free()
+			continue
+		# Background maps must not run map scripts or collide with the Player map.
+		# Keep geometry for NPC visuals/path context, but disable all physics layers.
+		if child is CollisionObject2D:
+			(child as CollisionObject2D).collision_layer = 0
+			(child as CollisionObject2D).collision_mask = 0
+		if child is Area2D:
+			(child as Area2D).monitoring = false
+			(child as Area2D).monitorable = false
+		if child.get_script() != null and not _is_preserved_npc_node(child, preserved_npc):
+			child.set_script(null)
+
+func _is_preserved_npc_node(node: Node, preserved_npc: Node2D) -> bool:
+	if preserved_npc == null:
+		return false
+	return node == preserved_npc or preserved_npc.is_ancestor_of(node)
+
+func handoff_persistent_npc(npc: Node2D, target_scene_path: String, target_portal_id: String = "") -> bool:
+	if npc == null or not is_instance_valid(npc) or target_scene_path == "":
+		return false
+	# Store the logical world location on the NPC itself. This survives removal
+	# of map scripts and remains authoritative while the NPC is off-screen.
+	npc.set_meta("world_scene_path", target_scene_path)
+	var container := get_tree().root.get_node_or_null("PersistentNPCScenes")
+	if container == null:
+		container = Node.new()
+		container.name = "PersistentNPCScenes"
+		get_tree().root.add_child(container)
+	var destination: Node = get_loaded_scene(target_scene_path)
+	# Background container is the only valid parent for off-screen NPC maps.
+	# Never reuse the active Player scene, even when its path is cached.
+	if destination == get_tree().current_scene or (destination != null and destination.get_parent() != null and destination.get_parent() != get_tree().root.get_node_or_null("PersistentNPCScenes")):
+		destination = null
+	if destination == null:
+		var packed: PackedScene = load(target_scene_path) as PackedScene
+		if packed == null:
+			push_warning("[SceneManager] NPC route scene not found: %s" % target_scene_path)
+			return false
+		destination = packed.instantiate()
+		if destination == null:
+			return false
+		# Remove authored Player before adding the background map. Group membership
+		# is not initialized until _ready(), so use the stable node name here.
+		for player_node: Node in destination.find_children("Player", "Node", true, false):
+			player_node.free()
+		destination.name = "NPCWorld_%s" % target_scene_path.get_file().get_basename()
+		destination.set_meta("world_scene_path", target_scene_path)
+		_prepare_npc_background_scene(destination, npc)
+		container.add_child(destination)
+		# Background map is simulation-only: invisible and non-colliding.
+		if destination is CanvasItem:
+			(destination as CanvasItem).visible = false
+		_loaded_scenes[target_scene_path] = destination
+	# Remove any authored Player that survived an older cached instance.
+	for player_node: Node in destination.find_children("Player", "Node", true, false):
+		if player_node != npc and is_instance_valid(player_node):
+			player_node.free()
+	# Keep background map simulation-only and invisible to the active viewport.
+	if destination is CanvasItem:
+		(destination as CanvasItem).visible = false
+		(destination as CanvasItem).z_index = -1000
+		(destination as CanvasItem).modulate = Color.TRANSPARENT
+	# Resolve destination portal from the authored node. The destination position
+	# is assigned only after the NPC is parented to the destination map.
+	var destination_position: Vector2 = npc.global_position
+	# Keep the destination map mounted as a child of the persistent container;
+	# never leave the NPC attached to the outgoing Player scene.
+	if npc.get_parent() != null:
+		npc.get_parent().remove_child(npc)
+	# Destination is already inside the tree. Parent synchronously so handoff
+	# cannot race scene_changed or silently lose the NPC.
+	destination.add_child(npc)
+	_finish_npc_handoff(npc, destination, target_scene_path, target_portal_id)
+	return true
+
+func _finish_npc_handoff(npc: Node2D, destination: Node, target_scene_path: String, target_portal_id: String) -> void:
+	if npc == null or not is_instance_valid(npc) or destination == null or not is_instance_valid(destination):
+		return
+	if npc.get_parent() != destination:
+		return
+	var portal: Node = _find_portal_in_scene(destination, target_portal_id) if target_portal_id != "" else null
+	if portal == null and target_portal_id != "":
+		push_warning("[SceneManager] NPC portal '%s' not found in %s" % [target_portal_id, target_scene_path])
+	# NPC in a background map must not collide or interact with the Player map.
+	npc.collision_layer = 0
+	npc.collision_mask = 0
+	if npc.has_node("InteractionArea"):
+		var interaction_area: Area2D = npc.get_node("InteractionArea")
+		interaction_area.monitoring = false
+		interaction_area.monitorable = false
+	# Destination remains hidden until Player enters that map; NPC simulation
+	# continues without affecting Player physics or interaction.
+	if portal != null and portal is Node2D:
+		# Match Player transition semantics: destination coordinates come from the
+		# authored portal node, not from schedule or route fallback coordinates.
+		npc.global_position = (portal as Node2D).global_position
+		npc.set_meta("portal_arrival_position", npc.global_position)
+		npc.set_meta("portal_arrival_scene", target_scene_path)
+	elif target_scene_path == "res://scenes/maps/town_map.tscn" and target_portal_id == "portal_town":
+		npc.global_position = Vector2(20, 135)
+	elif target_scene_path == "res://scenes/maps/marcus_house_map.tscn" and target_portal_id == "portal_marcus_farm_from_house":
+		npc.global_position = Vector2(420, 146)
+	elif target_scene_path == "res://scenes/maps/marcus_farm_map.tscn" and target_portal_id == "portal_marcus_farm_from_town":
+		npc.global_position = Vector2(20, 135)
+	# Do not snap to the schedule destination here. The NPC must remain at the
+	# arrival portal and walk to the schedule position with velocity.
+	# The NPC is now physically at the destination. Clear transit route and
+	# choose the destination map's schedule immediately.
+	if npc.has_method("on_route_arrived"):
+		npc.call("on_route_arrived", target_scene_path)
+	persistent_npc_handed_off.emit(npc, target_scene_path)
+
 func get_loaded_scene(scene_path: String) -> Node:
 	if scene_path == "":
 		return null
@@ -491,14 +637,15 @@ func _free_current_scene_except_persistent() -> void:
 	var current: Node = tree.current_scene
 	if current == null:
 		return
-	# Skip nếu scene đang chờ xóa (prevent crash nếu gọi 2 lần).
 	if current.is_queued_for_deletion():
 		return
-	# Xóa scene cũ bình thường.
+	# Chỉ scene Player hiện tại được thay thế. Các background map của NPC nằm
+	# dưới PersistentNPCScenes và tuyệt đối không được free/đụng tới.
 	var old_path: String = current.scene_file_path
-	tree.root.remove_child(current)
-	current.queue_free()
-	print("[SceneManager] Freed scene: %s" % old_path)
+	if current.get_parent() == tree.root:
+		tree.root.remove_child(current)
+		current.queue_free()
+		print("[SceneManager] Freed scene: %s" % old_path)
 
 
 # =============================================================================
@@ -508,7 +655,7 @@ func _free_current_scene_except_persistent() -> void:
 
 func _find_portal_in_scene(scene: Node, portal_id: String) -> Node:
 	# Duyệt tất cả Area2D trong scene
-	for area in scene.find_children("*", "Area2D", false, false):
+	for area in scene.find_children("*", "Area2D", true, false):
 		# Thử gọi method get_portal_id()
 		if area.has_method("get_portal_id") and area.get_portal_id() == portal_id:
 			return area
@@ -516,10 +663,6 @@ func _find_portal_in_scene(scene: Node, portal_id: String) -> Node:
 		if area.get("portal_id") != null and area.get("portal_id") == portal_id:
 			return area
 	return null
-
-func _find_bed_in_scene(scene: Node) -> Node:
-	return scene.find_child("Bed", true, false)
-
 
 # =============================================================================
 # HÀM RELOAD SCENE (reload_current_scene)

@@ -1,4 +1,4 @@
-extends Node2D
+extends CharacterBody2D
 
 signal npc_state_changed(new_state: String)
 signal npc_dialogue_started()
@@ -33,7 +33,28 @@ var _target_pos: Vector2 = Vector2.ZERO
 
 # Tốc độ di chuyển của NPC (px/giây). Override trong scene/script con nếu cần.
 # 85 px/s tương đương 1 ô tile/giây cho viewport 480x270 với tile 32x32.
-@export var move_speed: float = 85.0
+@export var move_speed: float = 80.0
+@export var acceleration: float = 800.0
+@export var friction: float = 1200.0
+@export var avoid_radius: float = 28.0
+@export var avoid_strength: float = 1.4
+@export var waypoint_reach_distance: float = 5.0
+@export var reroute_cooldown: float = 0.35
+
+var _avoid_timer: float = 0.0
+var _last_schedule_time: float = -1.0
+var _schedule_target_scene: String = ""
+# Prevents the just-finished transit step from being reapplied while the NPC
+# waits in the destination map for the next clock schedule step.
+var _arrived_schedule_scene: String = ""
+var _arrived_schedule_time: float = -1.0
+var _arrived_route_id: String = ""
+var _completed_route_id: String = ""
+var _last_schedule_day: int = -1
+var active_route_id: String = ""
+var active_route_index: int = -1
+var active_route: Array[Dictionary] = []
+var route_progress: Dictionary = {}
 
 @export var prompt_offset_y: float = -32.0
 
@@ -112,20 +133,193 @@ func _build_default_schedule() -> void:
 		{"time": 20.0, "state": NPCState.SLEEPING, "action": "sleep", "pos": Vector2(0, 0)},
 	]
 
-func _process(_delta: float) -> void:
-	if is_interacting or not schedule_enabled:
+func _physics_process(delta: float) -> void:
+	if not is_inside_tree():
 		return
-	_update_schedule()
+	if is_interacting or not schedule_enabled or current_state in [NPCState.IDLE, NPCState.RESTING, NPCState.SLEEPING, NPCState.SPECIAL] and global_position.distance_to(_target_pos) <= waypoint_reach_distance:
+		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+		move_and_slide()
+		return
+	_move_along_schedule(delta)
 
-func _update_schedule() -> void:
-	var current_time := GameState.current_time
+func _move_along_schedule(delta: float) -> void:
+	if active_route_index >= 0 and not active_route.is_empty():
+		if _advance_route_if_reached():
+			return
+	if _target_pos == Vector2.ZERO:
+		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+		move_and_slide()
+		return
+	if global_position.distance_to(_target_pos) <= waypoint_reach_distance:
+		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+		if current_state == NPCState.WALKING:
+			_change_state(NPCState.IDLE)
+		move_and_slide()
+		return
+	var to_target := global_position.direction_to(_target_pos)
+	var steering: Vector2 = _get_player_avoidance()
+	var desired: Vector2 = (to_target + steering * avoid_strength).normalized() * move_speed
+	velocity = velocity.move_toward(desired, acceleration * delta)
+	move_and_slide()
 
-	for step in schedule:
-		if abs(current_time - step.get("time", 0.0)) < 0.1:
-			var new_state: NPCState = step.get("state", NPCState.IDLE)
-			if new_state != current_state:
-				_change_state(new_state)
-				_execute_schedule_action(step.get("action", ""))
+func _advance_route_if_reached() -> bool:
+	if active_route_index < 0 or active_route_index >= active_route.size():
+		return false
+	var waypoint: Dictionary = active_route[active_route_index]
+	var waypoint_scene: String = str(waypoint.get("scene", ""))
+	# A waypoint on another map means the NPC has already been handed off.
+	# Advance to the next waypoint instead of freezing on an obsolete source.
+	if waypoint_scene != "" and _get_host_scene_path() != waypoint_scene:
+		if active_route_index + 1 < active_route.size():
+			active_route_index += 1
+			route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
+			var next_position: Variant = active_route[active_route_index].get("position", global_position)
+			_target_pos = next_position if next_position is Vector2 else global_position
+			return true
+		velocity = Vector2.ZERO
+		return true
+	var raw_waypoint_pos: Variant = waypoint.get("position", global_position)
+	var waypoint_pos: Vector2 = raw_waypoint_pos as Vector2 if raw_waypoint_pos is Vector2 else global_position
+	if global_position.distance_to(waypoint_pos) > waypoint_reach_distance:
+		_target_pos = waypoint_pos
+		return false
+	var portal_id: String = str(waypoint.get("portal_id", ""))
+	var next_index: int = active_route_index + 1
+	if next_index < active_route.size() and str(active_route[next_index].get("scene", "")) != waypoint_scene and portal_id != "":
+		var next_scene: String = str(active_route[next_index].get("scene", ""))
+		var target_portal_id: String = str(active_route[next_index].get("portal_id", portal_id))
+		var scene_manager := get_node_or_null("/root/SceneManager")
+		if scene_manager != null and scene_manager.has_method("handoff_persistent_npc"):
+			if scene_manager.call("handoff_persistent_npc", self, next_scene, target_portal_id):
+				active_route_index = next_index
+				route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
+				return true
+	active_route_index = next_index
+	if active_route_index >= active_route.size():
+		_completed_route_id = active_route_id
+		_arrived_route_id = active_route_id
+		active_route_index = -1
+		active_route = []
+		route_progress = {"route_id": _completed_route_id, "waypoint_index": -1}
+		_target_pos = global_position
+		velocity = Vector2.ZERO
+		_change_state(NPCState.IDLE)
+		return true
+	var next_waypoint: Dictionary = active_route[active_route_index]
+	var raw_next_position: Variant = next_waypoint.get("position", global_position)
+	_target_pos = raw_next_position as Vector2 if raw_next_position is Vector2 else global_position
+	route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
+	return true
+
+func _find_route_start_index(waypoints: Array[Dictionary]) -> int:
+	var scene_path: String = _get_host_scene_path()
+	for index: int in range(waypoints.size()):
+		if str(waypoints[index].get("scene", "")) == scene_path:
+			return index
+	return 0
+
+func set_route(route_id: String, waypoints: Array[Dictionary], start_index: int = 0) -> void:
+	if route_id == active_route_id and not active_route.is_empty():
+		return
+	active_route_id = route_id
+	active_route = waypoints.duplicate(true)
+	active_route_index = clampi(start_index, 0, active_route.size() - 1) if not active_route.is_empty() else -1
+	route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
+	if active_route_index >= 0:
+		var raw_position: Variant = active_route[active_route_index].get("position", global_position)
+		_target_pos = raw_position as Vector2 if raw_position is Vector2 else global_position
+
+func clear_route() -> void:
+	active_route_id = ""
+	active_route_index = -1
+	active_route.clear()
+	route_progress.clear()
+
+# Called after a route crosses into a new map. The route is a transit plan,
+# not the NPC's next movement target. Once the destination is reached, select
+# the first schedule step belonging to that map and stop driving toward the
+# previous map's position.
+func on_route_arrived(arrived_scene_path: String) -> void:
+	# Crossing a portal completes the transit route. Never leave its source
+	# waypoint active: doing so makes the NPC repeatedly steer back toward the
+	# previous portal (the observed endless leftward movement in Town).
+	_arrived_schedule_scene = arrived_scene_path
+	_arrived_schedule_time = GameState.current_time
+	_arrived_route_id = active_route_id
+	_completed_route_id = active_route_id
+	clear_route()
+	for index: int in range(schedule.size()):
+		var step: Dictionary = schedule[index]
+		if str(step.get("scene", "")) != arrived_scene_path:
+			continue
+		current_schedule_step = index
+		_last_schedule_time = float(step.get("time", _last_schedule_time))
+		_schedule_target_scene = arrived_scene_path
+		var raw_pos: Variant = step.get("pos", global_position)
+		_target_pos = raw_pos if raw_pos is Vector2 else global_position
+		var state_value: int = int(step.get("state", NPCState.IDLE))
+		_change_state(state_value as NPCState)
+		# Keep the NPC at the destination portal only; the following physics ticks
+		# move it toward the schedule position with velocity.
+		velocity = Vector2.ZERO
+		return
+	_target_pos = global_position
+	velocity = Vector2.ZERO
+	_change_state(NPCState.IDLE)
+
+func _get_host_scene_path() -> String:
+	# Parent scene is authoritative while attached; NPC metadata is only a
+	# fallback during handoff, otherwise Farm metadata makes it appear in Town
+	# before it actually crosses the portal.
+	var current: Node = self
+	while current.get_parent() != null:
+		current = current.get_parent()
+		if current.has_meta("world_scene_path"):
+			return str(current.get_meta("world_scene_path"))
+		if current.scene_file_path != "" and not current.name.begins_with("NPCWorld_"):
+			return current.scene_file_path
+	if has_meta("world_scene_path"):
+		return str(get_meta("world_scene_path"))
+	return ""
+
+func get_route_progress() -> Dictionary:
+	return {"route_id": active_route_id, "waypoint_index": active_route_index, "scene": _get_host_scene_path(), "position": {"x": global_position.x, "y": global_position.y}}
+
+func get_runtime_state() -> Dictionary:
+	return {
+		"npc_id": npc_id,
+		"day": GameState.current_day,
+		"time": GameState.current_time,
+		"schedule_step": current_schedule_step,
+		"state": int(current_state),
+		"route": get_route_progress(),
+	}
+
+func restore_runtime_state(state: Dictionary) -> void:
+	var raw_route: Variant = state.get("route", {})
+	if raw_route is Dictionary:
+		active_route_id = str(raw_route.get("route_id", ""))
+		active_route_index = int(raw_route.get("waypoint_index", -1))
+		if active_route_id != "":
+			var route_manager := get_node_or_null("/root/NPCRouteManager")
+			if route_manager != null and route_manager.has_method("get_route"):
+				active_route = route_manager.call("get_route", active_route_id)
+		var raw_position: Variant = raw_route.get("position", {})
+		if raw_position is Dictionary:
+			_target_pos = Vector2(float(raw_position.get("x", global_position.x)), float(raw_position.get("y", global_position.y)))
+	current_schedule_step = int(state.get("schedule_step", current_schedule_step))
+	_last_schedule_day = int(state.get("day", GameState.current_day))
+	_last_schedule_time = float(state.get("time", GameState.current_time))
+
+func _get_player_avoidance() -> Vector2:
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player == null:
+		return Vector2.ZERO
+	var offset := global_position - player.global_position
+	var distance := offset.length()
+	if distance <= 0.01 or distance > avoid_radius:
+		return Vector2.ZERO
+	return offset.normalized() * (1.0 - distance / avoid_radius)
 
 func _change_state(new_state: NPCState) -> void:
 	if new_state == current_state:
@@ -228,16 +422,14 @@ func get_relationship() -> int:
 # Stub: dừng di chuyển NPC. Hiện tại không làm gì — sẽ integrate NavigationAgent2D
 # + velocity reset ở Milestone 1 khi bạn duyệt plan movement.
 func stop_walking() -> void:
-	# TODO (Milestone 1): velocity = Vector2.ZERO; NavigationAgent2D.target_position = global_position.
-	pass
+	velocity = Vector2.ZERO
+	if navigation_agent != null:
+		navigation_agent.target_position = global_position
+	if current_state == NPCState.WALKING:
+		_change_state(NPCState.IDLE)
 
-# Stub: áp dụng schedule step hiện tại lên NPC. Hiện tại không làm gì — logic
-# thật sẽ tính step khớp current_time, cập nhật _target_pos + NavigationAgent2D.
-# NPCManager đang gọi method này qua call("apply_current_step") ở
-# scripts/autoload/npc_manager.gd:595-596 — cần method tồn tại để parse pass.
 func apply_current_step() -> void:
-	# TODO (Milestone 1): tương đương _pick_step(schedule, GameState.current_time).
-	pass
+	tick_schedule(GameState.current_time)
 
 # Stub: trả về schedule hiện tại. NPCManager dùng để resolve step ở
 # npc_manager.gd:295-296.
@@ -247,19 +439,78 @@ func get_schedule() -> Array:
 # Stub: tick schedule với current_time. NPCManager gọi mỗi frame qua
 # time_changed signal (xem npc_manager.gd:582). Hiện tại no-op — sẽ implement
 # logic "tìm step khớp → cập nhật _target_pos → state WALKING" ở Milestone 1.
-func tick_schedule(_current_time: float) -> void:
-	# TODO (Milestone 1): evaluate schedule → set _target_pos + state.
-	pass
+func tick_schedule(current_time: float) -> void:
+	if schedule.is_empty() or not schedule_enabled:
+		return
+	var current_day: int = GameState.current_day
+	var day_changed: bool = current_day != _last_schedule_day
+	var selected: Dictionary = schedule[0]
+	for step: Dictionary in schedule:
+		if float(step.get("time", 0.0)) <= current_time:
+			selected = step
+		else:
+			break
+	var selected_time: float = float(selected.get("time", 0.0))
+	var selected_scene: String = str(selected.get("scene", ""))
+	var selected_route_id: String = str(selected.get("route_id", ""))
+	# Do not reuse the route that has already delivered this NPC to the map.
+	# Only the schedule step's own route may drive the next transition.
+	if selected_route_id != "" and selected_route_id == _arrived_route_id and selected_scene == _get_host_scene_path():
+		selected_route_id = ""
+		selected["route_id"] = ""
+	# Keep a route only until its handoff has completed. A later schedule tick
+	# must not overwrite the destination state with the previous route target.
+	if _arrived_schedule_scene == selected_scene and is_equal_approx(selected_time, _arrived_schedule_time) and selected_route_id == "":
+		return
+	if _arrived_schedule_scene != "" and selected_scene != _arrived_schedule_scene:
+		_arrived_schedule_scene = ""
+		_arrived_schedule_time = -1.0
+	if not day_changed and is_equal_approx(selected_time, _last_schedule_time) and selected_scene == _schedule_target_scene and selected_route_id == active_route_id:
+		return
+	_last_schedule_day = current_day
+	_last_schedule_time = selected_time
+	_schedule_target_scene = selected_scene
+	current_schedule_step = schedule.find(selected)
+	_target_pos = selected.get("pos", global_position)
+	var route_id: String = str(selected.get("route_id", ""))
+	if route_id != "":
+		# Transit begins from the current map's waypoint. Never use an old route
+		# index from another schedule transition.
+		if str(route_progress.get("route_id", "")) != route_id:
+			route_progress.clear()
+		if route_id != _arrived_route_id:
+			_arrived_route_id = ""
+		_completed_route_id = ""
+		var route_manager := get_node_or_null("/root/NPCRouteManager")
+		if route_manager != null and route_manager.has_method("get_route"):
+			var route_waypoints: Array[Dictionary] = route_manager.call("get_route", route_id)
+			var saved_route_id: String = str(route_progress.get("route_id", ""))
+			var saved_index: int = int(route_progress.get("waypoint_index", -1))
+			# A new schedule route must start from its own waypoint matching the
+			# current map; never reuse the completed farm_to_town index (1).
+			var route_start: int = saved_index if saved_route_id == route_id and saved_index >= 0 and saved_index < route_waypoints.size() else _find_route_start_index(route_waypoints)
+			set_route(route_id, route_waypoints, route_start)
+	else:
+		clear_route()
+	var new_state_value: int = int(selected.get("state", NPCState.IDLE))
+	var new_state: NPCState = new_state_value as NPCState
+	if new_state != current_state:
+		_change_state(new_state)
+	if new_state == NPCState.WALKING or global_position.distance_to(_target_pos) > waypoint_reach_distance:
+		_change_state(NPCState.WALKING)
+	if navigation_agent != null:
+		navigation_agent.target_position = _target_pos
 
 # Stub: hook khi NPC được attach vào scene mới (gọi từ NPCManager._attach_npc
 # ở npc_manager.gd:397-398). Dùng để reset movement state, snap pos nếu cần.
 func _on_attached_to_scene() -> void:
-	# TODO (Milestone 1): reset NavigationAgent2D, snap pos nếu NPC đang idle.
-	pass
+	velocity = Vector2.ZERO
+	_avoid_timer = 0.0
+	apply_current_step()
 
 # Stub: hook khi NPC bị detach khỏi scene (gọi từ NPCManager._detach_npc ở
 # npc_manager.gd:452-453 + npc_manager.gd:524). Dùng để stop movement trước
 # khi instance rời tree.
 func _on_detached_from_scene() -> void:
-	# TODO (Milestone 1): stop_walking(), save state.
-	pass
+	stop_walking()
+	_schedule_target_scene = ""

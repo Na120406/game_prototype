@@ -40,7 +40,8 @@ extends "res://scripts/npc/npc.gd"
 # Vị trí mặc định (sẽ được load từ ConfigManager)
 var home_position: Vector2 = Vector2(375, 200)
 var farm_work_position: Vector2 = Vector2(160, 200)
-var house_sleep_position: Vector2 = Vector2(225, 145)
+var open_area_position: Vector2 = Vector2(250, 170)
+var house_sleep_position: Vector2 = Vector2(20, 29)
 var town_position: Vector2 = Vector2(430, 90)
 var player_house_door_position: Vector2 = Vector2(85, 200)
 var marcus_farm_entry_position: Vector2 = Vector2(40, 200)
@@ -147,7 +148,26 @@ func _build_default_schedule() -> void:
 	if GameState.current_day == 1 and GameState.get_flag("marcus_at_town_post_intro", false):
 		_schedule_after_intro_to_town()
 		return
-	_schedule_in_farm()
+	# Từ ngày 2 trở đi dùng cùng daily route liên tục, bắt đầu từ
+	# Marcus House sau khi ngủ qua đêm rồi đi ra bằng portal.
+	_schedule_daily_from_house()
+
+
+func _schedule_daily_from_house() -> void:
+	schedule = [
+		{"time": 6.0, "state": NPCState.WALKING, "action": "leave_house", "scene": SCENE_MARCUS_HOUSE, "pos": Vector2(420, 146), "route_id": "marcus_house_to_farm"},
+		{"time": 6.1, "state": NPCState.IDLE, "action": "stay_at_marcus_farm", "scene": SCENE_MARCUS_FARM, "pos": open_area_position},
+		{"time": 8.0, "state": NPCState.WALKING, "action": "visit_town", "scene": SCENE_MARCUS_FARM, "pos": Vector2(20, 135), "route_id": "marcus_farm_to_town"},
+		{"time": 8.2, "state": NPCState.WALKING, "action": "walk_in_town", "scene": SCENE_TOWN, "pos": town_position},
+		{"time": 10.0, "state": NPCState.WALKING, "action": "visit_shop", "scene": SCENE_TOWN, "pos": Vector2(95, 105), "route_id": "town_to_shop"},
+		{"time": 11.0, "state": NPCState.IDLE, "action": "shop_break", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(360, 68)},
+		{"time": 12.0, "state": NPCState.WALKING, "action": "leave_shop", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(20, 135), "route_id": "shop_to_town"},
+		{"time": 12.2, "state": NPCState.WALKING, "action": "leave_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
+		{"time": 13.2, "state": NPCState.WORKING, "action": "work", "scene": SCENE_MARCUS_FARM, "pos": open_area_position},
+		{"time": 17.0, "state": NPCState.WALKING, "action": "go_home", "scene": SCENE_MARCUS_FARM, "pos": home_position},
+		{"time": 20.0, "state": NPCState.WALKING, "action": "go_to_bed", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position, "route_id": "marcus_farm_to_house"},
+		{"time": 22.0, "state": NPCState.SLEEPING, "action": "sleep", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position},
+	]
 
 
 # Marcus đợi trước cửa nhà player suốt ngày (1 step tĩnh, time = 0 để luôn
@@ -165,14 +185,14 @@ func _schedule_waiting_at_player_house() -> void:
 # để Marcus "đi bộ" từ town về farm thay vì teleport.
 func _schedule_after_intro_to_town() -> void:
 	schedule = [
-		{"time": 0.0, "state": NPCState.WAKING, "action": "waiting_in_town", "scene": SCENE_TOWN, "pos": town_position},
-		# 11:00 — Marcus rời town, đi về marcus_farm_map. Đặt ở rìa trái
-		# farm (gần portal ToTown) để Marcus "vừa đến" từ town.
-		{"time": _intro_deadline_hour, "state": NPCState.WALKING, "action": "go_home_from_town", "scene": SCENE_MARCUS_FARM, "pos": marcus_farm_entry_position},
-		# 12:00 — Marcus bắt đầu làm vườn tại farm của mình.
-		{"time": 12.0, "state": NPCState.WORKING, "action": "tend_garden", "scene": SCENE_MARCUS_FARM, "pos": farm_work_position},
-		{"time": 17.0, "state": NPCState.WALKING, "action": "go_home", "scene": SCENE_MARCUS_FARM, "pos": home_position},
-		{"time": 20.0, "state": NPCState.IDLE, "action": "chat_door", "scene": SCENE_MARCUS_FARM, "pos": home_position},
+		# Sau intro, Marcus phải đến Town và ở đó từ 08:00 đến 12:00.
+		{"time": 8.0, "state": NPCState.IDLE, "action": "walk_in_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "farm_to_town"},
+		# 12:00: rời Town qua portal và đi về Marcus Farm.
+		{"time": 12.0, "state": NPCState.WALKING, "action": "return_to_marcus_farm", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
+		# 12:00–20:00: ở Marcus Farm.
+		{"time": 12.1, "state": NPCState.IDLE, "action": "stay_at_marcus_farm", "scene": SCENE_MARCUS_FARM, "pos": home_position},
+		{"time": 20.0, "state": NPCState.WALKING, "action": "go_to_bed", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position, "route_id": "marcus_farm_to_house"},
+		# 22:00–06:00: ngủ trong Marcus House.
 		{"time": 22.0, "state": NPCState.SLEEPING, "action": "sleep", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position},
 	]
 
@@ -249,7 +269,8 @@ func _on_dm_ended() -> void:
 			# 11:00 về farm.
 			GameState.set_flag("marcus_at_town_post_intro", true)
 			_schedule_after_intro_to_town()
-			print("[NPC] %s: intro complete before %.1f → moving to town until %.1f, then farm." % [npc_name, _intro_deadline_hour, _intro_deadline_hour])
+			_apply_schedule_now()
+			print("[NPC] %s: intro complete before %.1f → route to town, then normal farm schedule." % [npc_name, _intro_deadline_hour])
 		else:
 			# Sau 11:00 → Marcus đã đang ở farm theo schedule, giữ nguyên.
 			GameState.set_flag("marcus_at_town_post_intro", false)
@@ -295,7 +316,9 @@ func _on_scene_changed_marcus(_scene_path: String) -> void:
 
 # Được gọi deferred sau _on_scene_changed_marcus để đảm bảo NPCManager đã sync
 func _delayed_intro_check() -> void:
-	_sync_now()
+	# NPCManager already performs the authoritative scene sync on scene_changed.
+	# A second sync here re-runs the 20:00 go_to_bed step and can reattach Marcus
+	# to the old Farm state while the Player is entering Marcus House.
 	_check_intro_trigger()
 
 
@@ -413,6 +436,12 @@ func _should_trigger_intro_cutscene() -> bool:
 		return false
 	return true
 
+
+func _apply_schedule_now() -> void:
+	# Bỏ hành trình cũ ngay lập tức; target mới được NPC base xử lý bằng physics AI.
+	_last_schedule_time = -1.0
+	_schedule_target_scene = ""
+	tick_schedule(GameState.current_time)
 
 func _sync_now() -> void:
 	var mgr := _get_npc_manager()

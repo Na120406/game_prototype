@@ -227,12 +227,13 @@ func _show_line() -> void:
 
 	# Lấy nội dung dòng hiện tại
 	var line: Dictionary = lines[_current_line]
-	
-	# Lấy thông tin người nói (mặc định là NPC hiện tại)
+	var cm := get_node_or_null("/root/ConfigManager")
+	var line_key := "dialogue.%s.%d" % [_current_npc_id if _current_npc_id != "" else _current_dialogue.get("id", ""), _current_line + 1]
+	# JSON remains the fallback/source structure; localization overrides only when keyed.
 	var speaker: String = line.get("speaker", _current_npc)
-	
-	# Lấy nội dung text
 	var text: String = line.get("text", "")
+	if cm != null and cm.has_method("translate_text"):
+		text = cm.translate_text(line_key, text)
 	
 	# Lấy danh sách lựa chọn (nếu có)
 	var choices: Array = line.get("choices", [])

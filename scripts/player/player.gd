@@ -105,7 +105,7 @@ func _physics_process(delta: float) -> void:
 	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	_is_moving = input_dir.length() > 0.1
 	_is_running = Input.is_action_pressed("ui_focus_next")
-	_is_sprinting = Input.is_action_pressed("ui_cancel") and GameState.energy > 10.0
+	_is_sprinting = Input.is_action_pressed("sprint") and GameState.energy > 10.0
 
 	if _is_moving:
 		_update_direction(input_dir)

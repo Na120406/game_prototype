@@ -7,12 +7,21 @@ extends Area2D
 @export var prompt_offset_y: float = -28.0
 # Ưu tiên hiển thị khi nhiều interactable cùng gần player (cao = ưu tiên hơn)
 @export var interaction_priority: int = 10
+@export var metadata: PortalData = null
 
 var _player_inside: bool = false
 
 var prompt_label: Label = null
 
 func _ready() -> void:
+	if metadata != null:
+		if metadata.portal_id != &"":
+			portal_id = String(metadata.portal_id)
+		if metadata.target_scene != "":
+			target_scene = metadata.target_scene
+		if metadata.prompt != "":
+			prompt = metadata.prompt
+		interaction_priority = metadata.interaction_priority
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
 

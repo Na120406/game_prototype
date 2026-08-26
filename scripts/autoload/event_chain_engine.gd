@@ -86,7 +86,12 @@ var scheduled_events: Array[Dictionary] = []
 
 func _ready() -> void:
 	_build_chain_library()
+	if not GameState.day_changed.is_connected(_on_day_changed):
+		GameState.day_changed.connect(_on_day_changed)
 	print("[EventChainEngine] Ready — %d chain definitions loaded." % chain_definitions.size())
+
+func _on_day_changed(_new_day: int) -> void:
+	_process_scheduled_events()
 
 
 # =============================================================================
@@ -94,7 +99,8 @@ func _ready() -> void:
 # =============================================================================
 
 func _process(_delta: float) -> void:
-	_process_scheduled_events()
+	# Chain delays represent in-game days, not rendered frames.
+	return
 
 
 # =============================================================================
@@ -105,10 +111,12 @@ func _process_scheduled_events() -> void:
 	var to_remove: Array[int] = []
 	for i: int in range(scheduled_events.size()):
 		var ev: Dictionary = scheduled_events[i]
-		ev["delay"] -= 1
-		if ev["delay"] <= 0:
-			_execute_scheduled_event(ev)
-			to_remove.append(i)
+		if _is_chain_paused(ev.get("chain_id", "")):
+			continue
+		if GameState.current_day < int(ev.get("scheduled_day", GameState.current_day)):
+			continue
+		_execute_scheduled_event(ev)
+		to_remove.append(i)
 	for i: int in range(to_remove.size() - 1, -1, -1):
 		scheduled_events.remove_at(to_remove[i])
 
@@ -162,23 +170,23 @@ func _build_chain_library() -> void:
 				"injured_player_escorted": {
 					"condition": "player_escorted",     # Có player hộ tống
 					"modifiers": {
-						"injured_weight": -0.08,         # Giảm khả năng bị thương
-						"dead_weight": -0.03,             # Giảm khả năng chết
-						"safe_weight": 0.11,               # Tăng khả năng an toàn
+						"injured": -0.08,         # Giảm khả năng bị thương
+						"dead": -0.03,             # Giảm khả năng chết
+						"safe": 0.11,               # Tăng khả năng an toàn
 					},
 				},
 				"injured_bad_weather": {
 					"condition": "weather_storm",        # Trời bão
 					"modifiers": {
-						"injured_weight": 0.15,
-						"dead_weight": 0.1,
+						"injured": 0.15,
+						"dead": 0.1,
 					},
 				},
 				"dead_bad_weather": {
 					"condition": "weather_heavy_rain",   # Mưa to
 					"modifiers": {
-						"injured_weight": 0.2,
-						"dead_weight": 0.2,
+						"injured": 0.2,
+						"dead": 0.2,
 					},
 				},
 			},
@@ -295,6 +303,8 @@ func trigger_chain(chain_id: String, context: Dictionary = {}) -> bool:
 
 	active_chains[chain_id] = chain
 	_schedule_chain_steps(chain_id, def)
+	# Execute zero-day trigger steps immediately; later steps wait for day_changed.
+	_process_scheduled_events()
 	var root_event: String = def.get("root_event", "")
 	event_chain_started.emit(chain_id, root_event)
 	print("[EventChainEngine] Chain started: %s" % chain_id)
@@ -313,6 +323,7 @@ func _schedule_chain_steps(chain_id: String, def: Dictionary) -> void:
 			"step": step_data.get("step", ""),
 			"action": step_data.get("action", ""),
 			"delay": step_data.get("delay", 0),
+			"scheduled_day": GameState.current_day + maxi(0, int(step_data.get("delay", 0))),
 			"executed": false,
 		})
 
@@ -374,6 +385,10 @@ func _resolve_outcome(chain_id: String) -> void:
 	var total: float = 0.0
 	for w: float in outcome_weights.values():
 		total += w
+	if total <= 0.0:
+		push_warning("[EventChainEngine] No valid outcome weights for chain '%s'; using safe." % chain_id)
+		outcome_weights = {"safe": 1.0}
+		total = 1.0
 	for key: String in outcome_weights:
 		outcome_weights[key] = outcome_weights[key] / total
 
@@ -507,7 +522,7 @@ func _apply_consequence(consequence_id: String, chain_id: String, context: Dicti
 		"son_takes_over":
 			var family_id: String = context.get("family_id", "")
 			var son_npc_id: String = context.get("son_npc_id", "shopkeeper_son")
-			ConsequenceResolver.schedule_family_succession(family_id, son_npc_id, GameState.current_day + 3)
+			ConsequenceResolver.schedule_family_succession(family_id, son_npc_id, 3)
 			GameState.set_flag("new_shopkeeper", true)
 		"food_shortage":
 			GameState.set_flag("food_shortage", true)
@@ -539,6 +554,9 @@ func register_player_intervention(chain_id: String, intervention_type: String) -
 func pause_chain(chain_id: String) -> void:
 	if active_chains.has(chain_id):
 		active_chains[chain_id]["state"] = ChainState.PAUSED
+
+func _is_chain_paused(chain_id: String) -> bool:
+	return active_chains.has(chain_id) and active_chains[chain_id].get("state", ChainState.DORMANT) == ChainState.PAUSED
 
 
 # =============================================================================

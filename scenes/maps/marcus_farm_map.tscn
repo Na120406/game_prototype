@@ -83,28 +83,6 @@ offset_right = 125.0
 offset_bottom = -5.0
 color = Color(0.85, 0.7, 0.5, 1)
 
-[node name="HouseDoor" type="Area2D" parent="."]
-position = Vector2(375, 105)
-script = ExtResource("3_trans")
-portal_id = "portal_marcus_house"
-target_scene = "res://scenes/maps/marcus_house_map.tscn"
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="HouseDoor"]
-shape = SubResource("RS_door")
-
-[node name="DoorSprite" type="Sprite2D" parent="HouseDoor"]
-modulate = Color(0.3, 0.18, 0.06, 1)
-scale = Vector2(30, 25)
-
-[node name="Prompt" type="Label" parent="HouseDoor"]
-offset_left = -10.0
-offset_top = -10.0
-offset_right = 10.0
-offset_bottom = -2.0
-theme_override_font_sizes/font_size = 6
-text = "[E]"
-horizontal_alignment = 1
-
 [node name="GardenBed1" type="ColorRect" parent="."]
 z_index = 1
 offset_left = 60.0

@@ -254,6 +254,10 @@ var _inventory_slots: int = 21
 func _ensure_inventory_slots() -> void:
 	while inventory.size() < _inventory_slots:
 		inventory.append({"id": "", "amount": 0})
+	for i: int in range(inventory.size()):
+		if not inventory[i].has("id") or not inventory[i].has("amount"):
+			inventory[i] = {"id": "", "amount": 0}
+		inventory[i]["amount"] = maxi(0, int(inventory[i].get("amount", 0)))
 
 
 # Gọi sau khi load save hoặc khi inventory UI khởi tạo để đảm bảo mọi
@@ -479,28 +483,33 @@ func add_item(item_id: String, amount: int = 1) -> bool:
 # Trả về: true nếu xóa thành công, false nếu không tìm thấy
 
 func remove_item(item_id: String, amount: int = 1) -> bool:
-	if item_id == "" or amount <= 0:
+	if item_id == "" or amount <= 0 or get_item_count(item_id) < amount:
 		return false
-	# CHỈ trừ ở slot hotbar đang được player select. Player phải cầm item quest
-	# trên tay (slot hotbar select) để trả quest. Không đụng inventory hay slot khác.
-	var slot_idx: int = clamp(selected_toolbar_slot, 0, toolbar.size() - 1)
-	var slot: Dictionary = toolbar[slot_idx]
-	var slot_id: String = slot.get("id", "")
-	if slot_id != item_id:
-		print("[GameState] remove_item: slot hotbar select có '%s', không khớp '%s'" % [slot_id, item_id])
-		return false
-	var cur: int = int(slot.get("amount", 0))
-	if cur < amount:
-		print("[GameState] remove_item: slot hotbar có %d, cần %d %s" % [cur, amount, item_id])
-		return false
-	var new_amount: int = cur - amount
-	if new_amount <= 0:
-		toolbar[slot_idx] = {"id": "", "amount": 0}
-	else:
-		toolbar[slot_idx]["amount"] = new_amount
-	toolbar_changed.emit()
-	print("[GameState] Removed %d x %s từ hotbar slot %d" % [amount, item_id, slot_idx])
-	return true
+	var remaining: int = amount
+	# Prefer the selected toolbar slot, then consume other toolbar/inventory stacks.
+	var toolbar_order: Array[int] = []
+	if selected_toolbar_slot >= 0 and selected_toolbar_slot < toolbar.size():
+		toolbar_order.append(selected_toolbar_slot)
+	for i: int in range(toolbar.size()):
+		if not toolbar_order.has(i):
+			toolbar_order.append(i)
+	for slot_idx: int in toolbar_order:
+		if remaining <= 0:
+			break
+		if toolbar[slot_idx].get("id", "") != item_id:
+			continue
+		var take: int = min(remaining, int(toolbar[slot_idx].get("amount", 0)))
+		remove_toolbar_item(slot_idx, take)
+		remaining -= take
+	for slot_idx: int in range(inventory.size()):
+		if remaining <= 0:
+			break
+		if inventory[slot_idx].get("id", "") != item_id:
+			continue
+		var take: int = min(remaining, int(inventory[slot_idx].get("amount", 0)))
+		remove_inventory_item_at(slot_idx, take)
+		remaining -= take
+	return remaining == 0
 
 
 # =============================================================================
@@ -554,7 +563,8 @@ func remove_inventory_item_at(slot_idx: int, amount: int = 1) -> bool:
 	var cur: int = int(inventory[slot_idx].get("amount", 0))
 	var new_amount: int = cur - amount
 	if new_amount <= 0:
-		inventory.remove_at(slot_idx)
+		# Keep fixed inventory indices stable for drag/drop and save data.
+		inventory[slot_idx] = {"id": "", "amount": 0}
 	else:
 		inventory[slot_idx]["amount"] = new_amount
 	inventory_changed.emit()
@@ -840,16 +850,19 @@ func get_items_with_min_amount(min_amount: int) -> Array[Dictionary]:
 
 ## Xóa tất cả items của một loại (xóa hết số lượng)
 func clear_item(item_id: String) -> bool:
-	var idx: int = find_item_index(item_id)
-	if idx >= 0:
-		inventory.remove_at(idx)
+	var changed := false
+	for i: int in range(inventory.size()):
+		if inventory[i].get("id", "") == item_id:
+			inventory[i] = {"id": "", "amount": 0}
+			changed = true
+	if changed:
 		inventory_changed.emit()
-		return true
-	return false
+	return changed
 
 ## Xóa toàn bộ inventory
 func clear_inventory() -> void:
 	inventory.clear()
+	_ensure_inventory_slots()
 	inventory_changed.emit()
 
 ## Kiểm tra inventory có trống không

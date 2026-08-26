@@ -1,6 +1,6 @@
 extends Node
 
-const SAVE_PATH := "user://save_game.dat"
+const SAVE_PATH := "user://save_game_%d.dat"
 
 var save_slots: Array[Dictionary] = [
 	{},
@@ -23,7 +23,7 @@ func save_game(slot: int = 0) -> bool:
 	var save_data: Dictionary = CatchUpSystem.prepare_save_data()
 	save_slots[slot] = save_data
 
-	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(SAVE_PATH % slot, FileAccess.WRITE)
 	if file == null:
 		push_error("[SaveManager] Cannot open save file for writing.")
 		return false
@@ -58,7 +58,7 @@ func load_game(slot: int = 0) -> bool:
 	return true
 
 func _load_from_file(slot: int) -> Dictionary:
-	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(SAVE_PATH % slot, FileAccess.READ)
 	if file == null:
 		return {}
 
@@ -81,6 +81,9 @@ func delete_save(slot: int) -> void:
 	if slot < 0 or slot >= save_slots.size():
 		return
 	save_slots[slot] = {}
+	var path := SAVE_PATH % slot
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
 	print("[SaveManager] Save slot %d deleted." % slot)
 
 func get_save_info(slot: int) -> Dictionary:

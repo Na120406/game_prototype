@@ -1,4 +1,8 @@
 extends CanvasLayer
+
+func _tr(key: String, fallback: String = "") -> String:
+	var cm := get_node_or_null("/root/ConfigManager")
+	return cm.translate_text(key, fallback) if cm != null and cm.has_method("translate_text") else fallback
 # =============================================================================
 # SHOP UI (Giao diện Cửa hàng)
 # =============================================================================
@@ -188,18 +192,18 @@ func _show_tooltip(item_data: ItemData) -> void:
 		return
 
 	_tooltip_name.text = item_data.get_display_name()
-	_tooltip_desc.text = item_data.description
+	_tooltip_desc.text = item_data.get_description() if item_data.has_method("get_description") else item_data.description
 
 	var type_str: String
 	match item_data.item_type:
-		ItemData.Type.CONSUMABLE: type_str = "Consumable"
-		ItemData.Type.TOOL: type_str = "Tool"
-		ItemData.Type.SEED: type_str = "Seed (%s)" % item_data.grow_season
-		ItemData.Type.KEY_ITEM: type_str = "Key Item"
-		ItemData.Type.CURRENCY: type_str = "Currency"
-		_: type_str = "Item"
+		ItemData.Type.CONSUMABLE: type_str = "Vật phẩm tiêu hao"
+		ItemData.Type.TOOL: type_str = "Dụng cụ"
+		ItemData.Type.SEED: type_str = "Hạt giống (%s)" % item_data.grow_season
+		ItemData.Type.KEY_ITEM: type_str = "Vật phẩm nhiệm vụ"
+		ItemData.Type.CURRENCY: type_str = "Tiền tệ"
+		_: type_str = "Vật phẩm"
 
-	var sell_str := "Sell: %d G" % item_data.sell_price if item_data.sell_price > 0 else ""
+	var sell_str := _tr("ui.tooltip.sell", "Bán: %d G") % item_data.sell_price if item_data.sell_price > 0 else ""
 	var parts := [type_str, sell_str].filter(func(s): return s != "")
 	_tooltip_detail.text = " | ".join(PackedStringArray(parts))
 
@@ -451,13 +455,15 @@ func _refresh_tabs() -> void:
 	if _current_tab == 0:
 		_apply_tab_active(buy_tab, true)
 		_apply_tab_active(sell_tab, false)
-		buy_tab.text = "> BUY <"
-		sell_tab.text = "  SELL  "
+		buy_tab.text = _tr("ui.shop.buy_tab", "> MUA <")
+		sell_tab.text = _tr("ui.shop.sell_tab", "  BÁN  ")
+		buy_tab.tooltip_text = _tr("ui.shop.buy_button", "Mua")
+		sell_tab.tooltip_text = _tr("ui.shop.sell_button", "Bán")
 	else:
 		_apply_tab_active(buy_tab, false)
 		_apply_tab_active(sell_tab, true)
-		buy_tab.text = "  BUY  "
-		sell_tab.text = "> SELL <"
+		buy_tab.text = _tr("ui.shop.buy_tab_inactive", "  MUA  ")
+		sell_tab.text = _tr("ui.shop.sell_tab_inactive", "> BÁN <")
 
 
 # =============================================================================
@@ -564,6 +570,7 @@ func _refresh_sell_list() -> void:
 	for item_id: String in ordered_ids:
 		var total_amount: int = int(merged_amounts[item_id])
 		var row: Array = _make_sell_row(item_id, total_amount)
+		row[0].set_meta("sell_item_id", item_id)
 		row[0].set_meta("sell_sources", sources_by_item[item_id])
 		items_list.add_child(row[0])
 		_row_item_cache.append(row[1])
@@ -571,7 +578,7 @@ func _refresh_sell_list() -> void:
 
 	if not has_items:
 		var empty_lbl := Label.new()
-		empty_lbl.text = " No items to sell"
+		empty_lbl.text = _tr("ui.shop.empty_sell_message", " Không có vật phẩm để bán")
 		empty_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1))
 		empty_lbl.add_theme_font_size_override("font_size", 10)
 		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -620,7 +627,7 @@ func _make_buy_row(item_data: ItemData) -> HBoxContainer:
 	price_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 	var action_btn := Button.new()
-	action_btn.text = "Buy"
+	action_btn.text = _tr("ui.shop.buy_button", "Mua")
 	action_btn.custom_minimum_size = Vector2(40, 0)
 	action_btn.pressed.connect(_try_buy.bind(item_data))
 
@@ -696,7 +703,7 @@ func _make_sell_row(item_id: String, amount: int) -> Array:
 	price_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 	var action_btn := Button.new()
-	action_btn.text = "Sell"
+	action_btn.text = _tr("ui.shop.sell_button", "Bán")
 	action_btn.custom_minimum_size = Vector2(40, 0)
 	action_btn.pressed.connect(_try_sell.bind(item_id))
 
@@ -733,9 +740,12 @@ func _try_buy(item_data: ItemData) -> void:
 	if _player_gold < item_data.buy_price:
 		print("[ShopUI] Not enough gold! Need %d, have %d" % [item_data.buy_price, _player_gold])
 		return
+	# Add the item first so a full inventory cannot consume the player's gold.
+	if not GameState.add_item(item_data.item_id, 1):
+		print("[ShopUI] Cannot buy %s: inventory is full." % item_data.item_id)
+		return
 	_player_gold -= item_data.buy_price
 	GameState.gold = _player_gold
-	GameState.add_item(item_data.item_id, 1)
 	_refresh_shop()
 
 
@@ -749,11 +759,9 @@ func _try_sell(item_id: String) -> void:
 	# "sell_sources" lưu thứ tự inventory → hotbar mà _refresh_sell_list đã set.
 	for child in items_list.get_children():
 		var row: Node = child
-		if row.has_meta("sell_sources"):
-			var sources: Array = row.get_meta("sell_sources")
+		if row.has_meta("sell_item_id") and row.get_meta("sell_item_id") == item_id:
+			var sources: Array = row.get_meta("sell_sources", [])
 			if sources.size() > 0:
-				# Match theo row đầu tiên có chứa item_id — vì mỗi item_id
-				# chỉ tạo 1 row. Lấy sources từ row đó.
 				row_button = row
 				break
 
@@ -771,13 +779,19 @@ func _try_sell(item_id: String) -> void:
 		var slot_kind: int = int(src.get("slot_kind", 0))
 		var index: int = int(src.get("index", -1))
 		var available: int = int(src.get("amount", 0))
+		var list: Array = GameState.inventory if slot_kind == 0 else GameState.toolbar
+		if index < 0 or index >= list.size():
+			continue
+		var entry: Dictionary = list[index]
+		if entry.get("id", "") != item_id:
+			continue
+		available = min(available, int(entry.get("amount", 0)))
 		if available <= 0:
 			continue
 		var take: int = min(remaining, available)
-		if slot_kind == 0:
-			GameState.remove_inventory_item_at(index, take)
-		else:
-			GameState.remove_toolbar_item(index, take)
+		var removed: bool = GameState.remove_inventory_item_at(index, take) if slot_kind == 0 else GameState.remove_toolbar_item(index, take)
+		if not removed:
+			continue
 		remaining -= take
 		sold_total += take
 

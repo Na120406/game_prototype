@@ -34,8 +34,10 @@ ConsequenceResolver="*res://scripts/autoload/consequence_resolver.gd"
 EventChainEngine="*res://scripts/autoload/event_chain_engine.gd"
 WorldSimulator="*res://scripts/autoload/world_simulator.gd"
 CatchUpSystem="*res://scripts/autoload/catch_up_system.gd"
+SaveManager="*res://scripts/utils/save_manager.gd"
 QuestSystem="*res://scripts/autoload/quest_system.gd"
 NPCManager="*res://scripts/autoload/npc_manager.gd"
+NPCRouteManager="*res://scripts/autoload/npc_route_manager.gd"
 ItemManager="*res://scripts/autoload/item_manager.gd"
 ItemDB="*res://resources/items/item_database.gd"
 InteractionPromptManager="*res://scripts/autoload/interaction_prompt_manager.gd"
@@ -85,7 +87,7 @@ interact={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":69,"key_label":0,"unicode":101,"location":0,"echo":false,"script":null)
 ]
 }
-"interact(E)Äá»khÃ´ngxungÄá»tvá»iportal/npc/counter.Chuá»t#pháº£icÅ©ngÄÆ°á»£cfarm_plotbáº¯tÄá»thá»±chiá»nfarmingactions(plow/water/#plant/harvest)âPlayerCHá»consumekhislotÄangchá»nlÃ CONSUMABLE.mouse_right"={
+mouse_right={
 "deadzone": 0.5,
 "events": [Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"button_mask":0,"position":Vector2(0, 0),"global_position":Vector2(0, 0),"factor":1.0,"button_index":2,"canceled":false,"pressed":false,"double_click":false,"script":null)
 ]

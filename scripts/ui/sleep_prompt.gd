@@ -55,6 +55,16 @@ func hide_prompt() -> void:
 	if uif != null:
 		uif.call("dim_background", false)
 	var panel := _find_panel()
+	var vbox := _find_vbox()
+	var cm: Node = get_node_or_null("/root/ConfigManager")
+	if vbox != null:
+		var title: Label = vbox.find_child("Title", true, false)
+		var yes_btn: Button = vbox.find_child("YesBtn", true, false)
+		var no_btn: Button = vbox.find_child("NoBtn", true, false)
+		if cm != null and cm.has_method("translate_text"):
+			if title != null: title.text = cm.translate_text("ui.sleep.confirm", "Ngủ đến ngày mai?")
+			if yes_btn != null: yes_btn.text = cm.translate_text("ui.sleep.yes", "Có [E]")
+			if no_btn != null: no_btn.text = cm.translate_text("ui.sleep.no", "Không [ESC]")
 	if panel != null:
 		panel.visible = false
 	var backdrop: Control = null
@@ -76,6 +86,8 @@ func _input(event: InputEvent) -> void:
 		_on_yes()
 
 func _on_yes() -> void:
+	# Notify the player state before the prompt disappears and the day advances.
+	sleep_started.emit()
 	hide_prompt()
 	sleep_chosen.emit()
 

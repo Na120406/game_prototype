@@ -1,33 +1,24 @@
-extends Node2D
+extends "res://scripts/npc/npc.gd"
 
-signal npc_dialogue_finished()
+# Shopkeeper dùng cùng movement/schedule AI với các NPC khác.
 
-enum NPCState { IDLE, WALKING, WORKING, RESTING, SPECIAL }
+const SHOP_SCENE: String = "res://scenes/maps/inside_shop_map.tscn"
+const SHOP_POSITION: Vector2 = Vector2(360, 68)
 
-@export var npc_name: String = "NPC"
-@export var npc_id: String = "npc_01"
-@export var dialogue_id: String = "generic_greeting"
+func _build_default_schedule() -> void:
+	schedule = [
+		{"time": 0.0, "state": NPCState.IDLE, "action": "shop_open", "scene": SHOP_SCENE, "pos": SHOP_POSITION},
+	]
+
 @export var dialogue_first_id: String = "generic_greeting_first"
-@export var prompt_offset_y: float = -32.0
 @export var interaction_priority: int = 5
 
-var current_state: NPCState = NPCState.IDLE
-var is_interacting: bool = false
-var talk_count: int = 0
-var _player_nearby: bool = false
-
-var sprite: Sprite2D = null
 var interact_area: Area2D = null
-var prompt_label: Label = null
 
 func _ready() -> void:
-	add_to_group("npc")
-	add_to_group("npc_" + npc_id)
-	if has_node("Sprite2D"):
-		sprite = $Sprite2D
+	super._ready()
 	if has_node("InteractArea"):
 		interact_area = $InteractArea
-	_ensure_prompt_label()
 	_connect_area_signals()
 	_hide_prompt()
 	print("[Shopkeeper] %s ready." % npc_name)

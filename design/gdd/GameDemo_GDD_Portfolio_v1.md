@@ -4,8 +4,8 @@
 **Vị trí ứng tuyển:** Game Designer Intern  
 **Prototype:** Playable Graybox Prototype  
 **Engine:** Godot 4.5 / GDScript  
-**Trạng thái:** Prototype đang phát triển  
-**Phiên bản:** Portfolio v1
+**Trạng thái:** Prototype graybox đang phát triển; gameplay loop và hệ thống nền tảng đã có, một số hệ thống cần runtime validation  
+**Phiên bản:** Portfolio v1 — cập nhật tiến độ hiện tại
 
 ---
 
@@ -740,12 +740,12 @@ Nó không được phép trở thành điều kiện để trải nghiệm farm
 |---|---|---|
 | Player movement | Implemented | 4-direction movement + sprint |
 | Interaction | Implemented | Raycast priority + proximity fallback |
-| Farming | Implemented | Full basic crop cycle |
-| Energy | Implemented | Threshold + knockout |
-| Time / Day cycle | Implemented | Day progression |
+| Farming | Implemented / needs validation | Basic crop cycle exists; invalid actions and harvest cost still need runtime verification |
+| Energy | Implemented / needs validation | Threshold + knockout exist; transaction boundary and late/AFK paths require regression tests |
+| Time / Day cycle | Implemented / needs validation | Day progression exists; scheduled systems use calendar-day semantics |
 | Weather | Implemented | Basic weather states |
-| Inventory / Hotbar | Implemented | Stack, drag/drop, use |
-| Basic Buy / Sell | Implemented | Fixed-price prototype economy |
+| Inventory / Hotbar | In progress | Fixed-slot integrity and cross-inventory removal are being stabilized |
+| Basic Buy / Sell | In progress | Fixed-price economy exists; atomic buy/sell and exact source matching need playtest |
 | Dialogue | Implemented | JSON + choices + relationship |
 | NPC relationship | Implemented | Basic tracking |
 | NPC schedule | In progress | Being completed |
@@ -790,6 +790,8 @@ Visuals are intentionally kept as **graybox / placeholder assets** because the p
 ---
 
 # 17. Known Limitations
+
+> Audit alignment note: this portfolio GDD is the authoritative design reference. A system is considered complete only after its state transitions, failure paths and save/load behavior are verified.
 
 Current prototype limitations:
 

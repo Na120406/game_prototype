@@ -9,6 +9,10 @@ var _hotbar: Node
 var _gold_label: Label
 var _scene_path: String = ""
 
+func _tr(key: String, fallback: String = "") -> String:
+	var cm := get_node_or_null("/root/ConfigManager")
+	return cm.translate_text(key, fallback) if cm != null and cm.has_method("translate_text") else fallback
+
 func _ready() -> void:
 	var tree := get_tree()
 	_scene_path = tree.current_scene.scene_file_path if tree and tree.current_scene else ""
@@ -241,7 +245,7 @@ func _create_day_info() -> void:
 	_day_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_day_label.add_theme_color_override("font_color", Color(1, 0.85, 0.5, 1))
 	_day_label.add_theme_font_size_override("font_size", 9)
-	_day_label.text = "Day %d" % GameState.current_day
+	_day_label.text = _tr("ui.day_label", "Ngày %d") % GameState.current_day
 	panel_day.add_child(_day_label)
 	container.add_child(panel_day)
 
@@ -269,7 +273,7 @@ func _create_day_info() -> void:
 	_gold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_gold_label.add_theme_color_override("font_color", Color(1, 0.9, 0.3, 1))
 	_gold_label.add_theme_font_size_override("font_size", 9)
-	_gold_label.text = "%d G" % GameState.gold
+	_gold_label.text = _tr("ui.gold_label", "%d G") % GameState.gold
 	panel_gold.add_child(_gold_label)
 	container.add_child(panel_gold)
 
@@ -314,13 +318,13 @@ func _set_map_name_from_scene() -> void:
 	if _map_label == null or _scene_path == "":
 		return
 	if _scene_path.contains("town_map"):
-		_map_label.text = "VILLAGE TOWN"
+		_map_label.text = _tr("ui.map.village_town", "THỊ TRẤN")
 	elif _scene_path.contains("inside_shop"):
-		_map_label.text = "SHOP"
+		_map_label.text = _tr("ui.map.shop", "CỬA HÀNG")
 	elif _scene_path.contains("farm_map"):
-		_map_label.text = "FARM HOME"
+		_map_label.text = _tr("ui.map.farm_home", "NÔNG TRẠI")
 	elif _scene_path.contains("inside_house"):
-		_map_label.text = "INSIDE HOUSE"
+		_map_label.text = _tr("ui.map.inside_house", "TRONG NHÀ")
 	else:
 		_map_label.text = ""
 
@@ -330,7 +334,7 @@ func set_map_name(name: String) -> void:
 
 func update_gold() -> void:
 	if _gold_label != null:
-		_gold_label.text = "%d G" % GameState.gold
+		_gold_label.text = _tr("ui.gold_label", "%d G") % GameState.gold
 
 func _process(_delta: float) -> void:
 	if _day_label != null:

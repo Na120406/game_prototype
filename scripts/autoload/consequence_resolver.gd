@@ -9,19 +9,30 @@ var npc_replacements: Dictionary = {}
 var consequence_log: Array[Dictionary] = []
 
 func _ready() -> void:
+	if not GameState.day_changed.is_connected(_on_day_changed):
+		GameState.day_changed.connect(_on_day_changed)
 	print("[ConsequenceResolver] Ready — consequence system active.")
 
-func _process(_delta: float) -> void:
+func _on_day_changed(_new_day: int) -> void:
 	_process_scheduled_changes()
+
+func _process(_delta: float) -> void:
+	# Scheduled consequences are calendar events, not frame timers.
+	return
 
 func _process_scheduled_changes() -> void:
 	var to_remove_flags: Array[int] = []
 	for i: int in range(scheduled_flag_changes.size()):
 		var item: Dictionary = scheduled_flag_changes[i]
-		item["remaining"] -= 1
-		if item["remaining"] <= 0:
+		if GameState.current_day < int(item.get("scheduled_day", GameState.current_day)):
+			continue
+		if item.get("type", "") == "scene_change":
+			apply_scene_change(item.get("scene_path", ""), item.get("method", ""), item.get("param"))
+		elif item.get("type", "") == "event":
+			EventManager.trigger_event(item.get("event", ""))
+		else:
 			_apply_flag_change(item)
-			to_remove_flags.append(i)
+		to_remove_flags.append(i)
 
 	for i: int in range(to_remove_flags.size() - 1, -1, -1):
 		scheduled_flag_changes.remove_at(to_remove_flags[i])
@@ -29,8 +40,7 @@ func _process_scheduled_changes() -> void:
 	var to_remove_succ: Array[String] = []
 	for family_id: String in scheduled_family_successions:
 		var item: Dictionary = scheduled_family_successions[family_id]
-		item["remaining"] -= 1
-		if item["remaining"] <= 0:
+		if GameState.current_day >= int(item.get("scheduled_day", GameState.current_day)):
 			_apply_family_succession(family_id, item)
 			to_remove_succ.append(family_id)
 
@@ -73,7 +83,7 @@ func schedule_flag_change(flag: String, value: Variant, days_from_now: int) -> v
 		"flag": flag,
 		"value": value,
 		"remaining": days_from_now,
-		"scheduled_day": GameState.current_day + days_from_now,
+		"scheduled_day": GameState.current_day + maxi(0, days_from_now),
 	})
 
 func apply_scene_change(scene_path: String, method: String, param: Variant) -> void:
@@ -93,7 +103,7 @@ func schedule_scene_change(scene_path: String, method: String, param: Variant, d
 		"method": method,
 		"param": param,
 		"remaining": days_from_now,
-		"scheduled_day": GameState.current_day + days_from_now,
+		"scheduled_day": GameState.current_day + maxi(0, days_from_now),
 	})
 
 func _register_npc_replacement(old_npc_id: String, new_npc_id: String) -> void:
@@ -123,16 +133,20 @@ func schedule_family_succession(family_id: String, new_member_id: String, days_f
 		"old_member_id": old_member_id if old_member_id != "" else current_head,
 		"new_member_id": new_member_id,
 		"remaining": days_from_now,
+		"scheduled_day": GameState.current_day + maxi(0, days_from_now),
 	}
 
 func schedule_event(event_name: String, days_from_now: int) -> void:
+	var target_day: int = GameState.current_day + maxi(0, days_from_now)
 	scheduled_flag_changes.append({
 		"type": "event",
 		"event": event_name,
 		"remaining": days_from_now,
-		"scheduled_day": GameState.current_day + days_from_now,
+		"scheduled_day": target_day,
 	})
-	print("[ConsequenceResolver] Event '%s' scheduled for day %d" % [event_name, GameState.current_day + days_from_now])
+	print("[ConsequenceResolver] Event '%s' scheduled for day %d" % [event_name, target_day])
+	if days_from_now <= 0:
+		_process_scheduled_changes()
 
 func apply_consequence_set(consequences: Array[String], chain_id: String, context: Dictionary) -> void:
 	for consequence_id: String in consequences:

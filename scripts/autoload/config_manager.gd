@@ -17,7 +17,9 @@ var _game_config: Dictionary = {}
 var _npc_config: Dictionary = {}
 var _ui_text_config: Dictionary = {}
 var _quest_text_config: Dictionary = {}
+var _localization: Dictionary = {}
 var _loaded: bool = false
+const LOCALIZATION_PATH := "res://resources/localization/vi.json"
 
 func _ready() -> void:
 	load_all_configs()
@@ -28,7 +30,22 @@ func load_all_configs() -> void:
 	load_npc_config()
 	load_ui_text_config()
 	load_quest_text_config()
+	load_localization()
 	_loaded = true
+
+func load_localization() -> bool:
+	var result := _load_json(LOCALIZATION_PATH)
+	if result.is_empty():
+		push_error("[ConfigManager] Failed to load Vietnamese localization")
+		return false
+	_localization = result.get("strings", {})
+	return true
+
+func translate_text(key: String, default: String = "") -> String:
+	return str(_localization.get(key, default))
+
+func get_localization() -> Dictionary:
+	return _localization.duplicate()
 
 func load_game_config() -> bool:
 	var path := CONFIG_PATH + "game_config.json"

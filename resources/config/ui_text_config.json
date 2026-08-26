@@ -1,39 +1,39 @@
 {
 	"ui": {
 		"interact_prompt": "[E]",
-		"day_label": "Day %d",
+		"day_label": "Ngày %d",
 		"gold_label": "%d G",
 
 		"map_labels": {
-			"village_town": "VILLAGE TOWN",
-			"shop": "SHOP",
-			"farm_home": "FARM HOME",
-			"inside_house": "INSIDE HOUSE"
+			"village_town": "THỊ TRẤN",
+			"shop": "CỬA HÀNG",
+			"farm_home": "NÔNG TRẠI",
+			"inside_house": "TRONG NHÀ"
 		},
 
 		"inventory": {
-			"title": "Inventory",
-			"use_button": "Use",
+			"title": "TÚI ĐỒ",
+			"use_button": "Dùng",
 			"tooltip_no_item": ""
 		},
 
 		"shop": {
-			"buy_tab": "> BUY <",
-			"sell_tab": "  SELL  ",
-			"buy_tab_inactive": "  BUY  ",
-			"sell_tab_inactive": "> SELL <",
-			"empty_sell_message": " No items to sell",
-			"buy_button": "Buy",
-			"sell_button": "Sell",
+			"buy_tab": "> MUA <",
+			"sell_tab": "  BÁN  ",
+			"buy_tab_inactive": "  MUA  ",
+			"sell_tab_inactive": "> BÁN <",
+			"empty_sell_message": " Không có vật phẩm để bán",
+			"buy_button": "Mua",
+			"sell_button": "Bán",
 			"price_format": "%d G",
 			"sell_price_format": "+%d G",
 			"item_amount_format": "x%d"
 		},
 
 		"quest_board": {
-			"title": "Quest Board",
-			"no_quest_text": "No quests available today.",
-			"accept_button": "Accept",
+			"title": "BẢNG NHIỆM VỤ",
+			"no_quest_text": "Hôm nay không có nhiệm vụ nào.",
+			"accept_button": "Nhận",
 			"reward_icon": "💰",
 			"reward_format": "%d G"
 		},
@@ -43,32 +43,32 @@
 		},
 
 		"sleep_warning": {
-			"late_warning": "It's late",
+			"late_warning": "Đã muộn rồi",
 			"very_late_warning": "zzZZ"
 		},
 
 		"tooltips": {
-			"energy_restore": "+%d Energy",
-			"health_restore": "+%d Health",
-			"days_to_harvest": "%dd to harvest",
-			"equip": "Equip"
+			"energy_restore": "+%d năng lượng",
+			"health_restore": "+%d sức khỏe",
+			"days_to_harvest": "Còn %d ngày thu hoạch",
+			"equip": "Trang bị"
 		},
 
 		"farm_plot": {
-			"needs_water": "(%d/%d days without water — will wilt tomorrow!)"
+			"needs_water": "(%d/%d ngày chưa tưới — ngày mai cây sẽ héo!)"
 		}
 	},
 
 	"dialogue": {
-		"continue_prompt": "Continue",
-		"close_prompt": "Close"
+		"continue_prompt": "Tiếp tục",
+		"close_prompt": "Đóng"
 	},
 
 	"menus": {
-		"pause_title": "Paused",
-		"save_game": "Save Game",
-		"load_game": "Load Game",
-		"options": "Options",
-		"quit": "Quit"
+		"pause_title": "Tạm dừng",
+		"save_game": "Lưu trò chơi",
+		"load_game": "Tải trò chơi",
+		"options": "Tùy chọn",
+		"quit": "Thoát"
 	}
 }

@@ -1,22 +1,22 @@
 {
 	"quest_text": {
-		"delivery_quest_prefix": "Delivery Quest",
-		"daily_quest_prefix": "Daily Quest",
+		"delivery_quest_prefix": "Nhiệm vụ giao hàng",
+		"daily_quest_prefix": "Nhiệm vụ hằng ngày",
 		"description_templates": {
-			"deliver_crops": "Deliver %d %s to %s",
-			"deliver_items": "Deliver %d %s",
-			"harvest": "Harvest %d crops from your farm",
-			"explore": "Explore the %s area"
+			"deliver_crops": "Giao %d %s cho %s",
+			"deliver_items": "Giao %d %s",
+			"harvest": "Thu hoạch %d cây trên nông trại",
+			"explore": "Khám phá khu vực %s"
 		},
 		"completion_messages": {
-			"quest_complete": "Quest Complete!",
-			"reward_received": "Received: %d gold"
+			"quest_complete": "Hoàn thành nhiệm vụ!",
+			"reward_received": "Đã nhận: %d vàng"
 		}
 	},
 
 	"npc_names": {
 		"neighbor": "Marcus",
 		"shopkeeper": "Voss",
-		"player": "Player"
+		"player": "Người chơi"
 	}
 }

@@ -2,17 +2,17 @@
   "lines": [
 	{
 	  "speaker": "???",
-	  "text": "You arrived. The village has been waiting.",
+	  "text": "Cậu đã đến. Ngôi làng này đã chờ cậu từ lâu.",
 	  "portrait": "neutral"
 	},
 	{
 	  "speaker": "???",
-	  "text": "Strange things happen here. Have you noticed?",
+	  "text": "Ở đây thường xảy ra những chuyện kỳ lạ. Cậu có nhận ra không?",
 	  "portrait": "neutral"
 	},
 	{
 	  "speaker": "???",
-	  "text": "Nevermind. You'll see for yourself.",
+	  "text": "Thôi bỏ đi. Rồi cậu sẽ tự mình nhìn thấy.",
 	  "portrait": "neutral"
 	}
   ]

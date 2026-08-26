@@ -277,13 +277,12 @@ func _try_farm_action(cell: Vector2i) -> void:
 	# Chỉ tiêu hao năng lượng khi dùng hoe hoặc water_can
 	var is_hoe_or_water: bool = _is_tool_id("hoe") or _is_tool_id("water_can")
 
-	if is_hoe_or_water:
-		if not _consume_action_energy(cell):
-			return
-
+	# Charge energy only after the selected action is known to be valid.
 	match state:
 		CropState.EMPTY:
 			if _is_tool_id("hoe"):
+				if not _consume_action_energy(cell):
+					return
 				if _farm_manager.plow_cell(cell):
 					var data: Dictionary = _farm_manager.get_cell_data(cell)
 					_show_soil_visual(cell, data)
@@ -297,6 +296,8 @@ func _try_farm_action(cell: Vector2i) -> void:
 			if _is_tool_id("hoe"):
 				_play_feedback(cell, "Already plowed!", Color(0.8, 0.6, 0.3))
 			elif _is_tool_id("water_can"):
+				if not _consume_action_energy(cell):
+					return
 				if _farm_manager.water_cell(cell):
 					var data: Dictionary = _farm_manager.get_cell_data(cell)
 					_update_soil_visual_texture(_cell_key(cell), data)
@@ -306,6 +307,8 @@ func _try_farm_action(cell: Vector2i) -> void:
 
 		CropState.SEEDED, CropState.SPROUTED, CropState.GROWING:
 			if _is_tool_id("water_can"):
+				if not _consume_action_energy(cell):
+					return
 				if _farm_manager.water_cell(cell):
 					_play_feedback(cell, "Watered!", Color(0.3, 0.6, 0.9))
 			elif item_type == "seed":
@@ -377,6 +380,8 @@ func _consume_seed_from_active_toolbar(item_id: String) -> bool:
 
 func _try_harvest(cell: Vector2i) -> void:
 	if _farm_manager == null:
+		return
+	if not _consume_action_energy(cell):
 		return
 	var harvest_id: String = _farm_manager.harvest_crop(cell)
 	if harvest_id != "":

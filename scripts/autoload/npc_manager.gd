@@ -13,10 +13,12 @@ extends Node
 #
 # Schedule step mở rộng: thêm field `scene` (path scene tuyệt đối). Step nào
 # không có `scene` sẽ dùng default_scene của NPC (set trong lúc đăng ký).
+# NPC chỉ được attach vào viewport nếu schedule scene trùng map Player; mọi NPC
+# khác vẫn giữ instance trong PersistentNPCScenes và tiếp tục simulate.
 #
 # Hook:
-#   - SceneManager.scene_changed → gọi sync_all() để respawn/despawn tất cả NPC.
-#   - TimeManager.hour_elapsed → gọi sync_all() để NPC chuyển scene khi đổi giờ.
+#   - SceneManager.scene_changed → chỉ rehome NPC đang ở viewport Player.
+#   - TimeManager.time_changed → tick schedule liên tục; NPC tự handoff tại portal.
 # =============================================================================
 
 # =============================================================================
@@ -79,6 +81,8 @@ func _ready() -> void:
 	# Kết nối signals — chỉ connect 1 lần, idempotent.
 	var sm := _get_scene_manager()
 	if sm != null:
+		if sm.has_signal("persistent_npc_handed_off") and not sm.persistent_npc_handed_off.is_connected(_on_persistent_npc_handed_off):
+			sm.persistent_npc_handed_off.connect(_on_persistent_npc_handed_off)
 		if not sm.scene_changing.is_connected(_on_scene_changing):
 			# scene_changing emit TRƯỚC khi scene cũ bị free → detach NPC kịp.
 			sm.scene_changing.connect(_on_scene_changing)
@@ -100,10 +104,12 @@ func _ready() -> void:
 		GameState.day_changed.connect(_on_day_changed)
 	# Đăng ký tất cả NPC trong registry.
 	_register_all_npcs_from_registry()
-	# Apply step hiện tại cho từng NPC (set state + desired_pos dựa trên
-	# GameState.current_time lúc start). Sau đó attach NPC vào scene đúng.
+	# Apply step hiện tại trước khi scene runtime bắt đầu tick. NPC được đưa vào
+	# background world theo schedule; Player scene chỉ là viewport quan sát.
 	_apply_initial_schedule_for_all()
-	_sync_attach_all()
+	# SceneTree is still constructing the initial map during autoload startup;
+	# defer all add_child/reparent operations until the setup phase is complete.
+	call_deferred("_sync_attach_all")
 	print("[NPCManager] Ready — %d NPCs registered." % _npcs.size())
 
 
@@ -150,10 +156,17 @@ func register_npc(npc_id: String, scene_path: String, default_scene: String, spa
 		push_error("[NPCManager] NPC '%s' không phải Node2D." % npc_id)
 		instance.queue_free()
 		return false
-	# Gọi _build_default_schedule() VÌ packed.instantiate() KHÔNG gọi _ready()
-	# (NPC chưa trong tree). Schedule cần được build ngay sau instantiate để
-	# _sync_one có dữ liệu schedule đúng khi gọi get_schedule().
-	if instance.has_method("_build_default_schedule"):
+	# Nếu scene hiện tại đã đặt sẵn instance NPC (ví dụ shopkeeper trong
+	# inside_shop_map), dùng instance đó thay vì tạo bản thứ hai tại spawn_pos.
+	var existing: Node2D = _find_existing_npc_in_current_scene(npc_id)
+	if existing != null:
+		instance.queue_free()
+		instance = existing
+	else:
+		# Runtime instance starts detached; it is attached only by schedule sync.
+		instance.position = Vector2.ZERO
+	# Gọi _build_default_schedule() khi instance chưa vào tree.
+	if not instance.is_inside_tree() and instance.has_method("_build_default_schedule"):
 		instance.call("_build_default_schedule")
 	_npcs[npc_id] = {
 		"id": npc_id,
@@ -163,6 +176,11 @@ func register_npc(npc_id: String, scene_path: String, default_scene: String, spa
 		"current_scene": "",
 		"spawned": false,
 		"start_pos": spawn_pos,
+		"route_id": "",
+		"route_index": -1,
+		"route_progress": {},
+		"last_simulated_day": 1,
+		"last_simulated_time": 6.0,
 	}
 	print("[NPCManager] Registered NPC '%s' (default scene: %s)." % [npc_id, default_scene])
 	return true
@@ -183,6 +201,16 @@ func get_npc_instance(npc_id: String) -> Node2D:
 
 # Helper nội bộ — trả về instance hợp lệ (Node2D) hoặc null. Luôn kiểm tra
 # is_instance_valid trước khi cast để tránh runtime error khi NPC đã bị free.
+func _find_existing_npc_in_current_scene(npc_id: String) -> Node2D:
+	var tree: SceneTree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return null
+	var group_name: String = "npc_%s" % npc_id
+	for candidate: Node in tree.get_nodes_in_group(group_name):
+		if candidate is Node2D and is_instance_valid(candidate) and tree.current_scene.is_ancestor_of(candidate):
+			return candidate as Node2D
+	return null
+
 func _get_valid_instance(npc_id: String) -> Node2D:
 	if not _npcs.has(npc_id):
 		return null
@@ -222,23 +250,6 @@ func get_active_npc_in_current_scene(npc_id: String) -> Node2D:
 #
 # Cache này chủ yếu dùng để tìm player's current_scene nhanh.
 var _loaded_scenes: Dictionary = {}
-
-
-# Tìm scene node trong tree có scene_file_path khớp. Trả null nếu chưa load.
-# Chỉ cần tìm player's current_scene.
-func _find_loaded_scene(scene_path: String) -> Node:
-	if scene_path == "":
-		return null
-	var tree := get_tree()
-	if tree == null or tree.root == null:
-		return null
-	# Chỉ cần kiểm tra current_scene của player.
-	var current := tree.current_scene
-	if current != null and is_instance_valid(current) and current.is_inside_tree():
-		if not current.is_queued_for_deletion() and current.scene_file_path == scene_path:
-			_loaded_scenes[scene_path] = current
-			return current
-	return null
 
 
 # Refresh cache — quét toàn bộ scene instances đang active trong tree.
@@ -288,17 +299,28 @@ func sync_all() -> void:
 func _sync_one(npc_id: String) -> void:
 	if not _npcs.has(npc_id):
 		return
+	# NPC luôn được simulate từ registry; Player chỉ quyết định scene nào nhìn thấy.
 	var entry: Dictionary = _npcs[npc_id]
-	var inst := _get_valid_instance(npc_id)
+	# Runtime registry is authoritative. Scene-authored NPCs are removed here;
+	# otherwise they become a second NPC at the scene default (often 0,0).
+	var placed: Node2D = _find_existing_npc_in_current_scene(npc_id)
+	var managed: Node2D = _get_valid_instance(npc_id)
+	if placed != null and placed != managed:
+		placed.queue_free()
+	var inst: Node2D = _get_valid_instance(npc_id)
 	if inst == null:
 		print("[NPCManager] _sync_one '%s': instance is null" % npc_id)
 		return
 	var schedule: Array = []
 	if inst.has_method("get_schedule"):
 		schedule = inst.call("get_schedule")
+	if schedule.is_empty() and npc_id == "shopkeeper":
+		var shopkeeper_scene: String = "res://scenes/maps/inside_shop_map.tscn"
+		schedule = [{"time": 0.0, "scene": shopkeeper_scene, "pos": Vector2(360, 68), "state": 2}]
 	# Tìm scene đích theo schedule (hoặc default).
 	var target_scene: String = ""
 	var step_pos: Vector2 = entry.get("start_pos", Vector2.ZERO)
+	var step_route_id: String = ""
 	if schedule.is_empty():
 		target_scene = entry.get("default_scene", "")
 		print("[NPCManager] _sync_one '%s': schedule empty, using default_scene=%s" % [npc_id, target_scene])
@@ -307,17 +329,24 @@ func _sync_one(npc_id: String) -> void:
 		target_scene = step.get("scene", "")
 		if target_scene == "":
 			target_scene = entry.get("default_scene", "")
-		step_pos = step.get("pos", entry.get("start_pos", Vector2.ZERO))
+		var raw_step_pos: Variant = step.get("pos", entry.get("start_pos", Vector2.ZERO))
+		step_pos = raw_step_pos as Vector2 if raw_step_pos is Vector2 else entry.get("start_pos", Vector2.ZERO)
+		step_route_id = str(step.get("route_id", ""))
+		entry["route_id"] = step_route_id
 		print("[NPCManager] _sync_one '%s': target_scene=%s, step=%s, pos=%s" % [npc_id, target_scene, step.get("action", "?"), str(step_pos)])
-	# Nếu NPC đã attach đúng scene rồi → không cần re-attach.
+	# Nếu NPC đã attach đúng scene rồi → không re-attach và không teleport.
+	# NPC instance sẽ nhận target mới qua tick_schedule() và tự đi bằng AI.
 	if entry.get("spawned", false) and entry.get("current_scene", "") == target_scene:
+		if inst.get_parent() != null and inst.has_method("tick_schedule"):
+			inst.call("tick_schedule", GameState.current_time)
+		if inst.has_method("get_route_progress"):
+			entry["route_progress"] = inst.call("get_route_progress")
 		return
-	# Nếu target_scene khác scene đang attach → detach trước.
-	if entry.get("spawned", false) and entry.get("current_scene", "") != target_scene:
-		_detach_npc(npc_id, entry.get("current_scene", ""))
-	# Attach vào target_scene.
+	# Instance persistent vẫn được xử lý tiếp để schedule có thể handoff tới map mới.
+	# Không thoát sớm khi current_scene khác target_scene.
+	# Attach/handoff tới target_scene.
 	if target_scene != "":
-		_attach_npc(npc_id, target_scene, step_pos)
+		_attach_npc(npc_id, target_scene, step_pos, step_route_id)
 
 
 # =============================================================================
@@ -356,7 +385,7 @@ func _pick_step(schedule: Array, current_time: float) -> Dictionary:
 # ATTACH / DETACH NPC VỚI SCENE TREE
 # =============================================================================
 
-func _attach_npc(npc_id: String, scene_path: String, spawn_pos: Vector2) -> void:
+func _attach_npc(npc_id: String, scene_path: String, spawn_pos: Vector2, route_id: String = "") -> void:
 	if not _npcs.has(npc_id):
 		return
 	var entry: Dictionary = _npcs[npc_id]
@@ -367,32 +396,82 @@ func _attach_npc(npc_id: String, scene_path: String, spawn_pos: Vector2) -> void
 	if tree == null or tree.root == null:
 		return
 	# Nếu đã attach ở đúng scene rồi → KHÔNG snap pos.
-	if entry.get("spawned", false) and entry.get("current_scene", "") == scene_path:
+	if entry.get("spawned", false) and inst.get_parent() != null and _get_npc_host_scene_path(inst) == scene_path:
+		if inst.has_method("tick_schedule"):
+			inst.call("tick_schedule", GameState.current_time)
 		return
-	# Nếu đang attach ở scene khác → detach trước.
-	if entry.get("spawned", false) and inst.get_parent() != null:
-		inst.get_parent().remove_child(inst)
+	# Không detach instance persistent chỉ vì target schedule đổi scene.
+	# NPC tự đi tới source portal; handoff được thực hiện bởi npc.gd.
 	# Tìm player's current scene — NPC attach vào scene player đang ở,
 	# KHÔNG phải scene riêng của NPC (NPC không còn preload scene riêng).
 	# Nếu player KHÔNG đang ở scene_path → không attach (NPC chưa xuất hiện).
 	var current_scene := tree.current_scene
 	if current_scene == null:
 		return
-	var current_scene_path := current_scene.scene_file_path
-	# Player phải đang ở scene mà NPC "thuộc về" mới attach.
-	if current_scene_path != scene_path:
-		# Scene chưa load / player chưa đến → NPC chưa xuất hiện.
-		# Đánh dấu entry["current_scene"] = scene_path để track desired scene
-		# (nhưng spawned = false vì chưa attach).
+	var current_scene_path: String = current_scene.scene_file_path
+	# Nếu instance đã nằm trong đúng scene nhưng metadata bị lệch, giữ nguyên
+	# vị trí hiện tại và chỉ cập nhật target schedule — tuyệt đối không teleport.
+	if inst.get_parent() == current_scene and current_scene_path == scene_path:
 		entry["current_scene"] = scene_path
-		entry["spawned"] = false
-		print("[NPCManager] NPC '%s' not spawned: player in %s, NPC belongs to %s" % [npc_id, current_scene_path, scene_path])
+		entry["spawned"] = true
+		if inst.has_method("tick_schedule"):
+			inst.call("tick_schedule", GameState.current_time)
 		return
-	# Player đang ở scene của NPC → attach NPC vào current scene.
-	current_scene.add_child(inst)
-	inst.global_position = spawn_pos
+	# Route được thực thi bởi NPC: NPC phải đi tới source portal trước.
+	# Route không được bị bỏ qua khi target scene khác scene Player hiện tại;
+	# NPC vẫn được giữ trong background và tiếp tục physics.
+	# Manager tuyệt đối không handoff ngay theo schedule, nếu không sẽ teleport
+	# NPC khỏi scene hiện tại và làm mất phần hành trình mà Player có thể theo dõi.
+	if current_scene_path != scene_path:
+		# Only bootstrapping may choose an initial position. During normal play the
+		# persistent instance is already hosted by a background world and must not
+		# be recreated/snap-moved when the Player enters another map.
+		if inst.get_parent() == null:
+			var initial_scene: String = scene_path
+			var initial_position: Vector2 = spawn_pos
+			if route_id != "":
+				var route_manager: Node = get_node_or_null("/root/NPCRouteManager")
+				if route_manager != null and route_manager.has_method("get_waypoint"):
+					var first_waypoint: Variant = route_manager.call("get_waypoint", route_id, 0)
+					if first_waypoint is Dictionary:
+						initial_scene = str(first_waypoint.get("scene", initial_scene))
+						var raw_initial_position: Variant = first_waypoint.get("position", initial_position)
+						if raw_initial_position is Vector2:
+							initial_position = raw_initial_position
+			var scene_manager: Node = get_node_or_null("/root/SceneManager")
+			if scene_manager != null and scene_manager.has_method("handoff_persistent_npc"):
+				inst.global_position = initial_position
+				if scene_manager.call("handoff_persistent_npc", inst, initial_scene, ""):
+					entry["current_scene"] = initial_scene
+					entry["spawned"] = true
+					return
+		# NPC đã ở background scene: không reattach theo Player. Route physics
+		# tiếp tục chạy tại parent hiện tại; registry lấy scene thật từ parent.
+		# Player/scene transitions never use Bed or spawn positions for NPCs.
+		if route_id != "" and inst.has_method("tick_schedule"):
+			inst.call("tick_schedule", GameState.current_time)
+		var actual_scene_path: String = _get_npc_host_scene_path(inst)
+		if actual_scene_path != "":
+			entry["current_scene"] = actual_scene_path
+		entry["spawned"] = inst.get_parent() != null
+		return
+	# Chỉ rehome hoặc attach khi Player thật sự đang ở đúng map lịch trình.
+	if inst.get_parent() != current_scene:
+		# Rehome preserves the NPC's current world position for every background
+		# root (NPCWorld_*) and never replaces it with the schedule target. The
+		# NPC must walk there using velocity after becoming visible.
+		var saved_global_position: Vector2 = inst.global_position
+		if inst.get_parent() != null:
+			inst.get_parent().remove_child(inst)
+		current_scene.add_child(inst)
+		inst.global_position = saved_global_position
+		# Keep the logical destination on the instance, but never use the source
+		# scene's coordinates as a destination spawn.
+		inst.set_meta("world_scene_path", scene_path)
 	entry["current_scene"] = scene_path
 	entry["spawned"] = true
+	if inst.has_method("get_route_progress"):
+		entry["route_progress"] = inst.call("get_route_progress")
 	# Reset NPC state để nó không còn "walk" từ scene cũ.
 	if inst.has_method("_on_attached_to_scene"):
 		inst.call("_on_attached_to_scene")
@@ -429,7 +508,27 @@ func _detach_npc(npc_id: String, cur_scene_path: String) -> void:
 #
 # Lưu ý: signal này đồng bộ (sync), KHÔNG dùng call_deferred — phải detach
 # TRƯỚC khi SceneManager gọi root.remove_child(scene_cũ) ở dòng tiếp theo.
+func _on_persistent_npc_handed_off(npc: Node2D, scene_path: String) -> void:
+	if npc == null or not is_instance_valid(npc):
+		return
+	var actual_scene_path: String = _get_npc_host_scene_path(npc)
+	if actual_scene_path == "":
+		actual_scene_path = scene_path
+	for npc_id: String in _npcs:
+		var entry: Dictionary = _npcs[npc_id]
+		if entry.get("instance", null) == npc:
+			entry["current_scene"] = actual_scene_path
+			entry["spawned"] = npc.get_parent() != null
+			if npc.has_method("get_route_progress"):
+				entry["route_progress"] = npc.call("get_route_progress")
+			var progress: Variant = entry["route_progress"]
+			if progress is Dictionary:
+				entry["route_index"] = int(progress.get("waypoint_index", -1))
+			break
+
 func _on_scene_changing(_old_scene_path: String, _new_scene_path: String) -> void:
+	# NPC ở PersistentNPCScenes không thuộc player scene và không được detach.
+	# Chỉ detach NPC thực sự đang là child của scene sắp bị giải phóng.
 	# Detach ALL NPCs attached ở scene CŨ CỦA PLAYER trước khi scene bị remove.
 	# NPCs giờ attach TRỰC TIẾP vào player's scene (không còn preload scene riêng),
 	# nên khi player rời scene → tất cả NPC trong scene đó phải được detach.
@@ -443,44 +542,169 @@ func _on_scene_changing(_old_scene_path: String, _new_scene_path: String) -> voi
 		return
 	for npc_id in _npcs.keys():
 		var entry: Dictionary = _npcs[npc_id]
-		if entry.get("current_scene", "") != _old_scene_path:
-			continue
 		var inst: Variant = entry.get("instance", null)
+		# Parent is authoritative: detach any managed NPC actually inside the
+		# outgoing Player scene, even if registry metadata was updated early.
 		if inst == null or not is_instance_valid(inst):
+			continue
+		if tree.current_scene == null or not tree.current_scene.is_ancestor_of(inst):
+			continue
+		if tree.current_scene.scene_file_path != _old_scene_path:
 			continue
 		if inst.get_parent() != null:
 			if inst.has_method("_on_detached_from_scene"):
 				inst.call("_on_detached_from_scene")
+			# Chuyển NPC vào background của scene hiện tại để giữ nguyên vị trí.
+			# Route của NPC mới quyết định bước qua portal; không được dùng scene
+			# Player kế tiếp vì Player có thể đi trước hoặc đi hướng khác.
+			var scene_manager: Node = get_node_or_null("/root/SceneManager")
+			if scene_manager != null and scene_manager.has_method("handoff_persistent_npc"):
+				if scene_manager.call("handoff_persistent_npc", inst, _old_scene_path, ""):
+					entry["spawned"] = true
+					entry["current_scene"] = _old_scene_path
+					entry["route_progress"] = inst.call("get_route_progress") if inst.has_method("get_route_progress") else entry.get("route_progress", {})
+					continue
 			inst.get_parent().remove_child(inst)
 		entry["spawned"] = false
 		entry["current_scene"] = ""
+		entry["route_progress"] = inst.call("get_route_progress") if inst.has_method("get_route_progress") else entry.get("route_progress", {})
 		print("[NPCManager] Detached NPC '%s' from scene '%s' (about to be freed)." % [npc_id, _old_scene_path])
 
 
 # Callback từ SceneManager.scene_changed — emit SAU khi scene mới đã được
 # add vào tree. Lúc này an toàn để sync + attach NPC vào scene mới.
 func _on_scene_changed(_scene_path: String) -> void:
-	# Đợi 1 frame để scene mới ready (NPC spawn phải tìm tree.current_scene).
-	call_deferred("_reapply_after_scene_change")
-
-
-# Được gọi SAU scene mới ready (call_deferred). Tick schedule lại + sync attach
-# NPC vào scene mới (CHỈ những NPC cần attach — sync tự skip NPC đã attached
-# đúng scene).
-func _reapply_after_scene_change() -> void:
-	var ct := GameState.current_time
-	tick_all_schedules(ct)
+	# Resolve the current schedule before rehoming the persistent instance.
 	sync_all()
+	# Scene mới phải hoàn tất _ready trước khi dọn authored NPC và rehome.
+	call_deferred("_remove_authored_npc_duplicates")
+	call_deferred("_rehome_visible_npcs")
+	# A deferred handoff can complete after the first callback; retry from a
+	# timer-free idle chain so the NPC is visible immediately on scene entry.
+	call_deferred("_rehome_visible_npcs_late")
+
+func _rehome_visible_npcs_late() -> void:
+	call_deferred("_rehome_visible_npcs")
+
+func _remove_authored_npc_duplicates() -> void:
+	var tree: SceneTree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	for npc_id: String in _npcs:
+		var managed: Node2D = _get_valid_instance(npc_id)
+		var group_name: String = "npc_%s" % npc_id
+		for candidate: Node in tree.get_nodes_in_group(group_name):
+			if candidate is Node2D and candidate != managed and tree.current_scene.is_ancestor_of(candidate):
+				candidate.queue_free()
+
+func _rehome_visible_npcs() -> void:
+	var tree: SceneTree = get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	var visible_scene: Node = tree.current_scene
+	var visible_path: String = visible_scene.scene_file_path
+	for npc_id: String in _npcs:
+		var entry: Dictionary = _npcs[npc_id]
+		var raw: Variant = entry.get("instance", null)
+		if raw == null or not is_instance_valid(raw):
+			continue
+		var inst: Node2D = raw as Node2D
+		var actual_scene_path: String = _get_npc_host_scene_path(inst)
+		# Accept the NPC's active route waypoint as authoritative. The waypoint is
+		# updated when Marcus crosses the Farm portal, while parent/metadata can
+		# still describe the previous background during scene transition.
+		var route_scene: String = ""
+		if inst.has_method("get_route_progress"):
+			var progress: Variant = inst.call("get_route_progress")
+			if progress is Dictionary:
+				route_scene = str(progress.get("scene", ""))
+		if actual_scene_path != visible_path and str(entry.get("current_scene", "")) != visible_path and route_scene != visible_path:
+			continue
+		entry["current_scene"] = visible_path
+		inst.set_meta("world_scene_path", visible_path)
+		# Do not apply the schedule before rehome. At 22:00 this used to turn the
+		# portal arrival into the sleep target before the Player could observe it.
+		if entry.get("spawned", false) and inst.get_parent() == visible_scene:
+			if visible_scene is CanvasItem:
+				(visible_scene as CanvasItem).visible = true
+				(visible_scene as CanvasItem).modulate = Color.WHITE
+			continue
+		if inst.get_parent() != null and inst.get_parent().name == "PersistentNPCScenes":
+			var background_map: Node = inst.get_parent()
+			if background_map is CanvasItem:
+				(background_map as CanvasItem).visible = false
+		if inst.get_parent() == visible_scene:
+			inst.visible = true
+			inst.modulate = Color.WHITE
+			if visible_scene is CanvasItem:
+				(visible_scene as CanvasItem).visible = true
+				(visible_scene as CanvasItem).modulate = Color.WHITE
+			inst.visible = true
+			inst.modulate = Color.WHITE
+			inst.collision_layer = 1
+			inst.collision_mask = 1
+			if inst.has_node("InteractionArea"):
+				var current_area: Area2D = inst.get_node("InteractionArea")
+				current_area.monitoring = true
+				current_area.monitorable = true
+			continue
+		var saved_global_position: Vector2 = inst.global_position
+		if inst.get_parent() != null:
+			inst.get_parent().remove_child(inst)
+		visible_scene.add_child(inst)
+		# Preserve the portal arrival position. NPC physics must walk toward the
+		# schedule target; rehome must never teleport it to that target.
+		inst.global_position = saved_global_position
+		inst.visible = true
+		inst.modulate = Color.WHITE
+		inst.collision_layer = 1
+		inst.collision_mask = 1
+		if inst.has_node("InteractionArea"):
+			var interaction_area: Area2D = inst.get_node("InteractionArea")
+			interaction_area.monitoring = true
+			interaction_area.monitorable = true
+		if visible_scene is CanvasItem:
+			(visible_scene as CanvasItem).visible = true
+			(visible_scene as CanvasItem).modulate = Color.WHITE
+		entry["spawned"] = true
+		entry["current_scene"] = visible_path
+		# Never reapply the schedule during rehome. At 20:00 the active step
+		# starts Farm -> House transit; applying it here would snap the NPC to the
+		# sleep target and make the next scene appear at the bed.
+		# A portal handoff has already established the NPC's arrival position.
+		# Never apply a sleep/bed schedule position during scene rehome.
+		if inst.has_method("get_route_progress"):
+			var visible_progress: Variant = inst.call("get_route_progress")
+			if visible_progress is Dictionary and str(visible_progress.get("route_id", "")) != "":
+				continue
+		# Player scene is the only visible world after rehome.
+		if visible_scene is CanvasItem:
+			(visible_scene as CanvasItem).visible = true
 
 
 func _on_hour_elapsed(_hour: int) -> void:
-	# Mỗi giờ → check schedule có NPC nào chuyển scene không.
-	sync_all()
+	# Mỗi giờ refresh schedule; movement/handoff do NPC physics xử lý.
+	tick_all_schedules(GameState.current_time)
+	_reapply_schedules_to_persistent_npcs()
 
 
 func _on_day_changed(_new_day: int) -> void:
-	# Qua ngày mới → có thể NPC chuyển scene. Sync luôn.
-	sync_all()
+	# Rebuild dynamic schedules (Day 1 intro state) before ticking new day.
+	for npc_id: String in _npcs:
+		var raw: Variant = _npcs[npc_id].get("instance", null)
+		if raw != null and is_instance_valid(raw) and raw.has_method("_build_default_schedule"):
+			raw.call("_build_default_schedule")
+		if raw != null and is_instance_valid(raw) and raw.has_method("apply_current_step"):
+			raw.call("apply_current_step")
+	tick_all_schedules(GameState.current_time)
+	_reapply_schedules_to_persistent_npcs()
+
+func _reapply_schedules_to_persistent_npcs() -> void:
+	for npc_id: String in _npcs:
+		var entry: Dictionary = _npcs[npc_id]
+		var raw: Variant = entry.get("instance", null)
+		if raw != null and is_instance_valid(raw) and raw.has_method("apply_current_step"):
+			raw.call("apply_current_step")
 
 
 # Callback từ TimeManager.time_changed — chỉ tick schedule. NPC tự cập nhật
@@ -509,6 +733,14 @@ func tick_all_schedules(current_time: float) -> void:
 			continue
 		if inst.has_method("tick_schedule"):
 			inst.call("tick_schedule", current_time)
+		if inst.has_method("get_route_progress"):
+			entry["route_progress"] = inst.call("get_route_progress")
+			var progress: Variant = entry["route_progress"]
+			if progress is Dictionary:
+				entry["route_index"] = int(progress.get("waypoint_index", -1))
+		entry["last_simulated_day"] = GameState.current_day
+		entry["last_simulated_time"] = current_time
+	_rehome_visible_npcs()
 
 
 # Apply step hiện tại cho tất cả NPC lúc khởi động. Set state + desired_pos
@@ -531,6 +763,37 @@ func _apply_initial_schedule_for_all() -> void:
 func _sync_attach_all() -> void:
 	sync_all()
 
+func export_runtime_state() -> Dictionary:
+	var result: Dictionary = {}
+	for npc_id: String in _npcs:
+		var entry: Dictionary = _npcs[npc_id]
+		var inst: Variant = entry.get("instance", null)
+		if inst != null and is_instance_valid(inst) and inst.has_method("get_runtime_state"):
+			result[npc_id] = inst.call("get_runtime_state")
+		else:
+			result[npc_id] = {"route": entry.get("route_progress", {})}
+		if result[npc_id] is Dictionary:
+			result[npc_id]["last_simulated_day"] = entry.get("last_simulated_day", GameState.current_day)
+			result[npc_id]["last_simulated_time"] = entry.get("last_simulated_time", GameState.current_time)
+	return result
+
+func import_runtime_state(data: Dictionary) -> void:
+	for npc_id: String in data:
+		if not _npcs.has(npc_id):
+			continue
+		var entry: Dictionary = _npcs[npc_id]
+		var raw_state: Variant = data[npc_id]
+		if raw_state is not Dictionary:
+			continue
+		var inst: Variant = entry.get("instance", null)
+		if inst != null and is_instance_valid(inst) and inst.has_method("restore_runtime_state"):
+			inst.call("restore_runtime_state", raw_state)
+		var route_state: Variant = raw_state.get("route", {})
+		entry["route_progress"] = route_state if route_state is Dictionary else {}
+		entry["last_simulated_day"] = int(raw_state.get("last_simulated_day", GameState.current_day))
+		entry["last_simulated_time"] = float(raw_state.get("last_simulated_time", GameState.current_time))
+	sync_all()
+
 
 # =============================================================================
 # HELPERS
@@ -549,6 +812,20 @@ func _get_time_manager() -> Node:
 		return null
 	return tree.root.get_node_or_null("TimeManager")
 
+
+func _get_npc_host_scene_path(npc: Node2D) -> String:
+	if npc == null or not is_instance_valid(npc):
+		return ""
+	if npc.has_meta("world_scene_path"):
+		return str(npc.get_meta("world_scene_path"))
+	var current: Node = npc
+	while current.get_parent() != null:
+		current = current.get_parent()
+		if current.has_meta("world_scene_path"):
+			return str(current.get_meta("world_scene_path"))
+		if current.scene_file_path != "" and not current.name.begins_with("NPCWorld_"):
+			return current.scene_file_path
+	return ""
 
 func _get_current_scene_path() -> String:
 	var tree := get_tree()

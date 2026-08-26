@@ -100,6 +100,7 @@ func trigger_event(event_id: String) -> bool:
 	active_events.append(event_id)
 	# Phát tín hiệu để các hệ thống khác phản ứng
 	event_triggered.emit(event_id)
+	active_events.erase(event_id)
 	
 	print("[EventManager] Event triggered: %s" % event_id)
 	return true
@@ -191,6 +192,8 @@ func reset_area_events(area_id: String) -> void:
 #   position: Vector2 - vị trí xuất hiện
 
 func spawn_anomaly(anomaly_type: String, position: Vector2) -> void:
+	if not can_trigger_anomaly():
+		return
 	# Tăng số lần anomaly
 	anomaly_occurrences += 1
 	

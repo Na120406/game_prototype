@@ -1,4 +1,8 @@
 extends CanvasLayer
+
+func _tr(key: String, fallback: String = "") -> String:
+	var cm := get_node_or_null("/root/ConfigManager")
+	return cm.translate_text(key, fallback) if cm != null and cm.has_method("translate_text") else fallback
 # =============================================================================
 # INVENTORY UI v5
 # =============================================================================
@@ -432,7 +436,7 @@ func _build_context_menu() -> void:
 # mặc định làm nút phình to) để nút đúng bằng box.
 	_context_use_btn = Button.new()
 	_context_use_btn.name = "UseBtn"
-	_context_use_btn.text = "Use"
+	_context_use_btn.text = _tr("ui.inventory.use_button", "Dùng")
 	_context_use_btn.position = Vector2(2, 1)
 	_context_use_btn.size = Vector2(ctx_menu_w - 4, ctx_btn_h)
 	_context_use_btn.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1004,8 +1008,9 @@ func _show_item_info_for(slot_idx: int) -> void:
 	var lines: Array[String] = []
 	lines.append("[color=#FFD866]%s[/color]" % data.get_display_name())
 	lines.append("[color=#AAA]%s[/color]" % data.get_type_name())
-	if data.description != "":
-		lines.append("[color=#CCC]%s[/color]" % data.description)
+	var item_description: String = data.get_description() if data.has_method("get_description") else data.description
+	if item_description != "":
+		lines.append("[color=#CCC]%s[/color]" % item_description)
 	lines.append("")
 	var amount: int = int(entry.get("amount", 1))
 	lines.append("[color=#888]Owned: %d[/color]" % amount)

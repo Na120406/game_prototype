@@ -19,6 +19,10 @@ var _type_label: Label = null
 # Cờ đánh dấu tooltip có đang active không
 var _tooltip_active: bool = false
 
+func _tr(key: String, fallback: String = "") -> String:
+	var cm: Node = get_node_or_null("/root/ConfigManager")
+	return cm.translate_text(key, fallback) if cm != null and cm.has_method("translate_text") else fallback
+
 func _ready() -> void:
 	visible = false
 	_tooltip_active = false
@@ -50,21 +54,14 @@ func show_for_item(item_id: String) -> void:
 		_type_label.add_theme_font_size_override("font_size", 7)
 		$Margin/VBox.add_child(_type_label)
 
-	name_label.text = data.display_name
-	desc_label.text = data.description
+	name_label.text = data.get_display_name()
+	desc_label.text = data.get_description() if data.has_method("get_description") else data.description
 
-	var type_str: String
-	match data.item_type:
-		ItemData.Type.CONSUMABLE: type_str = "Consumable"
-		ItemData.Type.TOOL: type_str = "Tool"
-		ItemData.Type.SEED: type_str = "Seed (%s)" % data.grow_season
-		ItemData.Type.KEY_ITEM: type_str = "Key Item"
-		ItemData.Type.CURRENCY: type_str = "Currency"
-		_: type_str = "Item"
-	_type_label.text = type_str
-
-	var sell_str := "Sell: %d G" % data.sell_price if data.sell_price > 0 else ""
-	var energy_str := "Energy: +%.0f" % data.energy_restore if data.energy_restore > 0 else ""
+	var type_str: String = data.get_type_name()
+	if data.item_type == ItemData.Type.SEED:
+		type_str = _tr("ui.tooltip.type_seed", "Hạt giống (%s)") % data.grow_season
+	var sell_str := _tr("ui.tooltip.sell", "Bán: %d G") % data.sell_price if data.sell_price > 0 else ""
+	var energy_str := _tr("ui.tooltip.energy", "Năng lượng: +%.0f") % data.energy_restore if data.energy_restore > 0 else ""
 	var parts := [type_str, sell_str, energy_str].filter(func(s): return s != "")
 	$Margin/VBox/DetailLabel.text = " | ".join(PackedStringArray(parts))
 

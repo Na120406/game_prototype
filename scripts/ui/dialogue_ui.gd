@@ -163,7 +163,8 @@ func show_text(speaker: String, text: String, choices: Array = [], is_last: bool
 
 	visible = true
 	if _type_timer != null:
-		_type_timer.start(1.0 / text_speed)
+		var safe_text_speed: float = maxf(text_speed, 0.01)
+		_type_timer.start(1.0 / safe_text_speed)
 
 func _on_type_timer_timeout() -> void:
 	if not _is_typing:

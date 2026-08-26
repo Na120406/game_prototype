@@ -20,12 +20,20 @@ func _ready() -> void:
 
 func equip() -> void:
 	is_equipped = true
-	get_node("/root/ToolHandler").equip(tool_id)
+	var handler := get_node_or_null("/root/ToolHandler")
+	if handler != null:
+		handler.equip(tool_id)
+	else:
+		push_warning("[Tool] ToolHandler autoload is unavailable.")
 	print("[Tool] Equipped: %s" % tool_name)
 
 func unequip() -> void:
 	is_equipped = false
-	get_node("/root/ToolHandler").unequip()
+	var handler := get_node_or_null("/root/ToolHandler")
+	if handler != null:
+		handler.unequip()
+	else:
+		push_warning("[Tool] ToolHandler autoload is unavailable.")
 	print("[Tool] Unequipped: %s" % tool_name)
 
 func use(target_pos: Vector2 = Vector2.ZERO) -> bool:
