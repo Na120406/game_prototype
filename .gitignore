@@ -7,8 +7,11 @@
 .cursor/
 .pnpm-store/
 
-# Design documents are kept local and are not part of the game runtime
+# Local project instructions and development launchers
 /design/
+/AGENTS.md
+/RULES.md
+/start-deepseek-harness.bat
 
 # Local tools, exports, and build output
 /tools/
