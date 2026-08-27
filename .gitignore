@@ -2,6 +2,11 @@
 .godot/
 *.import
 
+# AI/editor metadata and package-manager cache
+.claude/
+.cursor/
+.pnpm-store/
+
 # Local tools, exports, and build output
 /tools/
 /build/
@@ -10,6 +15,14 @@
 *.pck
 *.zip
 *.7z
+
+# Ignore loose files at repository root by default.
+# Keep the files required to open, document, and export the Godot project.
+/*.*
+!/.gitignore
+!/README.md
+!/project.godot
+!/export_presets.cfg
 
 # Logs and temporary files
 *.log
