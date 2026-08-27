@@ -13,7 +13,7 @@ extends Node
 signal knock_out_started
 signal knock_out_finished
 
-const FADE_DURATION: float = 1.0
+const FADE_DURATION: float = 1.5
 const GOLD_LOSS_RATIO: float = 0.25
 
 # Ngưỡng năng lượng "vùng đỏ" (khớp với energy_bar.gd → RED_COLOR).
@@ -72,6 +72,7 @@ func trigger_knock_out() -> void:
 		return
 	_knock_out_active = true
 	knock_out_started.emit()
+	GameState.player_movement_locked = true
 	print("[EnergyManager] Knock-out triggered!")
 	# Ngất tại chỗ (giống AFK) — không teleport về giường.
 	_start_fade(false)
@@ -151,6 +152,7 @@ func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 	GameState.move_speed_mult = max(0.1, GameState.move_speed_mult * 0.75)
 	GameState.energy_changed.emit(GameState.energy)
 	_knock_out_active = false
+	GameState.player_movement_locked = false
 	knock_out_finished.emit()
 	print("[EnergyManager] Knock-out -> day %d, energy %.0f, speed mult %.2f (teleport=%s, days=%d)" % [
 		GameState.current_day, GameState.energy, GameState.move_speed_mult,

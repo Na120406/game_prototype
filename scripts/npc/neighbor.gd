@@ -140,6 +140,19 @@ func _get_config_manager() -> Node:
 #   - day == 1 + ĐÃ gặp + cutscene chuyển sang town (flag marcus_at_town_post_intro = true) → _schedule_after_intro_to_town (town → 11:00, farm sau 11:00).
 #   - Còn lại (day >= 2, day 1 sau 11:00, day 1 đã gặp sau 11:00) → _schedule_in_farm (sinh hoạt quanh farm).
 func _build_default_schedule() -> void:
+	var schedule_name: String = "daily_from_house"
+	if GameState.current_day == 1 and not GameState.get_flag("neighbor_met_day1", false):
+		schedule_name = "waiting_at_player_house"
+	elif GameState.current_day == 1 and GameState.get_flag("marcus_at_town_post_intro", false):
+		schedule_name = "after_intro_to_town"
+	elif GameState.current_day >= 2:
+		# Dùng cùng daily route xuyên suốt mọi ngày; không chuyển sang
+		# schedule in_farm rút gọn vì nó thiếu các bước portal Farm/Town.
+		schedule_name = "daily_from_house"
+	var configured_schedule: Array = ConfigManager.get_npc_daily_schedule(npc_id, schedule_name)
+	if not configured_schedule.is_empty():
+		schedule = _convert_configured_schedule(configured_schedule)
+		return
 	# Kiểm tra flag trong GameState (persistent) thay vì biến local
 	# để đảm bảo schedule đúng khi load save
 	if GameState.current_day == 1 and not GameState.get_flag("neighbor_met_day1", false):
@@ -195,6 +208,36 @@ func _schedule_after_intro_to_town() -> void:
 		# 22:00–06:00: ngủ trong Marcus House.
 		{"time": 22.0, "state": NPCState.SLEEPING, "action": "sleep", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position},
 	]
+
+
+func _convert_configured_schedule(configured: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for entry in configured:
+		if entry is Dictionary:
+			var step: Dictionary = {
+				"time": float(entry.get("time", 0.0)),
+				"state": _parse_state(str(entry.get("state", "idle"))),
+				"action": str(entry.get("action", "")),
+				"scene": str(entry.get("scene", SCENE_MARCUS_FARM)),
+				"pos": _parse_position(entry.get("pos", {})),
+				"route_id": str(entry.get("route_id", ""))
+			}
+			result.append(step)
+	return result
+
+func _parse_state(state_name: String) -> int:
+	match state_name.to_lower():
+		"idle": return NPCState.IDLE
+		"walking": return NPCState.WALKING
+		"working": return NPCState.WORKING
+		"sleeping": return NPCState.SLEEPING
+		"waking": return NPCState.WAKING
+		_: return NPCState.IDLE
+
+func _parse_position(pos_data: Variant) -> Vector2:
+	if pos_data is Dictionary:
+		return Vector2(float(pos_data.get("x", 0.0)), float(pos_data.get("y", 0.0)))
+	return Vector2.ZERO
 
 
 func _schedule_in_farm() -> void:

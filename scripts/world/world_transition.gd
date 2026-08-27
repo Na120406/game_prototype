@@ -62,6 +62,13 @@ func _ensure_prompt_label() -> void:
 
 
 func _process(_delta: float) -> void:
+	# Chặn toàn bộ input E (và mọi input khác) khi đang trong cutscene intro.
+	# Cutscene intro Day 1: player không được tự bật dialogue bằng E cho tới khi
+	# cutscene auto-walk hoàn tất. Sau đó cutscene chuyển sang WAITING_DIALOGUE,
+	# cho phép E để next dialogue line.
+	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
+		return  # Không làm gì cả, chặn hoàn toàn input E
+
 	# Portal tự check Input E để đổi scene (giữ behavior gốc — player có thể
 	# vẫn trigger scene change ngay cả khi cutscene/vẫn giữ chân player).
 	# Tuy nhiên, TRƯỚC KHI đổi scene, set GameState.pending_portal_interaction
@@ -93,6 +100,7 @@ func is_player_nearby() -> bool:
 func _on_body_entered(body: Node) -> void:
 	if body.is_in_group("player"):
 		_player_inside = true
+		add_to_group("nearby_portal")
 		_register_with_manager(true)
 		if prompt_label != null:
 			prompt_label.text = prompt
@@ -102,6 +110,7 @@ func _on_body_entered(body: Node) -> void:
 func _on_body_exited(body: Node) -> void:
 	if body.is_in_group("player"):
 		_player_inside = false
+		remove_from_group("nearby_portal")
 		_register_with_manager(false)
 		if prompt_label != null:
 			prompt_label.visible = false

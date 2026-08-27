@@ -15,6 +15,7 @@ const CONFIG_PATH := "res://resources/config/"
 
 var _game_config: Dictionary = {}
 var _npc_config: Dictionary = {}
+var _npc_schedule_config: Dictionary = {}
 var _ui_text_config: Dictionary = {}
 var _quest_text_config: Dictionary = {}
 var _localization: Dictionary = {}
@@ -28,6 +29,7 @@ func _ready() -> void:
 func load_all_configs() -> void:
 	load_game_config()
 	load_npc_config()
+	load_npc_schedule_config()
 	load_ui_text_config()
 	load_quest_text_config()
 	load_localization()
@@ -56,6 +58,15 @@ func load_game_config() -> bool:
 		return true
 	push_error("[ConfigManager] Failed to load game_config.json")
 	return false
+
+func load_npc_schedule_config() -> bool:
+	var result := _load_json(CONFIG_PATH + "npc_schedule_config.json")
+	if result.is_empty():
+		push_warning("[ConfigManager] NPC schedule config not found; using script schedules")
+		return false
+	_npc_schedule_config = result
+	print("[ConfigManager] Loaded npc_schedule_config.json")
+	return true
 
 func load_npc_config() -> bool:
 	var path := CONFIG_PATH + "npc_config.json"
@@ -222,8 +233,18 @@ func get_npc_entry(npc_id: String) -> Dictionary:
 func get_npc_dialogue_path(dialogue_key: String) -> String:
 	return str(get_value("dialogues." + dialogue_key, ""))
 
-func get_npc_schedule(npc_id: String, schedule_name: String) -> Array:
+func get_npc_schedule_legacy(npc_id: String, schedule_name: String) -> Array:
 	return get_value("npc.npcs." + npc_id + ".schedule_" + schedule_name, [])
+
+func get_npc_daily_schedule(npc_id: String, schedule_name: String = "daily_from_house") -> Array:
+	var schedules: Variant = _npc_schedule_config.get("schedules", {})
+	if schedules is Dictionary and schedules.has(npc_id):
+		var npc_schedules: Variant = schedules[npc_id]
+		if npc_schedules is Dictionary and npc_schedules.has(schedule_name):
+			var target_schedule: Variant = npc_schedules[schedule_name]
+			if target_schedule is Array:
+				return target_schedule.duplicate(true)
+	return []
 
 func get_npc_position(npc_id: String, position_key: String) -> Vector2:
 	var pos_dict: Dictionary = get_value("npc.npcs." + npc_id + "." + position_key, {})

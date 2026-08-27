@@ -140,7 +140,7 @@ func _input(event: InputEvent) -> void:
 				if state == CropState.MATURE:
 					_try_harvest(cell)
 				elif state == CropState.EMPTY or state == CropState.PLOWED:
-					_play_feedback(cell, "Empty soil", Color(0.6, 0.5, 0.3))
+					_play_feedback(cell, "Đất trống", Color(0.6, 0.5, 0.3))
 				else:
 					# SEEDED / SPROUTED / GROWING / WILTED → show growth info
 					_show_growth_info(cell)
@@ -153,7 +153,7 @@ func _input(event: InputEvent) -> void:
 			if _is_in_farm_zone(mp):
 				var cell := _world_to_cell(mp)
 				if not _is_cell_in_reach(cell):
-					_play_feedback(cell, "Too far!", Color(0.8, 0.3, 0.3))
+					_play_feedback(cell, "Quá xa!", Color(0.8, 0.3, 0.3))
 					return
 				_update_hotbar_from_hotbar()
 				if _get_item_type() == "consumable":
@@ -268,7 +268,7 @@ func _is_tool_id(expected: String) -> bool:
 
 func _try_farm_action(cell: Vector2i) -> void:
 	if _farm_manager == null:
-		_play_feedback(cell, "No FarmManager!", Color(0.8, 0.3, 0.3))
+		_play_feedback(cell, "Không tìm thấy hệ thống nông trại!", Color(0.8, 0.3, 0.3))
 		return
 
 	var state: CropState = _get_cell_state(cell)
@@ -286,22 +286,22 @@ func _try_farm_action(cell: Vector2i) -> void:
 				if _farm_manager.plow_cell(cell):
 					var data: Dictionary = _farm_manager.get_cell_data(cell)
 					_show_soil_visual(cell, data)
-					_play_feedback(cell, "Plowed!", Color(0.6, 0.4, 0.2))
+					_play_feedback(cell, "Đã cày đất!", Color(0.6, 0.4, 0.2))
 			elif _is_tool_id("water_can"):
-				_play_feedback(cell, "Plow first!", Color(0.8, 0.3, 0.3))
+				_play_feedback(cell, "Hãy cày đất trước!", Color(0.8, 0.3, 0.3))
 			elif item_type == "seed":
-				_play_feedback(cell, "Plow first!", Color(0.8, 0.3, 0.3))
+				_play_feedback(cell, "Hãy cày đất trước!", Color(0.8, 0.3, 0.3))
 
 		CropState.PLOWED:
 			if _is_tool_id("hoe"):
-				_play_feedback(cell, "Already plowed!", Color(0.8, 0.6, 0.3))
+				_play_feedback(cell, "Ô đất đã được cày!", Color(0.8, 0.6, 0.3))
 			elif _is_tool_id("water_can"):
 				if not _consume_action_energy(cell):
 					return
 				if _farm_manager.water_cell(cell):
 					var data: Dictionary = _farm_manager.get_cell_data(cell)
 					_update_soil_visual_texture(_cell_key(cell), data)
-					_play_feedback(cell, "Watered!", Color(0.3, 0.6, 0.9))
+					_play_feedback(cell, "Đã tưới nước!", Color(0.3, 0.6, 0.9))
 			elif item_type == "seed":
 				_try_plant_seed(cell)
 
@@ -310,9 +310,9 @@ func _try_farm_action(cell: Vector2i) -> void:
 				if not _consume_action_energy(cell):
 					return
 				if _farm_manager.water_cell(cell):
-					_play_feedback(cell, "Watered!", Color(0.3, 0.6, 0.9))
+					_play_feedback(cell, "Đã tưới nước!", Color(0.3, 0.6, 0.9))
 			elif item_type == "seed":
-				_play_feedback(cell, "Already planted!", Color(0.8, 0.6, 0.3))
+				_play_feedback(cell, "Cây đã được trồng!", Color(0.8, 0.6, 0.3))
 			else:
 				_show_growth_info(cell)
 
@@ -324,11 +324,11 @@ func _try_farm_action(cell: Vector2i) -> void:
 				if _farm_manager.clear_wilted_cell(cell):
 					var data: Dictionary = _farm_manager.get_cell_data(cell)
 					_show_soil_visual(cell, data)
-					_play_feedback(cell, "Cleared!", Color(0.5, 0.3, 0.2))
+					_play_feedback(cell, "Đã dọn sạch!", Color(0.5, 0.3, 0.2))
 				else:
-					_play_feedback(cell, "Can't clear!", Color(0.8, 0.4, 0.3))
+					_play_feedback(cell, "Không thể dọn!", Color(0.8, 0.4, 0.3))
 			else:
-				_play_feedback(cell, "Withered!", Color(0.5, 0.2, 0.1))
+				_play_feedback(cell, "Cây đã héo!", Color(0.5, 0.2, 0.1))
 
 func _consume_action_energy(_cell: Vector2i) -> bool:
 	var em := get_node_or_null("/root/EnergyManager")
@@ -349,7 +349,7 @@ func _try_plant_seed(cell: Vector2i) -> void:
 		return
 	var data: Dictionary = _farm_manager.get_cell_data(cell)
 	if data.is_empty() or data.get("state", -1) != CropState.PLOWED:
-		_play_feedback(cell, "Plow first!", Color(0.8, 0.3, 0.3))
+		_play_feedback(cell, "Hãy cày đất trước!", Color(0.8, 0.3, 0.3))
 		return
 	if _farm_manager.plant_from_seed(cell, _current_hotbar_item):
 		# Trừ seed từ nguồn đang chọn (toolbar hoặc inventory).
@@ -410,11 +410,11 @@ func _show_growth_info(cell: Vector2i) -> void:
 	var streak: int = data.get("unwatered_streak", 0)
 	var need: int = data.get("water_need", 1)
 	var info_color: Color = Color(0.5, 0.8, 0.4)
-	var w_text := " (watered today)" if watered else " (%d/%d days without water)" % [streak, need]
+	var w_text := " (đã tưới hôm nay)" if watered else " (%d/%d ngày chưa tưới)" % [streak, need]
 	if not watered and streak >= need - 1:
-		w_text = " (%d/%d days without water — will wilt tomorrow!)" % [streak, need]
+		w_text = " (%d/%d ngày chưa tưới — ngày mai sẽ héo!)" % [streak, need]
 		info_color = Color(0.85, 0.35, 0.25)
-	_play_feedback(cell, "Growing: %.0f%%%s" % [progress, w_text], info_color)
+	_play_feedback(cell, "Đang lớn: %.0f%%%s" % [progress, w_text], info_color)
 
 # =============================================================================
 # FEEDBACK ANIMATION

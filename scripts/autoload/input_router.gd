@@ -14,6 +14,12 @@ extends Node
 # =============================================================================
 
 func _input(event: InputEvent) -> void:
+	# Cutscene intro Day 1 khóa toàn bộ input global, bao gồm Tab.
+	# Không chặn dialogue input ở trạng thái WAITING_DIALOGUE.
+	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
+		get_viewport().set_input_as_handled()
+		return
+
 	# DEBUG — chỉ print cho key event
 	if event is InputEventKey:
 		print("[InputRouter] key event pressed=", event.pressed, " echo=", event.echo, " physkey=", event.physical_keycode, " keycode=", event.keycode)

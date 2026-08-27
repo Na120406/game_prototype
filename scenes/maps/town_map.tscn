@@ -102,7 +102,7 @@ color = Color(0.7, 0.6, 0.4, 1)
 [node name="ShopDoor" type="Area2D" parent="."]
 position = Vector2(95, 105)
 script = ExtResource("3_trans")
-portal_id = "portal_shop"
+portal_id = "portal_town_to_shop"
 target_scene = "res://scenes/maps/inside_shop_map.tscn"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ShopDoor"]

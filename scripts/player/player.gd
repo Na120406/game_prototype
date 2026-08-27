@@ -81,6 +81,13 @@ func _get_config_manager() -> Node:
 	return tree.root.get_node_or_null("ConfigManager")
 
 func _physics_process(delta: float) -> void:
+	# Durante o cinematic intro, somente o auto-walk được phép chạy.
+	# Mọi input của player đều bị bỏ qua cho tới khi dialogue bắt đầu.
+	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
+		_handle_cinematic_walk(delta)
+		move_and_slide()
+		return
+
 	if current_state == State.SLEEPING or current_state == State.DEAD:
 		velocity = Vector2.ZERO
 		return
@@ -88,12 +95,6 @@ func _physics_process(delta: float) -> void:
 	# Lock movement khi đang cutscene/dialogue đặc biệt (nhưng cho phép đi tự động trong cinematic intro)
 	if GameState.player_movement_locked and GameState.cinematic_intro_state == GameState.CINEMATIC_NONE:
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
-		move_and_slide()
-		return
-
-	# Xử lý cinematic intro - cho phép di chuyển tự động tới vị trí NPC
-	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
-		_handle_cinematic_walk(delta)
 		move_and_slide()
 		return
 
@@ -292,6 +293,11 @@ func _set_state(new_state: State) -> void:
 	state_changed.emit(State.keys()[new_state], old_state_str)
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Trong cutscene Day 1, player không được input gì ngoài dialogue next (tự động xử lý bởi DialogueManager).
+	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
+		get_viewport().set_input_as_handled()
+		return
+
 	# E chỉ dùng cho dialogue next trong cinematic intro
 	if GameState.cinematic_intro_state == GameState.CINEMATIC_WAITING_DIALOGUE:
 		if event.is_action_pressed("interact"):
@@ -355,8 +361,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			_exit_interaction()
 
 func _interact() -> void:
-	if current_state == State.SLEEPING or current_state == State.DEAD:
+	if current_state == State.SLEEPING or current_state == State.DEAD or GameState.player_movement_locked:
 		return
+	# Portal interaction has priority over NPC dialogue when both overlap.
+	for portal: Node in get_tree().get_nodes_in_group("nearby_portal"):
+		if portal.has_method("is_player_nearby") and portal.is_player_nearby():
+			GameState.pending_portal_interaction = true
+			portal.interact(self)
+			return
 
 	# Reset cờ pending_portal_interaction nếu có (phòng trường hợp portal
 	# set flag ở frame này nhưng Player được gọi _interact() bởi E — tuy giờ

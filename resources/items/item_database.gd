@@ -1,27 +1,62 @@
 extends Node
 
+# Preload các resource để Godot đưa chúng chắc chắn vào Web export. Việc load
+# bằng đường dẫn động/DirAccess có thể không hoạt động như desktop khi chạy
+# trên itch.io.
+const ITEM_RESOURCES: Array[ItemData] = [
+	preload("res://resources/items/definitions/apple.tres"),
+	preload("res://resources/items/definitions/health_potion.tres"),
+	preload("res://resources/items/definitions/lore_fragment.tres"),
+	preload("res://resources/items/definitions/old_key.tres"),
+	preload("res://resources/items/definitions/rope.tres"),
+	preload("res://resources/items/definitions/seed_corn.tres"),
+	preload("res://resources/items/definitions/seed_potato.tres"),
+	preload("res://resources/items/definitions/seed_tomato.tres"),
+	preload("res://resources/items/definitions/seed_turnip.tres"),
+	preload("res://resources/items/definitions/seed_wheat.tres"),
+	preload("res://resources/items/definitions/strange_fruit.tres"),
+	preload("res://resources/items/definitions/water_can.tres"),
+	preload("res://resources/items/definitions/hoe.tres"),
+	preload("res://resources/items/definitions/potato_harvest.tres"),
+	preload("res://resources/items/definitions/tomato_harvest.tres"),
+	preload("res://resources/items/definitions/turnip_harvest.tres"),
+	preload("res://resources/items/definitions/corn_harvest.tres"),
+	preload("res://resources/items/definitions/potato.tres"),
+	preload("res://resources/items/definitions/turnip.tres"),
+	preload("res://resources/items/definitions/wheat.tres"),
+	preload("res://resources/items/definitions/tomato.tres"),
+	preload("res://resources/items/definitions/corn.tres"),
+]
+
 var _db: Dictionary = {}
 
 func _ready() -> void:
 	_load_all_items()
 
 func _load_all_items() -> void:
-	var dir := DirAccess.open("res://resources/items/definitions/")
-	if dir == null:
-		push_error("[ItemDB] Folder not found: res://resources/items/definitions/")
-		return
+	# Preload array chắc chắn được đưa vào Web export. Load trực tiếp từ constant.
+	for item: ItemData in ITEM_RESOURCES:
+		if item != null and item.item_id != "":
+			if _db.has(item.item_id):
+				continue  # tránh duplicate khi scan lại
+			_db[item.item_id] = item
+			print("[ItemDB] Loaded: %s" % item.item_id)
 
-	dir.list_dir_begin()
-	var file_name := dir.get_next()
-	while file_name != "":
-		if file_name.ends_with(".tres"):
-			var path := "res://resources/items/definitions/" + file_name
-			var item: ItemData = load(path)
-			if item != null and item.item_id != "":
-				_db[item.item_id] = item
-				print("[ItemDB] Loaded: %s" % item.item_id)
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	# Scan thêm để tự động nhận item mới khi chạy trong editor/desktop.
+	var dir := DirAccess.open("res://resources/items/definitions/")
+	if dir != null:
+		dir.list_dir_begin()
+		var file_name := dir.get_next()
+		while file_name != "":
+			if file_name.ends_with(".tres"):
+				var path := "res://resources/items/definitions/" + file_name
+				if ResourceLoader.exists(path):
+					var item: ItemData = load(path)
+					if item != null and item.item_id != "" and not _db.has(item.item_id):
+						_db[item.item_id] = item
+						print("[ItemDB] Loaded: %s" % item.item_id)
+			file_name = dir.get_next()
+		dir.list_dir_end()
 	print("[ItemDB] Total items loaded: %d" % _db.size())
 
 func get_item(item_id: String) -> ItemData:

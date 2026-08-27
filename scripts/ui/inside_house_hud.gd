@@ -57,6 +57,9 @@ func _on_sleep_chosen() -> void:
 
 	TimeManager.pause()
 	await get_tree().create_timer(0.8).timeout
+	var npc_manager: Node = get_node_or_null("/root/NPCManager")
+	if npc_manager != null and npc_manager.has_method("reset_npcs_for_sleep"):
+		npc_manager.call("reset_npcs_for_sleep")
 	GameState.advance_day()
 	TimeManager.set_time(6.0)
 	TimeManager.resume()

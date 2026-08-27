@@ -1,0 +1,111 @@
+{
+	"static_quests": [
+		{
+			"id": "escort_voss_mountain",
+			"name": "Chuyến đi lên núi",
+			"description": "Ông Voss đang chuẩn bị lên núi và cần người đi cùng.",
+			"giver": "shopkeeper_father",
+			"type": "escort",
+			"target_npc": "shopkeeper_father",
+			"target_location": "mountain_path",
+			"reward": {"item": "old_key", "amount": 1},
+			"chain_interaction": "shopkeeper_mountain",
+			"repeatable": false
+		},
+		{
+			"id": "deliver_medicine",
+			"name": "Giao thuốc",
+			"description": "Mang thuốc từ bà Martha đến cho ông Voss trước chuyến đi.",
+			"giver": "farmer_mother",
+			"type": "delivery",
+			"target_npc": "shopkeeper_father",
+			"reward": {"gold": 50},
+			"chain_interaction": "shopkeeper_mountain",
+			"repeatable": false
+		},
+		{
+			"id": "investigate_noise",
+			"name": "Âm thanh kỳ lạ",
+			"description": "Điều tra những âm thanh lạ ở rìa khu rừng vào ban đêm.",
+			"giver": "hermit",
+			"type": "investigation",
+			"target_location": "forest_edge",
+			"reward": {"item": "lore_fragment", "amount": 1},
+			"chain_interaction": "harvest_blight",
+			"repeatable": false
+		},
+		{
+			"id": "attend_festival",
+			"name": "Lễ hội trong làng",
+			"description": "Tham dự lễ hội thường niên tại quảng trường làng vào ngày mai.",
+			"giver": "shopkeeper_father",
+			"type": "social",
+			"target_location": "village_square",
+			"chain_interaction": "festival_day",
+			"repeatable": false
+		}
+	],
+	"dynamic_delivery_quests": [
+		{
+			"quest_id": "deliver_wheat_1",
+			"name": "Giao Lúa mì",
+			"description": "Giao 1 Lúa mì cho Marcus.",
+			"required_item": "wheat",
+			"required_amount": 1,
+			"target_npc": "neighbor",
+			"reward_gold": 25,
+			"reward_relationship": 2
+		},
+		{
+			"quest_id": "deliver_corn_2",
+			"name": "Giao Ngô",
+			"description": "Giao 2 Ngô cho Marcus.",
+			"required_item": "corn",
+			"required_amount": 2,
+			"target_npc": "neighbor",
+			"reward_gold": 40,
+			"reward_relationship": 3
+		},
+		{
+			"quest_id": "deliver_tomato_3",
+			"name": "Giao Cà chua",
+			"description": "Giao 3 Cà chua cho Marcus.",
+			"required_item": "tomato",
+			"required_amount": 3,
+			"target_npc": "neighbor",
+			"reward_gold": 50,
+			"reward_relationship": 3
+		},
+		{
+			"quest_id": "deliver_potato_2",
+			"name": "Giao Khoai tây",
+			"description": "Giao 2 Khoai tây cho Marcus.",
+			"required_item": "potato",
+			"required_amount": 2,
+			"target_npc": "neighbor",
+			"reward_gold": 35,
+			"reward_relationship": 2
+		},
+		{
+			"quest_id": "deliver_turnip_1",
+			"name": "Giao Củ cải",
+			"description": "Giao 1 Củ cải cho Marcus.",
+			"required_item": "turnip",
+			"required_amount": 1,
+			"target_npc": "neighbor",
+			"reward_gold": 20,
+			"reward_relationship": 2
+		}
+	],
+	"ui_text": {
+		"quest_board_title": "BẢNG NHIỆM VỤ",
+		"no_quest_available": "Không có nhiệm vụ nào hôm nay.",
+		"accept_button": "Nhận",
+		"accepted_button": "Đã nhận",
+		"deadline": "Hạn chót:",
+		"reward": "Phần thưởng:",
+		"gold": "Vàng:",
+		"relationship": "Quan hệ:",
+		"day": "Ngày"
+	}
+}

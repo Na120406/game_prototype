@@ -143,7 +143,7 @@ horizontal_alignment = 1
 
 [node name="Player" parent="World" instance=ExtResource("1_player")]
 z_index = 10
-position = Vector2(95, 146)
+position = Vector2(380, 160)
 
 [node name="Camera2D" type="Camera2D" parent="World/Player"]
 limit_left = 0
@@ -158,7 +158,7 @@ script = ExtResource("3_uimgr")
 script = ExtResource("11_sceneroot")
 
 [node name="PlayerSpawn" type="Marker2D" parent="."]
-position = Vector2(95, 146)
+position = Vector2(380, 160)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 script = ExtResource("4_hud")

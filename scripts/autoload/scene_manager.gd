@@ -78,6 +78,7 @@ var _player_has_moved: bool = false
 # Đánh dấu lần chuyển scene gần nhất qua portal_id != "".
 # Để _pick_spawn_position skip nhánh "saved position" và dùng portal trước.
 var _is_via_portal: bool = false
+var _initial_game_spawn_done: bool = false
 
 
 # =============================================================================
@@ -389,6 +390,36 @@ func _load_scene(scene_path: String) -> void:
 # Áp dụng priority: saved > portal > bed > PlayerSpawn marker > scene-default.
 
 func _pick_spawn_position(new_scene: Node, scene_path: String) -> Vector2:
+	# Inside House: chỉ F5 trực tiếp mới dùng PlayerSpawn cạnh giường.
+	# Khi vào từ scene khác, portal là nguồn vị trí duy nhất.
+	if scene_path == "res://scenes/maps/inside_house_map.tscn" and _pending_portal_id != "":
+		var entry_portal := _find_portal_in_scene(new_scene, _pending_portal_id)
+		if entry_portal == null:
+			entry_portal = _find_portal_in_scene(new_scene, "portal_house_entry")
+		if entry_portal != null and entry_portal is Node2D:
+			print("[SceneManager] Spawn: inside house entry portal")
+			_pending_portal_id = ""
+			GameState.set_flag("knockout_spawn_at_bed", false)
+			return (entry_portal as Node2D).global_position
+	if scene_path == "res://scenes/maps/inside_house_map.tscn":
+		# F5 trực tiếp vào Inside House không có portal và không có scene cũ.
+		# Luôn coi đây là lần khởi động map, kể cả khi autoload đã chạy trước đó.
+		var direct_f5_start: bool = _pending_portal_id == "" and get_tree().current_scene == new_scene
+		if direct_f5_start or not _initial_game_spawn_done:
+			_initial_game_spawn_done = true
+			var marker := _find_player_spawn_marker(new_scene)
+			if marker != null:
+				print("[SceneManager] Spawn: PlayerSpawn (initial game start)")
+				GameState.set_flag("knockout_spawn_at_bed", false)
+				return marker.global_position
+		# Các lần sau dùng portal thay vì PlayerSpawn hoặc saved position.
+		if _pending_portal_id != "":
+			var portal := _find_portal_in_scene(new_scene, _pending_portal_id)
+			if portal != null:
+				print("[SceneManager] Spawn: portal '%s' in inside_house" % _pending_portal_id)
+				_pending_portal_id = ""
+				GameState.set_flag("knockout_spawn_at_bed", false)
+				return portal.global_position
 	# Marcus House has exactly one valid entry point. It must win over every
 	# stale saved/default position whenever this scene is entered from a portal.
 	if scene_path == "res://scenes/maps/marcus_house_map.tscn" and _pending_portal_id != "":
@@ -404,14 +435,17 @@ func _pick_spawn_position(new_scene: Node, scene_path: String) -> Vector2:
 	# destination portal with a Bed node from the loaded scene.
 	# Ưu tiên 1: Portal target nếu vừa chuyển qua portal
 	if _pending_portal_id != "":
-		var portal := _find_portal_in_scene(new_scene, _pending_portal_id)
+		var requested_portal_id := _pending_portal_id
+		var portal := _find_portal_in_scene(new_scene, requested_portal_id)
+		if portal == null:
+			portal = _find_paired_destination_portal(new_scene, scene_path, requested_portal_id)
 		if portal != null:
-			print("[SceneManager] Spawn: portal '%s'" % _pending_portal_id)
+			print("[SceneManager] Spawn: destination portal '%s'" % requested_portal_id)
 			_pending_portal_id = ""
 			GameState.set_flag("knockout_spawn_at_bed", false)
-			return portal.global_position
+			return _get_safe_portal_spawn_position(new_scene, portal as Node2D)
 		else:
-			push_warning("[SceneManager] Portal '%s' not found in %s" % [_pending_portal_id, scene_path])
+			push_warning("[SceneManager] Portal '%s' not found in %s" % [requested_portal_id, scene_path])
 			_pending_portal_id = ""
 
 	# Ưu tiên 2: Saved position (chỉ khi KHÔNG qua portal → đây là A→B→A flow)
@@ -433,6 +467,30 @@ func _pick_spawn_position(new_scene: Node, scene_path: String) -> Vector2:
 		return (player as Node2D).global_position
 	print("[SceneManager] Spawn: scene-default zero (player missing)")
 	return Vector2.ZERO
+
+
+func _get_safe_portal_spawn_position(scene: Node, portal: Node2D) -> Vector2:
+	if portal == null:
+		return Vector2.ZERO
+	var base: Vector2 = portal.global_position
+	var occupied := false
+	for candidate: Node in scene.get_tree().get_nodes_in_group("npc"):
+		if candidate is Node2D and is_instance_valid(candidate) and (candidate as Node2D).global_position.distance_to(base) < 18.0:
+			occupied = true
+			break
+	if not occupied:
+		return base
+	# Keep the player at the same doorway, using a nearby deterministic offset.
+	for offset: Vector2 in [Vector2(22, 0), Vector2(-22, 0), Vector2(0, 22), Vector2(0, -22)]:
+		var candidate_pos := base + offset
+		var blocked := false
+		for npc: Node in scene.get_tree().get_nodes_in_group("npc"):
+			if npc is Node2D and is_instance_valid(npc) and (npc as Node2D).global_position.distance_to(candidate_pos) < 18.0:
+				blocked = true
+				break
+		if not blocked:
+			return candidate_pos
+	return base + Vector2(22, 0)
 
 
 func _find_player_spawn_marker(scene: Node) -> Node2D:
@@ -552,7 +610,9 @@ func _finish_npc_handoff(npc: Node2D, destination: Node, target_scene_path: Stri
 		return
 	var portal: Node = _find_portal_in_scene(destination, target_portal_id) if target_portal_id != "" else null
 	if portal == null and target_portal_id != "":
-		push_warning("[SceneManager] NPC portal '%s' not found in %s" % [target_portal_id, target_scene_path])
+		print("[SceneManager] NPC portal '%s' NOT FOUND in %s, will use fallback or keep position" % [target_portal_id, target_scene_path])
+	elif portal != null:
+		print("[SceneManager] NPC portal '%s' FOUND in %s at position %s" % [target_portal_id, target_scene_path, (portal as Node2D).global_position if portal is Node2D else "N/A"])
 	# NPC in a background map must not collide or interact with the Player map.
 	npc.collision_layer = 0
 	npc.collision_mask = 0
@@ -562,25 +622,53 @@ func _finish_npc_handoff(npc: Node2D, destination: Node, target_scene_path: Stri
 		interaction_area.monitorable = false
 	# Destination remains hidden until Player enters that map; NPC simulation
 	# continues without affecting Player physics or interaction.
-	if portal != null and portal is Node2D:
-		# Match Player transition semantics: destination coordinates come from the
-		# authored portal node, not from schedule or route fallback coordinates.
+	# Route data is authoritative for NPC arrivals. A map can contain multiple
+	# portals sharing the same player-facing ID, so resolving by ID alone can
+	# place Marcus at the first/left-most portal in Town. Use the exact
+	# destination waypoint recorded by npc.gd first.
+	var route_position: Variant = npc.get_meta("route_arrival_position", null)
+	# Only a real route handoff may consume the route arrival waypoint. When the
+	# Player changes scene, NPCManager calls this method with target_portal_id=""
+	# merely to preserve Marcus in the outgoing background map. Reusing stale
+	# route_arrival_position there would teleport the NPC and corrupt the next
+	# Player portal transition.
+	if target_portal_id != "" and route_position is Vector2:
+		npc.global_position = route_position
+		npc.set_meta("portal_arrival_position", npc.global_position)
+		npc.set_meta("portal_arrival_scene", target_scene_path)
+		npc.remove_meta("route_arrival_position")
+		npc.remove_meta("route_arrival_portal_id")
+	elif target_portal_id != "" and portal != null and portal is Node2D:
+		# The portal ID is authoritative for non-route NPC transitions.
 		npc.global_position = (portal as Node2D).global_position
 		npc.set_meta("portal_arrival_position", npc.global_position)
 		npc.set_meta("portal_arrival_scene", target_scene_path)
-	elif target_scene_path == "res://scenes/maps/town_map.tscn" and target_portal_id == "portal_town":
-		npc.global_position = Vector2(20, 135)
-	elif target_scene_path == "res://scenes/maps/marcus_house_map.tscn" and target_portal_id == "portal_marcus_farm_from_house":
-		npc.global_position = Vector2(420, 146)
-	elif target_scene_path == "res://scenes/maps/marcus_farm_map.tscn" and target_portal_id == "portal_marcus_farm_from_town":
-		npc.global_position = Vector2(20, 135)
+	# Không dùng fallback tọa độ town portal; nếu portal không tồn tại thì giữ
+	# vị trí hiện tại để tránh mọi route bị biến thành Farm→Town arrival.
+	# Không còn scene-specific tọa độ fallback. Mỗi route tự cung cấp waypoint
+	# đích và portal thật; không dùng portal Farm→Town cho mọi route.
 	# Do not snap to the schedule destination here. The NPC must remain at the
 	# arrival portal and walk to the schedule position with velocity.
 	# The NPC is now physically at the destination. Clear transit route and
 	# choose the destination map's schedule immediately.
-	if npc.has_method("on_route_arrived"):
+	# Preservation handoff is not an NPC portal arrival.
+	if target_portal_id == "":
+		npc.remove_meta("route_arrival_position")
+		npc.remove_meta("route_arrival_portal_id")
+		npc.remove_meta("portal_arrival_position")
+		npc.remove_meta("portal_arrival_scene")
+	elif npc.has_method("on_route_arrived"):
 		npc.call("on_route_arrived", target_scene_path)
 	persistent_npc_handed_off.emit(npc, target_scene_path)
+
+	# Notify NPCManager to check if Player is already in this scene; if yes,
+	# rehome the NPC from background to the active Player scene immediately.
+	var npc_manager: Node = get_node_or_null("/root/NPCManager")
+	if npc_manager != null and npc_manager.has_method("_try_rehome_single_npc"):
+		# Rehome after the handoff frame and once more after scene callbacks finish;
+		# the active Player scene can still be changing during this callback.
+		npc_manager.call_deferred("_try_rehome_single_npc", npc, target_scene_path)
+		npc_manager.call_deferred("_try_rehome_single_npc", npc, target_scene_path)
 
 func get_loaded_scene(scene_path: String) -> Node:
 	if scene_path == "":
@@ -652,6 +740,16 @@ func _free_current_scene_except_persistent() -> void:
 # HÀM TÌM PORTAL (_find_portal_in_scene)
 # =============================================================================
 # Tìm portal theo ID trong scene đã load
+
+func _find_paired_destination_portal(scene: Node, scene_path: String, source_portal_id: String) -> Node:
+	var paired_id := ""
+	if scene_path == "res://scenes/maps/inside_shop_map.tscn" and source_portal_id == "portal_town_to_shop":
+		paired_id = "portal_shop_to_town"
+	elif scene_path == "res://scenes/maps/town_map.tscn" and source_portal_id == "portal_shop_to_town":
+		paired_id = "portal_town_to_shop"
+	if paired_id == "":
+		return null
+	return _find_portal_in_scene(scene, paired_id)
 
 func _find_portal_in_scene(scene: Node, portal_id: String) -> Node:
 	# Duyệt tất cả Area2D trong scene

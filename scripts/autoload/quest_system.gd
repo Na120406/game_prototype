@@ -93,11 +93,19 @@ const RELATIONSHIP_REWARD_BY_AMOUNT: Dictionary = {
 
 # Tên hiển thị của cây trồng (theo item_id trong resources)
 const CROP_DISPLAY_NAMES: Dictionary = {
-	"wheat": "Wheat",
-	"corn": "Corn",
-	"tomato": "Tomato",
-	"potato": "Potato",
-	"turnip": "Turnip",
+	"wheat": "Lúa mì",
+	"corn": "Ngô",
+	"tomato": "Cà chua",
+	"potato": "Khoai tây",
+	"turnip": "Củ cải",
+}
+
+const NPC_DISPLAY_NAMES: Dictionary = {
+	"neighbor": "Marcus",
+	"shopkeeper": "Voss",
+	"shopkeeper_father": "ông Voss",
+	"farmer_mother": "bà Martha",
+	"hermit": "ông Hanz",
 }
 
 # Mapping từ harvest item_id → crop_type (để so sánh quest)
@@ -137,6 +145,7 @@ func crop_to_harvest(item_id: String) -> String:
 
 # Định nghĩa tất cả quest có trong game
 var quest_definitions: Dictionary = {}
+const QUEST_JSON_PATH := "res://resources/quest/quest_data.json"
 
 
 # =============================================================================
@@ -144,8 +153,24 @@ var quest_definitions: Dictionary = {}
 # =============================================================================
 
 func _ready() -> void:
-	_build_quest_library()  # Xây dựng thư viện quest
+	_build_quest_library()  # Fallback/static quest library
+	_load_quest_json()       # Override/add translated quest data from JSON
 	print("[QuestSystem] Ready — %d quests available." % quest_definitions.size())
+
+
+func _load_quest_json() -> void:
+	if not FileAccess.file_exists(QUEST_JSON_PATH):
+		push_warning("[QuestSystem] Quest JSON not found: %s" % QUEST_JSON_PATH)
+		return
+	var file := FileAccess.open(QUEST_JSON_PATH, FileAccess.READ)
+	var parsed = JSON.parse_string(file.get_as_text())
+	if not parsed is Dictionary:
+		push_error("[QuestSystem] Invalid quest JSON")
+		return
+	for entry in parsed.get("static_quests", []):
+		if entry is Dictionary and entry.has("id"):
+			quest_definitions[str(entry.id)] = entry.duplicate(true)
+	print("[QuestSystem] Loaded Vietnamese quest data from JSON")
 
 
 # =============================================================================
@@ -167,8 +192,8 @@ func _build_quest_library() -> void:
 		# =================================================================
 		"escort_voss_mountain": {
 			"id": "escort_voss_mountain",
-			"name": "Mountain Walk",
-			"description": "Old Voss is heading up the mountain. He seems uneasy about going alone.",
+			"name": "Chuyến đi lên núi",
+			"description": "Ông Voss đang chuẩn bị lên núi và có vẻ không yên tâm khi đi một mình.",
 			"giver": "shopkeeper_father",
 			"type": "escort",                      # Loại: hộ tống
 			"target_npc": "shopkeeper_father",     # NPC cần hộ tống
@@ -184,8 +209,8 @@ func _build_quest_library() -> void:
 		# =================================================================
 		"deliver_medicine": {
 			"id": "deliver_medicine",
-			"name": "Medicine Delivery",
-			"description": "Martha Miller needs medicine delivered to Old Voss before his mountain trip.",
+			"name": "Giao thuốc",
+			"description": "Bà Martha cần người mang thuốc cho ông Voss trước chuyến đi lên núi.",
 			"giver": "farmer_mother",
 			"type": "delivery",
 			"target_npc": "shopkeeper_father",
@@ -198,8 +223,8 @@ func _build_quest_library() -> void:
 		# =================================================================
 		"investigate_noise": {
 			"id": "investigate_noise",
-			"name": "Strange Sounds",
-			"description": "Villagers have been hearing strange sounds at night near the forest edge.",
+			"name": "Âm thanh kỳ lạ",
+			"description": "Dân làng nói rằng họ nghe thấy những âm thanh lạ vào ban đêm ở rìa khu rừng.",
 			"giver": "hermit",
 			"type": "investigation",
 			"target_location": "forest_edge",
@@ -212,8 +237,8 @@ func _build_quest_library() -> void:
 		# =================================================================
 		"attend_festival": {
 			"id": "attend_festival",
-			"name": "Village Festival",
-			"description": "The annual village festival is tomorrow. Everyone is invited.",
+			"name": "Lễ hội trong làng",
+			"description": "Lễ hội thường niên của làng sẽ diễn ra vào ngày mai. Mọi người đều được mời.",
 			"giver": "shopkeeper_father",
 			"type": "social",
 			"target_location": "village_square",
@@ -235,6 +260,12 @@ func _build_quest_library() -> void:
 # Trả về: true nếu nhận thành công
 
 func accept_quest(quest_id: String, quest_data: Dictionary = {}) -> bool:
+	# Quest không repeatable chỉ được nhận một lần trong toàn bộ session.
+	# Guard này cũng bảo vệ khi UI bị click nhiều lần hoặc nhận bằng API khác.
+	if is_quest_completed(quest_id) or is_quest_failed(quest_id):
+		print("[QuestSystem] Quest %s has already been resolved." % quest_id)
+		return false
+
 	# Kiểm tra đã nhận quest này chưa
 	for q: Dictionary in active_quests:
 		var existing_id: String = q.get("id", "")
@@ -627,7 +658,7 @@ func get_quest_deadline(quest_id: String) -> Dictionary:
 # =============================================================================
 # HÀM TẠO QUEST NGẪU NHIÊN (generate_random_delivery_quest)
 # =============================================================================
-# Tạo quest giao hàng ngẫu nhiên với cây trồng random (1-5 items)
+# Tạo nhiệm vụ giao hàng ngẫu nhiên với cây trồng (1-5 vật phẩm)
 # Trả về Dictionary quest mới, KHÔNG lưu vào definitions (chỉ dùng 1 lần rồi bỏ)
 
 func generate_random_delivery_quest(npc_id: String) -> Dictionary:
@@ -635,8 +666,9 @@ func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 	var required_amount: int = (randi() % 5) + 1  # 1-5
 
 	var crop_name: String = CROP_DISPLAY_NAMES.get(crop_type, crop_type.capitalize())
-	var quest_name: String = "Deliver %d %s" % [required_amount, crop_name]
-	var quest_desc: String = "Deliver %d %s to %s." % [required_amount, crop_name, npc_id.capitalize()]
+	var npc_name_display: String = NPC_DISPLAY_NAMES.get(npc_id, npc_id.capitalize())
+	var quest_name: String = "Giao %d %s" % [required_amount, crop_name]
+	var quest_desc: String = "Giao %d %s cho %s." % [required_amount, crop_name, npc_name_display]
 
 	var quest: Dictionary = {
 		"id": "dynamic_delivery_%s_%d" % [npc_id, Time.get_unix_time_from_system()],
@@ -652,7 +684,7 @@ func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 			"gold": GOLD_REWARD_BY_AMOUNT.get(required_amount, 25),
 			"relationship": RELATIONSHIP_REWARD_BY_AMOUNT.get(required_amount, 2),
 		},
-		"repeatable": true,
+		"repeatable": false,
 		"is_dynamic": true,  # Đánh dấu là quest động
 		"crop_name": crop_name,  # Lưu tên cây cho dialogue
 		"amount": required_amount,
@@ -663,7 +695,7 @@ func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 # =============================================================================
 # HÀM LẤY QUEST NGẪU NHIÊN CHO NPC (get_random_quest_for_npc)
 # =============================================================================
-# Trả về 1 quest ngẫu nhiên (delivery) cho NPC. Dùng cho bảng tin.
+# Trả về 1 nhiệm vụ giao hàng ngẫu nhiên cho NPC. Dùng cho bảng tin.
 
 func get_random_quest_for_npc(npc_id: String) -> Dictionary:
 	return generate_random_delivery_quest(npc_id)
@@ -722,7 +754,7 @@ func _regenerate_daily_quests() -> void:
 			if not q.get("is_dynamic", false):
 				result.append(q)
 
-		# 2. Thêm 1-2 quest ngẫu nhiên (delivery) mỗi ngày
+		# 2. Thêm 1-2 nhiệm vụ giao hàng ngẫu nhiên mỗi ngày
 		var random_quest_count: int = 1 + (randi() % 2)  # 1-2
 		for _i: int in range(random_quest_count):
 			result.append(generate_random_delivery_quest(npc_id))

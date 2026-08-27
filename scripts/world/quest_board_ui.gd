@@ -512,12 +512,15 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 	var gold: int = int(reward_dict.get("gold", quest_data.get("reward_gold", 0)))
 	var relationship: int = int(reward_dict.get("relationship", 0))
 	var reward_text := ""
+	# Tránh emoji: font fallback trên Web export/itch.io không đảm bảo có glyph,
+	# khiến emoji hiển thị thành ô vuông hoặc chuỗi ký tự lỗi.
+	# Dùng nhãn Unicode phổ biến, được font mặc định hỗ trợ ổn định hơn.
 	if gold > 0:
-		reward_text = "💰 %d" % gold
+		reward_text = "Vàng: %d" % gold
 	if relationship > 0:
 		if reward_text != "":
-			reward_text += " "
-		reward_text += "❤️ %d" % relationship
+			reward_text += "  |  "
+		reward_text += "Quan hệ: %d" % relationship
 
 	var reward := Label.new()
 	reward.text = reward_text if reward_text != "" else ""
@@ -528,10 +531,16 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 
 	var quest_id := str(quest_data.get("id", ""))
 	var accept := Button.new()
-	accept.text = _tr("ui.quest.accept_button", "Nhận")
+	var is_accepted: bool = QuestSystem.is_quest_active(quest_id) or QuestSystem.is_quest_completed(quest_id) or QuestSystem.is_quest_failed(quest_id)
+	if is_accepted:
+		accept.text = _tr("ui.quest.accepted_button", "Đã nhận")
+		accept.disabled = true
+		accept.modulate = Color(0.6, 0.6, 0.6, 1.0)
+	else:
+		accept.text = _tr("ui.quest.accept_button", "Nhận")
+		accept.pressed.connect(_on_accept_pressed.bind(quest_id, quest_data))
 	accept.add_theme_font_size_override("font_size", 7)
 	accept.custom_minimum_size = Vector2(40, 14)
-	accept.pressed.connect(_on_accept_pressed.bind(quest_id, quest_data))
 	hbox.add_child(accept)
 
 	# Hover effect

@@ -95,9 +95,9 @@ position = Vector2(79, 47)
 
 [node name="Body" type="ColorRect" parent="World/Bed"]
 offset_left = -16.0
-offset_top = -12.0
+offset_top = -14.0
 offset_right = 24.0
-offset_bottom = 38.0
+offset_bottom = 36.0
 color = Color(0.45, 0.3, 0.2, 1)
 
 [node name="Pillow" type="ColorRect" parent="World/Bed"]

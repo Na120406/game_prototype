@@ -311,9 +311,13 @@ func _sync_one(npc_id: String) -> void:
 	if inst == null:
 		print("[NPCManager] _sync_one '%s': instance is null" % npc_id)
 		return
-	var schedule: Array = []
+	var schedule: Array[Dictionary] = []
 	if inst.has_method("get_schedule"):
-		schedule = inst.call("get_schedule")
+		var raw_schedule: Variant = inst.call("get_schedule")
+		if raw_schedule is Array:
+			for raw_step in raw_schedule:
+				if raw_step is Dictionary:
+					schedule.append(raw_step)
 	if schedule.is_empty() and npc_id == "shopkeeper":
 		var shopkeeper_scene: String = "res://scenes/maps/inside_shop_map.tscn"
 		schedule = [{"time": 0.0, "scene": shopkeeper_scene, "pos": Vector2(360, 68), "state": 2}]
@@ -321,32 +325,71 @@ func _sync_one(npc_id: String) -> void:
 	var target_scene: String = ""
 	var step_pos: Vector2 = entry.get("start_pos", Vector2.ZERO)
 	var step_route_id: String = ""
+	var selected_step: Dictionary = {}
 	if schedule.is_empty():
 		target_scene = entry.get("default_scene", "")
 		print("[NPCManager] _sync_one '%s': schedule empty, using default_scene=%s" % [npc_id, target_scene])
 	else:
-		var step: Dictionary = _pick_step(schedule, GameState.current_time)
-		target_scene = step.get("scene", "")
+		selected_step = _pick_step(schedule, GameState.current_time)
+		target_scene = selected_step.get("scene", "")
 		if target_scene == "":
 			target_scene = entry.get("default_scene", "")
-		var raw_step_pos: Variant = step.get("pos", entry.get("start_pos", Vector2.ZERO))
+		var raw_step_pos: Variant = selected_step.get("pos", entry.get("start_pos", Vector2.ZERO))
 		step_pos = raw_step_pos as Vector2 if raw_step_pos is Vector2 else entry.get("start_pos", Vector2.ZERO)
-		step_route_id = str(step.get("route_id", ""))
+		step_route_id = str(selected_step.get("route_id", ""))
 		entry["route_id"] = step_route_id
-		print("[NPCManager] _sync_one '%s': target_scene=%s, step=%s, pos=%s" % [npc_id, target_scene, step.get("action", "?"), str(step_pos)])
+		print("[NPCManager] _sync_one '%s': target_scene=%s, step=%s, pos=%s" % [npc_id, target_scene, selected_step.get("action", "?"), str(step_pos)])
+
+	# Khi bootstrap ở giữa một route (ví dụ load/save lúc 07:00), schedule
+	# có thể đang ở step đích với route_id rỗng. Không được attach NPC thẳng
+	# vào scene đích vì như vậy sẽ bỏ qua đoạn đi từ House -> Farm -> Town.
+	# Tìm route step gần nhất trước step hiện tại có destination đúng với
+	# target_scene, rồi khởi động từ waypoint nguồn của route đó.
+	if inst.get_parent() == null and step_route_id == "":
+		var route_bootstrap: Dictionary = _find_route_bootstrap(schedule, selected_step, target_scene)
+		if not route_bootstrap.is_empty():
+			step_route_id = str(route_bootstrap.get("route_id", ""))
+			var bootstrap_step: Dictionary = route_bootstrap.get("step", {})
+			target_scene = str(bootstrap_step.get("scene", target_scene))
+			var bootstrap_pos: Variant = bootstrap_step.get("pos", step_pos)
+			if bootstrap_pos is Vector2:
+				step_pos = bootstrap_pos
+			print("[NPCManager] Bootstrap '%s' through route '%s' from %s" % [npc_id, step_route_id, target_scene])
 	# Nếu NPC đã attach đúng scene rồi → không re-attach và không teleport.
 	# NPC instance sẽ nhận target mới qua tick_schedule() và tự đi bằng AI.
-	if entry.get("spawned", false) and entry.get("current_scene", "") == target_scene:
+	var actual_host_scene: String = _get_npc_host_scene_path(inst)
+	if entry.get("spawned", false) and actual_host_scene == target_scene:
 		if inst.get_parent() != null and inst.has_method("tick_schedule"):
 			inst.call("tick_schedule", GameState.current_time)
 		if inst.has_method("get_route_progress"):
 			entry["route_progress"] = inst.call("get_route_progress")
 		return
-	# Instance persistent vẫn được xử lý tiếp để schedule có thể handoff tới map mới.
-	# Không thoát sớm khi current_scene khác target_scene.
-	# Attach/handoff tới target_scene.
-	if target_scene != "":
+	# Nếu NPC đã có parent (đang mô phỏng), manager không được teleport nó theo
+	# scene của schedule. Chỉ npc.gd được quyền handoff sau khi chạm portal.
+	# Manager chỉ attach instance detached lúc bootstrap.
+	if target_scene != "" and inst.get_parent() == null:
 		_attach_npc(npc_id, target_scene, step_pos, step_route_id)
+
+
+func _find_route_bootstrap(schedule: Array[Dictionary], selected: Dictionary, selected_scene: String) -> Dictionary:
+	var selected_index: int = schedule.find(selected)
+	if selected_index <= 0:
+		return {}
+	for index: int in range(selected_index - 1, -1, -1):
+		var candidate: Dictionary = schedule[index]
+		var route_id: String = str(candidate.get("route_id", ""))
+		if route_id == "":
+			continue
+		var route_manager: Node = get_node_or_null("/root/NPCRouteManager")
+		if route_manager == null or not route_manager.has_method("get_route"):
+			continue
+		var route: Array = route_manager.call("get_route", route_id)
+		if route.size() < 2:
+			continue
+		var destination: Dictionary = route[route.size() - 1]
+		if str(destination.get("scene", "")) == selected_scene:
+			return {"route_id": route_id, "step": candidate}
+	return {}
 
 
 # =============================================================================
@@ -423,6 +466,11 @@ func _attach_npc(npc_id: String, scene_path: String, spawn_pos: Vector2, route_i
 	# Manager tuyệt đối không handoff ngay theo schedule, nếu không sẽ teleport
 	# NPC khỏi scene hiện tại và làm mất phần hành trình mà Player có thể theo dõi.
 	if current_scene_path != scene_path:
+		# A route-in-transit NPC must never be attached to the Player scene just
+		# because the Player entered the route's destination map. It becomes
+		# visible only after the NPC handoff has actually reached that map.
+		if inst.get_parent() != null and route_id != "":
+			return
 		# Only bootstrapping may choose an initial position. During normal play the
 		# persistent instance is already hosted by a background world and must not
 		# be recreated/snap-moved when the Player enters another map.
@@ -441,7 +489,10 @@ func _attach_npc(npc_id: String, scene_path: String, spawn_pos: Vector2, route_i
 			var scene_manager: Node = get_node_or_null("/root/SceneManager")
 			if scene_manager != null and scene_manager.has_method("handoff_persistent_npc"):
 				inst.global_position = initial_position
-				if scene_manager.call("handoff_persistent_npc", inst, initial_scene, ""):
+				var initial_portal_id: String = ""
+				if route_id != "" and inst.has_method("get_destination_portal_id"):
+					initial_portal_id = inst.call("get_destination_portal_id")
+				if scene_manager.call("handoff_persistent_npc", inst, initial_scene, initial_portal_id):
 					entry["current_scene"] = initial_scene
 					entry["spawned"] = true
 					return
@@ -527,6 +578,9 @@ func _on_persistent_npc_handed_off(npc: Node2D, scene_path: String) -> void:
 			break
 
 func _on_scene_changing(_old_scene_path: String, _new_scene_path: String) -> void:
+	# Player transition and NPC transition are independent. This callback only
+	# preserves NPCs already visible in the outgoing scene; it must never send
+	# them to _new_scene_path or invoke a second portal transition.
 	# NPC ở PersistentNPCScenes không thuộc player scene và không được detach.
 	# Chỉ detach NPC thực sự đang là child của scene sắp bị giải phóng.
 	# Detach ALL NPCs attached ở scene CŨ CỦA PLAYER trước khi scene bị remove.
@@ -554,9 +608,9 @@ func _on_scene_changing(_old_scene_path: String, _new_scene_path: String) -> voi
 		if inst.get_parent() != null:
 			if inst.has_method("_on_detached_from_scene"):
 				inst.call("_on_detached_from_scene")
-			# Chuyển NPC vào background của scene hiện tại để giữ nguyên vị trí.
-			# Route của NPC mới quyết định bước qua portal; không được dùng scene
-			# Player kế tiếp vì Player có thể đi trước hoặc đi hướng khác.
+			# Player chuyển scene không được chuyển NPC sang _new_scene_path.
+			# NPC này chưa chạm portal của nó, nên chỉ đưa nó vào background của
+			# chính scene cũ để tiếp tục mô phỏng độc lập.
 			var scene_manager: Node = get_node_or_null("/root/SceneManager")
 			if scene_manager != null and scene_manager.has_method("handoff_persistent_npc"):
 				if scene_manager.call("handoff_persistent_npc", inst, _old_scene_path, ""):
@@ -574,8 +628,9 @@ func _on_scene_changing(_old_scene_path: String, _new_scene_path: String) -> voi
 # Callback từ SceneManager.scene_changed — emit SAU khi scene mới đã được
 # add vào tree. Lúc này an toàn để sync + attach NPC vào scene mới.
 func _on_scene_changed(_scene_path: String) -> void:
-	# Resolve the current schedule before rehoming the persistent instance.
-	sync_all()
+	# Do not resync schedules here: scene changes must only reveal the one
+	# persistent instance whose authoritative host is this scene. Resyncing can
+	# attach the same NPC to every Player scene during the transition.
 	# Scene mới phải hoàn tất _ready trước khi dọn authored NPC và rehome.
 	call_deferred("_remove_authored_npc_duplicates")
 	call_deferred("_rehome_visible_npcs")
@@ -597,6 +652,15 @@ func _remove_authored_npc_duplicates() -> void:
 			if candidate is Node2D and candidate != managed and tree.current_scene.is_ancestor_of(candidate):
 				candidate.queue_free()
 
+func _try_rehome_single_npc(npc: Node2D, target_scene_path: String) -> void:
+	var tree: SceneTree = get_tree()
+	if tree == null or tree.current_scene == null or npc == null or not is_instance_valid(npc):
+		return
+	if tree.current_scene.scene_file_path != target_scene_path:
+		return
+	# The NPC arrived while Player was already in this map; rehome immediately.
+	_rehome_visible_npcs()
+
 func _rehome_visible_npcs() -> void:
 	var tree: SceneTree = get_tree()
 	if tree == null or tree.current_scene == null:
@@ -610,48 +674,49 @@ func _rehome_visible_npcs() -> void:
 			continue
 		var inst: Node2D = raw as Node2D
 		var actual_scene_path: String = _get_npc_host_scene_path(inst)
-		# Accept the NPC's active route waypoint as authoritative. The waypoint is
-		# updated when Marcus crosses the Farm portal, while parent/metadata can
-		# still describe the previous background during scene transition.
-		var route_scene: String = ""
-		if inst.has_method("get_route_progress"):
-			var progress: Variant = inst.call("get_route_progress")
-			if progress is Dictionary:
-				route_scene = str(progress.get("scene", ""))
-		if actual_scene_path != visible_path and str(entry.get("current_scene", "")) != visible_path and route_scene != visible_path:
+		if inst.get_parent() == visible_scene:
+			# Already visible in the active Player scene; never use stale metadata.
+			actual_scene_path = visible_path
+		# Parent identity is authoritative. Route progress is deliberately not used
+		# for visibility: while a route is crossing a portal it may already point to
+		# the destination before the NPC has actually been reparented.
+		if actual_scene_path != visible_path:
 			continue
-		entry["current_scene"] = visible_path
-		inst.set_meta("world_scene_path", visible_path)
 		# Do not apply the schedule before rehome. At 22:00 this used to turn the
 		# portal arrival into the sleep target before the Player could observe it.
 		if entry.get("spawned", false) and inst.get_parent() == visible_scene:
-			if visible_scene is CanvasItem:
-				(visible_scene as CanvasItem).visible = true
-				(visible_scene as CanvasItem).modulate = Color.WHITE
-			continue
-		if inst.get_parent() != null and inst.get_parent().name == "PersistentNPCScenes":
-			var background_map: Node = inst.get_parent()
-			if background_map is CanvasItem:
-				(background_map as CanvasItem).visible = false
-		if inst.get_parent() == visible_scene:
-			inst.visible = true
-			inst.modulate = Color.WHITE
-			if visible_scene is CanvasItem:
-				(visible_scene as CanvasItem).visible = true
-				(visible_scene as CanvasItem).modulate = Color.WHITE
 			inst.visible = true
 			inst.modulate = Color.WHITE
 			inst.collision_layer = 1
 			inst.collision_mask = 1
 			if inst.has_node("InteractionArea"):
-				var current_area: Area2D = inst.get_node("InteractionArea")
-				current_area.monitoring = true
-				current_area.monitorable = true
+				var area: Area2D = inst.get_node("InteractionArea")
+				area.monitoring = true
+				area.monitorable = true
+			if visible_scene is CanvasItem:
+				(visible_scene as CanvasItem).visible = true
+				(visible_scene as CanvasItem).modulate = Color.WHITE
 			continue
+		# Only reparent from background persistent scenes, never from active Player scene.
+		var parent: Node = inst.get_parent()
+		if parent == null:
+			continue
+		var is_background: bool = (parent.name.begins_with("NPCWorld_") or parent.name == "PersistentNPCScenes")
+		if not is_background:
+			# NPC is already in an active scene; do not steal it from there.
+			continue
+		if parent.name == "PersistentNPCScenes":
+			var background_map: Node = parent
+			if background_map is CanvasItem:
+				(background_map as CanvasItem).visible = false
 		var saved_global_position: Vector2 = inst.global_position
-		if inst.get_parent() != null:
-			inst.get_parent().remove_child(inst)
+		var old_parent: Node = inst.get_parent()
+		if old_parent != null:
+			old_parent.remove_child(inst)
+		# The NPC must become a direct child of the active Player scene. Do not
+		# leave it under a hidden NPCWorld root after a schedule handoff.
 		visible_scene.add_child(inst)
+		inst.set_meta("world_scene_path", visible_path)
 		# Preserve the portal arrival position. NPC physics must walk toward the
 		# schedule target; rehome must never teleport it to that target.
 		inst.global_position = saved_global_position
@@ -687,6 +752,29 @@ func _on_hour_elapsed(_hour: int) -> void:
 	tick_all_schedules(GameState.current_time)
 	_reapply_schedules_to_persistent_npcs()
 
+
+func reset_npcs_for_sleep() -> void:
+	# Ngủ là checkpoint cưỡng chế: mọi NPC phải kết thúc ngày tại nhà/giường.
+	for npc_id: String in _npcs:
+		var raw: Variant = _npcs[npc_id].get("instance", null)
+		if raw == null or not is_instance_valid(raw) or npc_id != "neighbor":
+			continue
+		var npc: Node2D = raw as Node2D
+		var house_scene := "res://scenes/maps/marcus_house_map.tscn"
+		var manager: Node = get_node_or_null("/root/SceneManager")
+		if manager != null and manager.has_method("handoff_persistent_npc"):
+			if npc.get_parent() != null:
+				npc.get_parent().remove_child(npc)
+			manager.call("handoff_persistent_npc", npc, house_scene, "")
+		if npc.get_parent() != null:
+			npc.global_position = Vector2(20, 29)
+		if npc.has_method("clear_route"):
+			npc.call("clear_route")
+		if npc.has_method("stop_walking"):
+			npc.call("stop_walking")
+		npc.set_meta("world_scene_path", house_scene)
+		_npcs[npc_id]["current_scene"] = house_scene
+		_npcs[npc_id]["spawned"] = true
 
 func _on_day_changed(_new_day: int) -> void:
 	# Rebuild dynamic schedules (Day 1 intro state) before ticking new day.
@@ -740,7 +828,8 @@ func tick_all_schedules(current_time: float) -> void:
 				entry["route_index"] = int(progress.get("waypoint_index", -1))
 		entry["last_simulated_day"] = GameState.current_day
 		entry["last_simulated_time"] = current_time
-	_rehome_visible_npcs()
+	# Time simulation must never reparent NPCs based on Player's current scene.
+	# Rehome is performed only by the explicit scene_changed lifecycle callback.
 
 
 # Apply step hiện tại cho tất cả NPC lúc khởi động. Set state + desired_pos

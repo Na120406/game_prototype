@@ -167,15 +167,9 @@ func _advance_route_if_reached() -> bool:
 		return false
 	var waypoint: Dictionary = active_route[active_route_index]
 	var waypoint_scene: String = str(waypoint.get("scene", ""))
-	# A waypoint on another map means the NPC has already been handed off.
-	# Advance to the next waypoint instead of freezing on an obsolete source.
+	# Không tự nhảy waypoint khi scene chưa đổi: chỉ SceneManager handoff sau
+	# khi chạm portal mới được phép chuyển sang waypoint scene kế tiếp.
 	if waypoint_scene != "" and _get_host_scene_path() != waypoint_scene:
-		if active_route_index + 1 < active_route.size():
-			active_route_index += 1
-			route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
-			var next_position: Variant = active_route[active_route_index].get("position", global_position)
-			_target_pos = next_position if next_position is Vector2 else global_position
-			return true
 		velocity = Vector2.ZERO
 		return true
 	var raw_waypoint_pos: Variant = waypoint.get("position", global_position)
@@ -187,7 +181,12 @@ func _advance_route_if_reached() -> bool:
 	var next_index: int = active_route_index + 1
 	if next_index < active_route.size() and str(active_route[next_index].get("scene", "")) != waypoint_scene and portal_id != "":
 		var next_scene: String = str(active_route[next_index].get("scene", ""))
-		var target_portal_id: String = str(active_route[next_index].get("portal_id", portal_id))
+		var target_waypoint: Dictionary = active_route[next_index]
+		var target_portal_id: String = str(target_waypoint.get("portal_id", portal_id))
+		var target_position: Variant = target_waypoint.get("position", global_position)
+		set_meta("route_arrival_position", target_position)
+		set_meta("route_arrival_portal_id", target_portal_id)
+		print("[NPC %s] Requesting handoff to %s with portal_id='%s' at waypoint pos %s" % [npc_id, next_scene, target_portal_id, target_position])
 		var scene_manager := get_node_or_null("/root/SceneManager")
 		if scene_manager != null and scene_manager.has_method("handoff_persistent_npc"):
 			if scene_manager.call("handoff_persistent_npc", self, next_scene, target_portal_id):
@@ -284,6 +283,11 @@ func _get_host_scene_path() -> String:
 
 func get_route_progress() -> Dictionary:
 	return {"route_id": active_route_id, "waypoint_index": active_route_index, "scene": _get_host_scene_path(), "position": {"x": global_position.x, "y": global_position.y}}
+
+func get_destination_portal_id() -> String:
+	if active_route_index >= 0 and active_route_index + 1 < active_route.size():
+		return str(active_route[active_route_index + 1].get("portal_id", ""))
+	return ""
 
 func get_runtime_state() -> Dictionary:
 	return {
@@ -465,6 +469,10 @@ func tick_schedule(current_time: float) -> void:
 	if _arrived_schedule_scene != "" and selected_scene != _arrived_schedule_scene:
 		_arrived_schedule_scene = ""
 		_arrived_schedule_time = -1.0
+	# A schedule step is authoritative only after the previous route has arrived.
+	# Do not replace an active route with a later scene step while still walking.
+	if active_route_id != "" and not active_route.is_empty() and selected_route_id == "":
+		return
 	if not day_changed and is_equal_approx(selected_time, _last_schedule_time) and selected_scene == _schedule_target_scene and selected_route_id == active_route_id:
 		return
 	_last_schedule_day = current_day
@@ -483,7 +491,12 @@ func tick_schedule(current_time: float) -> void:
 		_completed_route_id = ""
 		var route_manager := get_node_or_null("/root/NPCRouteManager")
 		if route_manager != null and route_manager.has_method("get_route"):
-			var route_waypoints: Array[Dictionary] = route_manager.call("get_route", route_id)
+			var raw_route: Variant = route_manager.call("get_route", route_id)
+			var route_waypoints: Array[Dictionary] = []
+			if raw_route is Array:
+				for raw_waypoint in raw_route:
+					if raw_waypoint is Dictionary:
+						route_waypoints.append(raw_waypoint)
 			var saved_route_id: String = str(route_progress.get("route_id", ""))
 			var saved_index: int = int(route_progress.get("waypoint_index", -1))
 			# A new schedule route must start from its own waypoint matching the
