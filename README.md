@@ -1,292 +1,116 @@
-# GameDemo — Godot 4 Farm/Life-Sim Prototype
+# GameDemo
 
-A 2D top-down farm/life-sim prototype built with **Godot 4.5** and **GDScript**.
-Includes social simulation (NPCs with families, schedules, and succession) and an
-optional layer of subtle narrative mystery that runs beneath the surface.
+**GameDemo** là một prototype game 2D góc nhìn từ trên xuống, kết hợp vòng lặp
+canh tác, khám phá và mô phỏng đời sống trong một thị trấn nhỏ. Dự án được xây dựng
+bằng **Godot 4.5** và **GDScript**.
 
-The farming loop is the core. Mystery is the depth, not the goal — players can
-ignore it entirely and still have a complete experience.
+Người chơi bắt đầu trong căn nhà, chăm sóc nông trại, quản lý năng lượng, tương tác
+với NPC, hoàn thành nhiệm vụ và khám phá các sự kiện thay đổi theo thời gian, thời tiết
+và lựa chọn của người chơi.
 
-> **Status:** Phase 1 — Foundation cleanup (see [TODO.md](./TODO.md))
-> **GDD:** [design/gdd/game-demo-gdd-v3.md](./design/gdd/game-demo-gdd-v3.md)
-> **Engine:** Godot 4.5 (Forward Plus)
-> **Language:** GDScript
-> **Main scene:** `res://scenes/maps/inside_house_map.tscn`
+> **Trạng thái:** Prototype đang phát triển  
+> **Engine:** Godot 4.5 (Forward Plus)  
+> **Ngôn ngữ:** GDScript  
+> **Scene khởi động:** `res://scenes/maps/inside_house_map.tscn`
 
----
+## Chạy dự án
 
-## Quick Start
+### Yêu cầu
 
-1. Clone this repo.
-2. Open the project in Godot 4.5 Editor (`project.godot`).
-3. Press **F5** to run.
+- Godot **4.5** hoặc mới hơn trong nhánh Godot 4
+- Git (khuyến nghị khi làm việc theo nhóm)
 
-All 30 autoloads, input actions, and main scene are pre-configured in
-`project.godot`. No manual setup required.
+### Khởi động
 
----
+1. Clone hoặc tải repository về máy.
+2. Mở Godot Project Manager.
+3. Chọn **Import** và mở file `project.godot`.
+4. Mở project bằng Godot 4.5.
+5. Nhấn **F6** để chạy scene hiện tại hoặc **F5** để chạy game từ scene chính.
 
-## Project Structure
+Không cần cài thêm dependency bên ngoài. Các thiết lập input, autoload và scene chính
+đã được cấu hình trong `project.godot`.
 
-```
+## Điều khiển
+
+| Hành động | Phím mặc định |
+|---|---|
+| Di chuyển lên / xuống / trái / phải | `W` / `S` / `A` / `D` |
+| Tương tác | `E` |
+| Mở / đóng túi đồ | `Tab` |
+| Chọn ô công cụ trên thanh nhanh | `1`–`5` |
+| Tương tác bằng chuột | Chuột trái / phải tùy đối tượng |
+
+Các phím có thể được điều chỉnh trong Input Map của Godot hoặc trong mục `[input]`
+của `project.godot`.
+
+## Cấu trúc dự án
+
+```text
 game-demo/
-├── .cursor/                    # Cursor AI configuration
-│   ├── agents/                 # Specialized agent definitions
-│   ├── rules/                  # Coding standards (path-scoped)
-│   └── skills/                 # Skill definitions
-│
-├── design/
-│   └── gdd/
-│       ├── game-demo-gdd-v3.md # Current GDD (authoritative)
-│       └── archive/            # Superseded GDDs
-│           └── farm-horror-gdd-2026-08-22.md
-│
-├── docs/
-│   ├── templates/              # Document templates (gdd, character-sheet)
-│   └── characters/             # NPC character sheets
-│
-├── scenes/                     # Godot scenes (.tscn)
-│   ├── maps/                   # town, farm, houses
-│   ├── npc/                    # NPC scenes (Marcus, Shopkeeper...)
-│   ├── ui/                     # HUD, dialogue, shop, inventory
-│   ├── world/                  # Farm plots, beds, world objects
-│   └── Player.tscn
-│
+├── scenes/                 # Scene Godot: bản đồ, NPC, UI, vật thể
 ├── scripts/
-│   ├── autoload/               # 30 global singletons (see below)
-│   ├── player/                 # Player controller + FSM
-│   ├── npc/                    # NPC base + individual NPCs
-│   ├── world/                  # Farm, transition, atmosphere
-│   ├── ui/                     # UI scripts
-│   ├── resources/              # ItemData, database loaders
-│   ├── tools/                  # Build/dev tools
-│   └── utils/                  # Save/load, helpers
-│
+│   ├── autoload/           # Hệ thống toàn cục trong project.godot
+│   ├── player/             # Điều khiển người chơi
+│   ├── npc/                # NPC, lịch trình và tương tác
+│   ├── world/              # Nông trại, chuyển scene và môi trường
+│   ├── ui/                 # HUD, inventory, dialogue và input UI
+│   ├── tools/              # Công cụ phát triển
+│   └── utils/              # Lưu game và tiện ích
 ├── resources/
-│   ├── items/                  # ItemData class + database
-│   │   └── definitions/        # 22 item .tres files
-│   ├── dialogue/               # NPC dialogue JSON
-│   └── tilesets/               # Tileset resources
-│
-├── project.godot               # Godot project config
-├── TODO.md                     # Task tracker
-└── README.md                   # This file
+│   ├── config/             # Cấu hình gameplay và dữ liệu NPC
+│   ├── dialogue/           # Dữ liệu hội thoại
+│   ├── items/              # Item database và ItemData
+│   ├── quest/              # Dữ liệu nhiệm vụ
+│   └── tilesets/           # Tài nguyên tileset
+├── tilesets/               # Texture tileset và asset môi trường
+├── design/                 # GDD và tài liệu thiết kế
+├── docs/                   # Template và tài liệu NPC
+├── project.godot           # Cấu hình project Godot
+└── README.md               # Tài liệu này
 ```
 
----
+## Các hệ thống chính
 
-## Autoloads (30 Singletons)
+- **Farming:** ô đất, gieo trồng, tưới nước, sinh trưởng và thu hoạch.
+- **World simulation:** ngày/giờ, thời tiết, mùa và cập nhật thế giới.
+- **NPC & family:** nhân vật, lịch sinh hoạt, gia đình và tiến trình.
+- **Items & tools:** database vật phẩm, inventory và công cụ.
+- **Quests & events:** nhiệm vụ, chuỗi sự kiện phân nhánh và hệ quả.
+- **Dialogue & audio:** hội thoại theo trạng thái và quản lý âm thanh.
+- **Save/load:** lưu tiến trình bằng `SaveManager`.
 
-All autoloads are pre-registered in `project.godot`. Listed by responsibility group.
+Các hệ thống dùng autoload singleton và signal của Godot. Danh sách cấu hình đầy đủ
+nằm trong phần `[autoload]` của `project.godot`.
 
-### Core State
+## Tài liệu dự án
 
-| Name | Script | Purpose |
-|------|--------|---------|
-| `GameState` | `scripts/autoload/game_state.gd` | Player state, world flags, day/time |
-| `TimeManager` | `scripts/autoload/time_manager.gd` | Day/night cycle, time progression |
-| `EnergyManager` | `scripts/autoload/energy_manager.gd` | Energy consumption, low/knockout states |
-| `SaveManager` | `scripts/utils/save_manager.gd` | JSON save/load |
+- `design/gdd/` — Game Design Document và định hướng thiết kế
+- `docs/characters/` — Thiết kế nhân vật/NPC
+- `docs/templates/` — Template viết tài liệu
+- `TODO.md` — Danh sách công việc còn lại (nếu có)
 
-### Scene & Camera
+## Quy tắc Git
 
-| Name | Script | Purpose |
-|------|--------|---------|
-| `SceneManager` | `scripts/autoload/scene_manager.gd` | Scene transitions with fade |
-| `CameraManager` | `scripts/autoload/camera_manager.gd` | Camera shake, zoom, limits |
-| `InputRouter` | `scripts/autoload/input_router.gd` | Input dispatch to focused UI |
-| `UIFocusManager` | `scripts/autoload/ui_focus_manager.gd` | UI focus stack |
-| `FloatingWarning` | `scripts/autoload/floating_warning.gd` | Center-screen warnings (e.g. "It's late") |
+Không commit các file cache, file import và công cụ local. `.gitignore` đã loại trừ
+`.godot/`, `*.import`, `tools/`, file build/export, log và cấu hình IDE cá nhân.
 
-### Items & Tools
+Không xóa asset được scene hoặc script tham chiếu. Asset mới cần đặt đúng thư mục và
+kiểm tra project chạy được bằng F5 trước khi commit.
 
-| Name | Script | Purpose |
-|------|--------|---------|
-| `ItemDB` | `resources/items/item_database.gd` | Load + query item resources |
-| `ItemManager` | `scripts/autoload/item_manager.gd` | Item add/remove/transfer |
-| `ItemHandler` | `scripts/autoload/item_handler.gd` | Item use routing |
-| `ToolHandler` | `scripts/autoload/tool_handler.gd` | Tool action routing |
-| `ToolHandler` | | |
+## Quy trình phát triển
 
-### NPCs & World
+1. Tạo branch cho thay đổi mới.
+2. Chỉnh sửa scene, script hoặc resource liên quan.
+3. Chạy F5 trong Godot để kiểm tra.
+4. Kiểm tra Output/Debugger.
+5. Chỉ commit file nguồn và asset cần thiết cho game.
 
-| Name | Script | Purpose |
-|------|--------|---------|
-| `FamilyRegistry` | `scripts/autoload/family_registry.gd` | 3 families, succession, status |
-| `NPCSchedules` | `scripts/autoload/npc_schedules.gd` | NPC daily schedules |
-| `NPCManager` | `scripts/autoload/npc_manager.gd` | NPC lifecycle, registration |
-| `RiskCalculator` | `scripts/autoload/risk_calculator.gd` | Risk modifiers for activities |
-| `WeatherSystem` | `scripts/autoload/weather_system.gd` | Weather + season state |
-| `WorldSimulator` | `scripts/autoload/world_simulator.gd` | Top-level world tick |
-| `CatchUpSystem` | `scripts/autoload/catch_up_system.gd` | Catch-up logic when player away |
-| `FarmTickManager` | `scripts/autoload/farm_tick_manager.gd` | Authoritative farm state |
-| `FarmEnums` | `scripts/autoload/farm_enums.gd` | Crop state/type enums + profiles |
+## Định hướng thiết kế
 
-### Quests & Events
+- **Playable > Beautiful** — ưu tiên trải nghiệm chơi được.
+- **Finished > Perfect** — hoàn thiện vòng lặp cốt lõi trước.
+- **Simple > Scalable** — giữ hệ thống rõ ràng, dễ bảo trì.
 
-| Name | Script | Purpose |
-|------|--------|---------|
-| `QuestSystem` | `scripts/autoload/quest_system.gd` | Quest lifecycle + dynamic generation |
-| `EventManager` | `scripts/autoload/event_manager.gd` | Per-frame event dispatch |
-| `EventChainEngine` | `scripts/autoload/event_chain_engine.gd` | Multi-step branched events |
-| `ConsequenceResolver` | `scripts/autoload/consequence_resolver.gd` | Schedule flags/scenes/succession |
-
-### Audio & Dialogue
-
-| Name | Script | Purpose |
-|------|--------|---------|
-| `DialogueManager` | `scripts/autoload/dialogue_manager.gd` | Dialogue state + JSON loading |
-| `AudioManager` | `scripts/autoload/audio_manager.gd` | SFX/music/ambient *(currently broken — see TODO.md)* |
-
-### UI Autoloads
-
-| Name | Script | Purpose |
-|------|--------|---------|
-| `InteractionPromptManager` | `scripts/autoload/interaction_prompt_manager.gd` | "Press E to..." prompts |
-| `EnergyBar` | `scripts/ui/energy_bar.gd` | Persistent energy bar UI |
-| `HotkeyInputManager` | `scripts/ui/hotkey_input_manager.gd` | Hotkey handling |
-
----
-
-## Input Actions
-
-Pre-configured in `project.godot`:
-
-| Action | Default Key | Notes |
-|--------|-------------|-------|
-| `move_up` | W | |
-| `move_down` | S | |
-| `move_left` | A | |
-| `move_right` | D | |
-| `interact` | E | Space also works in some contexts |
-| `sprint` | X | Hold to sprint |
-| `toggle_inventory` | Tab | Open/close inventory |
-| `toolbar_slot_1`..`5` | 1..5 | Hotbar slots |
-
----
-
-## Folder Highlights
-
-### `scripts/autoload/` — 30 singletons
-
-The autoloads are the backbone. Most are independent subsystems that communicate
-via signals or through `GameState`. The most complex interdependencies:
-
-- **`RiskCalculator`** feeds into **`EventChainEngine`** (risk determines outcome).
-- **`EventChainEngine`** triggers **`ConsequenceResolver`** (chains emit consequences).
-- **`ConsequenceResolver`** mutates **`GameState`** flags, **`FamilyRegistry`**, and
-  scene overrides.
-- **`FarmTickManager`** runs day-boundary logic independently of player location.
-
-### `scripts/npc/` — NPC base + individuals
-
-- `npc.gd` — Base class with FSM state, interaction logic. Pathfinding is stubbed.
-- `neighbor.gd` — **Marcus**, the Day-1 mentor NPC with unique intro flow.
-- `shopkeeper.gd` — Shopkeeper NPC (Voss family).
-
-### `resources/items/definitions/` — 22 item resources
-
-Each `.tres` is an `ItemData` resource. Loaded dynamically by `ItemDB` at startup.
-Categories: seeds, farm produce, tools, consumables, key items.
-
----
-
-## Key Concepts
-
-### Game State Pattern
-
-All persistent data (day, time, energy, inventory, world flags, NPC relationships)
-lives in `GameState`. Scripts access it via `GameState.variable_name`. Data
-persists across scene transitions.
-
-### Autoload as Singleton
-
-Autoloads are singleton patterns — one instance always present. Every script can
-access them without needing references.
-
-### Signal-Driven Communication
-
-Nodes communicate via Godot signals (`.emit()` / `.connect()`). Example:
-
-```gdscript
-TimeManager.time_changed.connect(_on_time_changed)
-```
-
-### Scene Composition
-
-Each game object is a **Scene** (`.tscn`) containing a **Node Tree**. Scenes can
-be instantiated and nested:
-
-```gdscript
-var npc_scene := load("res://scenes/npc/neighbor.tscn")
-var npc := npc_scene.instantiate()
-world.add_child(npc)
-```
-
-### Consequence Resolver
-
-The `ConsequenceResolver` is the bridge between abstract event outcomes and
-concrete world changes. It can:
-
-- Schedule flag changes (e.g. "shop open in 5 days").
-- Schedule scene method calls.
-- Schedule family succession.
-- Replace dialogue based on condition flags.
-- Log every consequence for debugging/replay.
-
----
-
-## Coding Standards
-
-See `.cursor/rules/` for path-scoped standards:
-
-- `godot/gameplay-code.md` — Gameplay logic rules
-- `godot/ui-code.md` — UI code rules
-- `godot/engine-code.md` — Engine/core rules
-- `narrative.md` — Story/lore rules
-
----
-
-## Document Templates
-
-See `docs/templates/` for:
-
-- `gdd-template.md` — Game Design Document template
-- `character-sheet-template.md` — NPC design template
-
-## Character Sheets
-
-See `docs/characters/` for current NPC designs:
-
-- `marcus.md` — The neighbor NPC
-- `shopkeeper-family.md` — The Voss family
-- `hermit.md` — Old Hanz
-
----
-
-## Asset Pipeline (Aseprite)
-
-1. Draw pixel art in Aseprite (16x16 or 32x32 base).
-2. Keep `.aseprite` source files in `assets/sprites/source/`.
-3. Export as `.png` with proper naming.
-4. Import into Godot.
-5. For tilesets: export as single image, set grid size in Godot TileSet editor.
-
----
-
-## Philosophy
-
-- **Playable > Beautiful**
-- **Finished > Perfect**
-- **Simple > Scalable**
-
-The world continues to exist without the player. Mystery is discovered, not
-delivered.
-
----
-
-## See Also
-
-- [design/gdd/game-demo-gdd-v3.md](./design/gdd/game-demo-gdd-v3.md) — Authoritative GDD
-- [design/gdd/archive/farm-horror-gdd-2026-08-22.md](./design/gdd/archive/farm-horror-gdd-2026-08-22.md) — Superseded GDD (pillars source)
-- [TODO.md](./TODO.md) — Task tracker
+Nông trại và thế giới tiếp tục vận hành theo thời gian. Các lớp bí ẩn và sự kiện là
+chiều sâu bổ sung, không cản trở vòng lặp canh tác cơ bản.
