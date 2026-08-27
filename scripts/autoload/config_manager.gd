@@ -18,6 +18,7 @@ var _npc_config: Dictionary = {}
 var _npc_schedule_config: Dictionary = {}
 var _ui_text_config: Dictionary = {}
 var _quest_text_config: Dictionary = {}
+var _money_config: Dictionary = {}
 var _localization: Dictionary = {}
 var _loaded: bool = false
 const LOCALIZATION_PATH := "res://resources/localization/vi.json"
@@ -32,6 +33,7 @@ func load_all_configs() -> void:
 	load_npc_schedule_config()
 	load_ui_text_config()
 	load_quest_text_config()
+	load_money_config()
 	load_localization()
 	_loaded = true
 
@@ -88,6 +90,15 @@ func load_ui_text_config() -> bool:
 	push_error("[ConfigManager] Failed to load ui_text_config.json")
 	return false
 
+func load_money_config() -> bool:
+	var result := _load_json(CONFIG_PATH + "money_config.json")
+	if result.size() > 0:
+		_money_config = result
+		print("[ConfigManager] Loaded money_config.json")
+		return true
+	push_error("[ConfigManager] Failed to load money_config.json")
+	return false
+
 func load_quest_text_config() -> bool:
 	var path := CONFIG_PATH + "quest_text_config.json"
 	var result := _load_json(path)
@@ -140,6 +151,10 @@ func get_value(path: String, default: Variant = null) -> Variant:
 		current = _game_config
 	elif keys[0] == "npc":
 		current = _npc_config
+	elif keys[0] == "money":
+		current = _money_config.get("money", {})
+	elif keys[0] == "money_config":
+		current = _money_config
 	else:
 		push_warning("[ConfigManager] Unknown root in path: %s" % path)
 		return default

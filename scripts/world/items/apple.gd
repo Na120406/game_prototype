@@ -12,6 +12,10 @@ var _player_nearby: bool = false
 var _collected: bool = false
 
 func _ready() -> void:
+	# Táo là vật phẩm theo ngày: nếu đã nhặt trong ngày hiện tại thì không tồn tại.
+	if GameState.get_flag("apple_collected_day", -1) == GameState.current_day:
+		queue_free()
+		return
 	_ensure_prompt_label()
 	prompt.visible = false
 	_player = get_tree().get_first_node_in_group("player")
@@ -80,8 +84,9 @@ func _collect() -> void:
 	_collected = true
 	_set_prompt_visible(false)
 	_register_with_manager(false)
-	ItemManager.on_item_pickup("apple")
-	queue_free()
+	if ItemManager.on_item_pickup("apple"):
+		GameState.set_flag("apple_collected_day", GameState.current_day)
+		queue_free()
 
 
 func _register_with_manager(nearby: bool) -> void:

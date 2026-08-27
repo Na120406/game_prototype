@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "health_potion"
-display_name = "Health Potion"
-description = "A restorative potion. Restores 30 energy when consumed."
+display_name = "Thuốc hồi phục"
+description = "Một lọ thuốc giúp hồi phục 30 năng lượng khi sử dụng."
 icon = "H"
 item_color = Color(0.8, 0.2, 0.6, 1)
 stack_size = 99

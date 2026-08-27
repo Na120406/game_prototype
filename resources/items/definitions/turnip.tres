@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "turnip"
-display_name = "Turnip"
-description = "A freshly harvested turnip. Crisp and earthy."
+display_name = "Củ cải"
+description = "Một củ cải tươi vừa thu hoạch."
 icon = "T"
 item_color = Color(0.8, 0.7, 0.8, 1)
 stack_size = 99

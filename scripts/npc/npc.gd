@@ -136,10 +136,15 @@ func _build_default_schedule() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_inside_tree():
 		return
-	if is_interacting or not schedule_enabled or current_state in [NPCState.IDLE, NPCState.RESTING, NPCState.SLEEPING, NPCState.SPECIAL] and global_position.distance_to(_target_pos) <= waypoint_reach_distance:
+	if is_interacting or not schedule_enabled:
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
 		move_and_slide()
 		return
+	# Trạng thái IDLE chỉ có hiệu lực sau khi đã tới đúng vị trí lịch trình.
+	# Khi còn cách target, luôn cho phép route/schedule tiếp tục di chuyển.
+	if global_position.distance_to(_target_pos) > waypoint_reach_distance:
+		if current_state != NPCState.WALKING:
+			_change_state(NPCState.WALKING)
 	_move_along_schedule(delta)
 
 func _move_along_schedule(delta: float) -> void:
@@ -242,11 +247,16 @@ func on_route_arrived(arrived_scene_path: String) -> void:
 	# Crossing a portal completes the transit route. Never leave its source
 	# waypoint active: doing so makes the NPC repeatedly steer back toward the
 	# previous portal (the observed endless leftward movement in Town).
-	_arrived_schedule_scene = arrived_scene_path
-	_arrived_schedule_time = GameState.current_time
+	_arrived_schedule_scene = ""
+	_arrived_schedule_time = -1.0
 	_arrived_route_id = active_route_id
 	_completed_route_id = active_route_id
 	clear_route()
+	# Resolve ngay step hiện hành theo giờ thực tế; không giữ trạng thái idle cũ.
+	if schedule_enabled and not schedule.is_empty():
+		tick_schedule(GameState.current_time)
+		if _get_host_scene_path() == arrived_scene_path:
+			return
 	for index: int in range(schedule.size()):
 		var step: Dictionary = schedule[index]
 		if str(step.get("scene", "")) != arrived_scene_path:
@@ -519,6 +529,11 @@ func tick_schedule(current_time: float) -> void:
 func _on_attached_to_scene() -> void:
 	velocity = Vector2.ZERO
 	_avoid_timer = 0.0
+	# Ép đồng bộ lịch khi vừa được rehome; tránh guard của tick_schedule giữ
+	# trạng thái idle cũ sau khi đổi scene.
+	_arrived_schedule_scene = ""
+	_arrived_schedule_time = -1.0
+	_last_schedule_time = -1.0
 	apply_current_step()
 
 # Stub: hook khi NPC bị detach khỏi scene (gọi từ NPCManager._detach_npc ở

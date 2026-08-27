@@ -661,6 +661,12 @@ func get_quest_deadline(quest_id: String) -> Dictionary:
 # Tạo nhiệm vụ giao hàng ngẫu nhiên với cây trồng (1-5 vật phẩm)
 # Trả về Dictionary quest mới, KHÔNG lưu vào definitions (chỉ dùng 1 lần rồi bỏ)
 
+func _get_gold_reward(amount: int) -> int:
+	var cm: Node = get_node_or_null("/root/ConfigManager")
+	if cm != null:
+		return int(cm.get_value("money_config.quest_rewards.gold_by_amount.%d" % amount, GOLD_REWARD_BY_AMOUNT.get(amount, 25)))
+	return int(GOLD_REWARD_BY_AMOUNT.get(amount, 25))
+
 func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 	var crop_type: String = FARM_CROPS[randi() % FARM_CROPS.size()]
 	var required_amount: int = (randi() % 5) + 1  # 1-5
@@ -681,7 +687,7 @@ func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 		"days_to_complete_min": 2,
 		"days_to_complete_max": 3,
 		"reward": {
-			"gold": GOLD_REWARD_BY_AMOUNT.get(required_amount, 25),
+			"gold": _get_gold_reward(required_amount),
 			"relationship": RELATIONSHIP_REWARD_BY_AMOUNT.get(required_amount, 2),
 		},
 		"repeatable": false,
@@ -785,21 +791,19 @@ func has_quests_today(npc_id: String) -> bool:
 # Trả về quest delivery đang active cho NPC nếu có
 
 func get_active_delivery_quest_for_npc(npc_id: String) -> Dictionary:
-	print("[QuestSystem] get_active_delivery_quest_for_npc(%s) called" % npc_id)
-	print("[QuestSystem] active_quests count: %d" % active_quests.size())
-
+	# Chọn quest theo item đang cầm, không chọn cứng quest đầu tiên.
+	var selected: Dictionary = GameState.get_selected_hotbar_item()
+	var selected_id: String = str(selected.get("id", ""))
+	var selected_amount: int = int(selected.get("amount", 0))
 	for quest: Dictionary in active_quests:
-		var giver: String = quest.get("giver", "")
-		var qtype: String = quest.get("type", "")
-		var qid: String = quest.get("id", "")
-		print("[QuestSystem] Checking quest: giver='%s' == npc_id='%s' ? %s" % [giver, npc_id, giver == npc_id])
-		print("[QuestSystem] Checking quest: type='%s' == 'delivery' ? %s" % [qtype, qtype == "delivery"])
-
-		if giver == npc_id and qtype == "delivery":
-			print("[QuestSystem] FOUND delivery quest for %s: %s" % [npc_id, qid])
+		if quest.get("type", "") != "delivery":
+			continue
+		var target: String = str(quest.get("target_npc", quest.get("giver", "")))
+		var required_item: String = str(quest.get("required_item", ""))
+		var required_amount: int = int(quest.get("required_amount", 0))
+		var deadline: int = int(quest.get("deadline_day", 0))
+		if target == npc_id and selected_id == required_item and selected_amount >= required_amount and (deadline <= 0 or GameState.current_day <= deadline):
 			return quest
-
-	print("[QuestSystem] No delivery quest found for %s" % npc_id)
 	return {}
 
 
@@ -830,23 +834,27 @@ func complete_delivery_quest(quest_id: String) -> bool:
 		return false
 
 	var quest: Dictionary = active_quests[quest_idx]
+	var deadline: int = int(quest.get("deadline_day", 0))
+	if deadline > 0 and GameState.current_day > deadline:
+		print("[QuestSystem] complete_delivery_quest: quest %s expired" % quest_id)
+		return false
 
 	# Kiểm tra đủ item chưa
 	var required_item: String = quest.get("required_item", "")  # crop type vd "tomato"
 	var required_amount: int = int(quest.get("required_amount", 0))
-	# Convert sang harvest id (vd "tomato_harvest") để so sánh/match với hotbar
-	var harvest_id: String = crop_to_harvest(required_item)
+	# Dùng trực tiếp required_item vì đây là item_id chuẩn trong inventory/hotbar
+	# (ví dụ: "tomato", không phải "tomato_harvest").
 	var slot: Dictionary = GameState.get_selected_hotbar_item()
-	var slot_id: String = slot.get("id", "")
+	var slot_id: String = str(slot.get("id", ""))
 	var slot_amount: int = int(slot.get("amount", 0))
-	print("[QuestSystem] complete_delivery_quest(%s): need %d x %s (harvest: %s)" % [quest_id, required_amount, required_item, harvest_id])
+	print("[QuestSystem] complete_delivery_quest(%s): need %d x %s" % [quest_id, required_amount, required_item])
 	print("[QuestSystem] Selected slot: id='%s' amount=%d" % [slot_id, slot_amount])
-	if slot_id != harvest_id or slot_amount < required_amount:
+	if slot_id != required_item or slot_amount < required_amount:
 		print("[QuestSystem] NOT ENOUGH or WRONG item in selected slot")
 		return false
 
 	# Trừ items từ hotbar slot đang select
-	var remove_ok: bool = GameState.remove_item(harvest_id, required_amount)
+	var remove_ok: bool = GameState.remove_item(required_item, required_amount)
 	print("[QuestSystem] remove_item returned: %s" % str(remove_ok))
 	if not remove_ok:
 		print("[QuestSystem] FAILED to remove items")
@@ -862,8 +870,13 @@ func complete_delivery_quest(quest_id: String) -> bool:
 		completed_quests.append(quest_id)
 
 	# Trao phần thưởng
-	var reward: Dictionary = quest.get("reward", {})
-	var giver: String = quest.get("giver", "")
+	var reward: Dictionary = quest.get("reward", {}).duplicate(true)
+	# Hỗ trợ cả dữ liệu cũ dùng reward_gold/reward_relationship.
+	if not reward.has("gold") and quest.has("reward_gold"):
+		reward["gold"] = quest.get("reward_gold", 0)
+	if not reward.has("relationship") and quest.has("reward_relationship"):
+		reward["relationship"] = quest.get("reward_relationship", 0)
+	var giver: String = quest.get("giver", quest.get("target_npc", ""))
 
 	print("[QuestSystem] Reward: %s, giver: %s" % [str(reward), giver])
 	if reward.has("gold"):

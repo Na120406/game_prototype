@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "hoe"
-display_name = "Hoe"
-description = "A sturdy hoe for breaking and tilling soil. Essential for farming."
+display_name = "Cuốc"
+description = "Một chiếc cuốc chắc chắn dùng để xới đất và chuẩn bị luống trồng."
 icon = "H"
 item_color = Color(0.5, 0.35, 0.2, 1)
 stack_size = 1

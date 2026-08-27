@@ -370,16 +370,22 @@ func _try_complete_delivery() -> bool:
 	# để tránh complete nhầm quest của NPC khác.
 	var active_quests: Array = QuestSystem.get_active_quests()
 	var lookup_id: String = _current_npc_id if _current_npc_id != "" else _current_npc
+	var selected: Dictionary = GameState.get_selected_hotbar_item()
+	var selected_id: String = str(selected.get("id", ""))
+	var selected_amount: int = int(selected.get("amount", 0))
 	for quest: Dictionary in active_quests:
 		if quest.get("type", "") != "delivery":
 			continue
-		var giver: String = quest.get("giver", "")
-		if giver != lookup_id:
+		var target: String = str(quest.get("target_npc", quest.get("giver", "")))
+		var req_item: String = str(quest.get("required_item", ""))
+		var req_amount: int = int(quest.get("required_amount", 0))
+		var deadline: int = int(quest.get("deadline_day", 0))
+		if target != lookup_id or selected_id != req_item or selected_amount < req_amount:
+			continue
+		if deadline > 0 and GameState.current_day > deadline:
 			continue
 		var quest_id: String = quest.get("id", "")
-		var req_item: String = quest.get("required_item", "")
-		var req_amount: int = int(quest.get("required_amount", 0))
-		print("[DM] Trying to complete delivery quest %s for %s (need %d x %s)" % [quest_id, giver, req_amount, req_item])
+		print("[DM] Trying to complete delivery quest %s for %s (need %d x %s)" % [quest_id, target, req_amount, req_item])
 		var ok: bool = QuestSystem.complete_delivery_quest(quest_id)
 		if ok:
 			print("[DM] Delivery quest %s completed successfully." % quest_id)

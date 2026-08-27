@@ -75,7 +75,7 @@
 		  "state": "idle",
 		  "action": "rest_in_shop",
 		  "scene": "res://scenes/maps/inside_shop_map.tscn",
-		  "pos": { "x": 210, "y": 230 },
+		  "pos": { "x": 210, "y": 200 },
 		  "route_id": ""
 		},
 		{

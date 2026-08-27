@@ -1,0 +1,15 @@
+{
+  "money": {
+	"starting_gold": 300,
+	"knockout_loss_ratio": 0.1
+  },
+  "quest_rewards": {
+	"gold_by_amount": {
+	  "1": 25,
+	  "2": 50,
+	  "3": 75,
+	  "4": 100,
+	  "5": 125
+	}
+  }
+}

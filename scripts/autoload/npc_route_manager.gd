@@ -6,7 +6,7 @@ extends Node
 const ROUTES: Dictionary = {
 	"shop_to_town": [
 		{"scene": "res://scenes/maps/inside_shop_map.tscn", "point": "portal_shop_to_town", "position": Vector2(20, 135), "portal_id": "portal_shop_to_town"},
-		{"scene": "res://scenes/maps/town_map.tscn", "point": "shop_exit", "position": Vector2(95, 105), "portal_id": "portal_shop_to_town"}
+		{"scene": "res://scenes/maps/town_map.tscn", "point": "shop_exit", "position": Vector2(95, 105), "portal_id": "portal_town_to_shop"}
 	],
 	"town_to_farm": [
 		{"scene": "res://scenes/maps/town_map.tscn", "point": "farm_exit", "position": Vector2(20, 135), "portal_id": "portal_town"},
@@ -29,8 +29,8 @@ const ROUTES: Dictionary = {
 		{"scene": "res://scenes/maps/town_map.tscn", "point": "farm_entry", "position": Vector2(460, 135), "portal_id": "portal_marcus_farm_from_town"}
 	],
 	"town_to_shop": [
-		{"scene": "res://scenes/maps/town_map.tscn", "point": "shop_exit", "position": Vector2(95, 105), "portal_id": "portal_shop_to_town"},
-		{"scene": "res://scenes/maps/inside_shop_map.tscn", "point": "shop_entry", "position": Vector2(210, 230), "portal_id": "portal_shop"}
+		{"scene": "res://scenes/maps/town_map.tscn", "point": "shop_exit", "position": Vector2(95, 105), "portal_id": "portal_town_to_shop"},
+		{"scene": "res://scenes/maps/inside_shop_map.tscn", "point": "shop_entry", "position": Vector2(20, 135), "portal_id": "portal_shop_to_town"}
 	],
 	"marcus_house_to_farm": [
 		{"scene": "res://scenes/maps/marcus_house_map.tscn", "point": "farm_exit", "position": Vector2(420, 146), "portal_id": "portal_marcus_farm_from_house"},

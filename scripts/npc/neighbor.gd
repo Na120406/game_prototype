@@ -168,12 +168,13 @@ func _build_default_schedule() -> void:
 
 func _schedule_daily_from_house() -> void:
 	schedule = [
+		# Bản fallback này phải khớp npc_schedule_config.json; JSON là nguồn cấu hình chính.
 		{"time": 6.0, "state": NPCState.WALKING, "action": "leave_house", "scene": SCENE_MARCUS_HOUSE, "pos": Vector2(420, 146), "route_id": "marcus_house_to_farm"},
 		{"time": 6.1, "state": NPCState.IDLE, "action": "stay_at_marcus_farm", "scene": SCENE_MARCUS_FARM, "pos": open_area_position},
 		{"time": 8.0, "state": NPCState.WALKING, "action": "visit_town", "scene": SCENE_MARCUS_FARM, "pos": Vector2(20, 135), "route_id": "marcus_farm_to_town"},
 		{"time": 8.2, "state": NPCState.WALKING, "action": "walk_in_town", "scene": SCENE_TOWN, "pos": town_position},
 		{"time": 10.0, "state": NPCState.WALKING, "action": "visit_shop", "scene": SCENE_TOWN, "pos": Vector2(95, 105), "route_id": "town_to_shop"},
-		{"time": 11.0, "state": NPCState.IDLE, "action": "shop_break", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(360, 68)},
+		{"time": 11.0, "state": NPCState.IDLE, "action": "shop_break", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(210, 200)},
 		{"time": 12.0, "state": NPCState.WALKING, "action": "leave_shop", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(20, 135), "route_id": "shop_to_town"},
 		{"time": 12.2, "state": NPCState.WALKING, "action": "leave_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
 		{"time": 13.2, "state": NPCState.WORKING, "action": "work", "scene": SCENE_MARCUS_FARM, "pos": open_area_position},
@@ -199,11 +200,11 @@ func _schedule_waiting_at_player_house() -> void:
 func _schedule_after_intro_to_town() -> void:
 	schedule = [
 		# Sau intro, Marcus phải đến Town và ở đó từ 08:00 đến 12:00.
-		{"time": 8.0, "state": NPCState.IDLE, "action": "walk_in_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "farm_to_town"},
+		{"time": 8.0, "state": NPCState.WALKING, "action": "walk_in_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "farm_to_town"},
 		# 12:00: rời Town qua portal và đi về Marcus Farm.
 		{"time": 12.0, "state": NPCState.WALKING, "action": "return_to_marcus_farm", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
 		# 12:00–20:00: ở Marcus Farm.
-		{"time": 12.1, "state": NPCState.IDLE, "action": "stay_at_marcus_farm", "scene": SCENE_MARCUS_FARM, "pos": home_position},
+		{"time": 12.1, "state": NPCState.WALKING, "action": "stay_at_marcus_farm", "scene": SCENE_MARCUS_FARM, "pos": home_position},
 		{"time": 20.0, "state": NPCState.WALKING, "action": "go_to_bed", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position, "route_id": "marcus_farm_to_house"},
 		# 22:00–06:00: ngủ trong Marcus House.
 		{"time": 22.0, "state": NPCState.SLEEPING, "action": "sleep", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position},

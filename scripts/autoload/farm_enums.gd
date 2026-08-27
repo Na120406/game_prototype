@@ -67,10 +67,10 @@ const CROP_TO_HARVEST: Dictionary = {
 # water_need: Số ngày liên tiếp không tưới trước khi héo (1 = phải tưới mỗi ngày)
 # growth_per_water: Tốc độ tăng trưởng mỗi lần tưới (0.0 - 1.0)
 const DEFAULT_WATER_PROFILES: Dictionary = {
-	CropType.WHEAT: {"water_need": 2, "growth_per_water": 0.25, "grow_days": 5},
+	CropType.WHEAT: {"water_need": 2, "growth_per_water": 0.25, "grow_days": 6},
 	CropType.CORN: {"water_need": 1, "growth_per_water": 0.20, "grow_days": 6},
 	CropType.TOMATO: {"water_need": 1, "growth_per_water": 0.20, "grow_days": 7},
-	CropType.POTATO: {"water_need": 3, "growth_per_water": 0.25, "grow_days": 8},
+	CropType.POTATO: {"water_need": 3, "growth_per_water": 0.25, "grow_days": 9},
 	CropType.TURNIP: {"water_need": 2, "growth_per_water": 0.20, "grow_days": 4},
 	CropType.MYSTERY_PLANT: {"water_need": 1, "growth_per_water": 0.20, "grow_days": 10},
 }

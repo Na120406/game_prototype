@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "seed_turnip"
-display_name = "Turnip Seeds"
-description = "Seeds for turnips. Plant in spring. Grows in 4 days."
+display_name = "Hạt củ cải"
+description = "Hạt giống củ cải. Trồng vào mùa xuân, cây lớn sau 4 ngày."
 icon = "T"
 item_color = Color(0.6, 0.8, 0.4, 1)
 stack_size = 99

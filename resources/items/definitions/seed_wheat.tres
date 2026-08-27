@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "seed_wheat"
-display_name = "Wheat Seeds"
-description = "Seeds for wheat. Plant in summer. Grows in 6 days."
+display_name = "Hạt lúa mì"
+description = "Hạt giống lúa mì. Trồng vào mùa hè, cây lớn sau 6 ngày."
 icon = "W"
 item_color = Color(0.9, 0.8, 0.3, 1)
 stack_size = 99

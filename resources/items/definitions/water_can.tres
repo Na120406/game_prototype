@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "water_can"
-display_name = "Watering Can"
-description = "Waters your crops automatically. Keeps them growing even when you are away."
+display_name = "Bình tưới nước"
+description = "Dùng để tưới cây, giúp cây tiếp tục phát triển khi bạn đi vắng."
 icon = "W"
 item_color = Color(0.3, 0.5, 0.8, 1)
 stack_size = 1

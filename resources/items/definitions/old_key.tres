@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "old_key"
-display_name = "Old Key"
-description = "A rusty key. It looks like it might open something important."
+display_name = "Chìa khóa cũ"
+description = "Một chiếc chìa khóa hoen gỉ. Có lẽ nó mở được thứ gì đó quan trọng."
 icon = "K"
 item_color = Color(0.5, 0.45, 0.4, 1)
 stack_size = 1

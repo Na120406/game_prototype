@@ -163,7 +163,11 @@ func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 func _apply_gold_loss_penalty() -> void:
 	# Trừ 25% vàng hiện có (làm tròn lên). Dùng chung cho cả hai dạng
 	# knock-out (cày kiệt sức + quá giờ ngủ ngoài trời).
-	var loss: int = int(ceil(float(GameState.gold) * GOLD_LOSS_RATIO))
+	var cm: Node = get_node_or_null("/root/ConfigManager")
+	var loss_ratio: float = GOLD_LOSS_RATIO
+	if cm != null:
+		loss_ratio = float(cm.get_value("money.knockout_loss_ratio", GOLD_LOSS_RATIO))
+	var loss: int = int(ceil(float(GameState.gold) * loss_ratio))
 	if loss > 0:
 		GameState.gold = max(0, GameState.gold - loss)
 		print("[EnergyManager] Knock-out gold loss: -%d (now %d)" % [loss, GameState.gold])

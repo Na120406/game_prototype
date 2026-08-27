@@ -124,7 +124,7 @@ func _build_persistent_bar() -> void:
 	# Tooltip label — ẩn mặc định, hiện sau hover 2s.
 	_tooltip = Label.new()
 	_tooltip.name = "Tooltip"
-	_tooltip.text = "E 20/20"
+	_tooltip.text = "20/20"
 	_tooltip.add_theme_color_override("font_color", Color(1, 0.9, 0.6, 1))
 	_tooltip.add_theme_font_size_override("font_size", 5)
 	_tooltip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -164,7 +164,4 @@ func _refresh() -> void:
 
 	if _tooltip != null:
 		var cm: Node = get_node_or_null("/root/ConfigManager")
-		var format_text: String = "Năng lượng %d/%d"
-		if cm != null and cm.has_method("translate_text"):
-			format_text = cm.translate_text("ui.energy.tooltip_format", format_text)
-		_tooltip.text = format_text % [int(round(cur)), int(round(max_e))]
+		_tooltip.text = "%d/%d" % [int(round(cur)), int(round(max_e))]

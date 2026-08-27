@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "strange_fruit"
-display_name = "Strange Fruit"
-description = "A strange, pale fruit from the mystery plant. Something about it feels... wrong."
+display_name = "Trái cây kỳ lạ"
+description = "Một loại quả nhợt nhạt kỳ lạ từ cây bí ẩn. Có gì đó không ổn với nó."
 icon = "?"
 item_color = Color(0.7, 0.7, 0.65, 1)
 stack_size = 10

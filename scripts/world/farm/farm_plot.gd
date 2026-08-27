@@ -272,6 +272,9 @@ func _try_farm_action(cell: Vector2i) -> void:
 		return
 
 	var state: CropState = _get_cell_state(cell)
+	var cell_data: Dictionary = _farm_manager.get_cell_data(cell)
+	if float(cell_data.get("growth_progress", 0.0)) >= 0.999 and state != CropState.WILTED:
+		state = CropState.MATURE
 	var item_type := _get_item_type()
 
 	# Chỉ tiêu hao năng lượng khi dùng hoe hoặc water_can

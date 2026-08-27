@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "rope"
-display_name = "Rope"
-description = "A sturdy rope. Useful for climbing steep places."
+display_name = "Dây thừng"
+description = "Một cuộn dây thừng chắc chắn, hữu ích khi leo lên những nơi dốc."
 icon = "R"
 item_color = Color(0.6, 0.45, 0.3, 1)
 stack_size = 1

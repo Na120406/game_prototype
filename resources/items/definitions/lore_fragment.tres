@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "lore_fragment"
-display_name = "Lore Fragment"
-description = "A torn piece of paper with fragments of writing. The ink is old."
+display_name = "Mảnh chuyện kể"
+description = "Một mảnh giấy rách còn sót lại vài dòng chữ với nét mực đã cũ."
 icon = "L"
 item_color = Color(0.6, 0.55, 0.45, 1)
 stack_size = 99

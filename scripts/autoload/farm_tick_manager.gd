@@ -131,11 +131,15 @@ func _advance_growth_daily(data: Dictionary, cell: Vector2i) -> void:
 		grow_days = 6
 	var step: float = 1.0 / float(grow_days)
 	data["growth_progress"] = clampf(data.get("growth_progress", 0.0) + step, 0.0, 1.0)
+	# Tránh sai số số thực khiến cây hiển thị 100% nhưng vẫn còn state GROWING.
+	if data["growth_progress"] >= 0.999:
+		data["growth_progress"] = 1.0
 	var progress: float = data["growth_progress"]
 
 	var new_stage := FarmEnumsRef.CropState.SEEDED
 	if progress >= 1.0:
 		new_stage = FarmEnumsRef.CropState.MATURE
+		data["mature_day"] = GameState.current_day
 	elif progress >= 0.66:
 		new_stage = FarmEnumsRef.CropState.GROWING
 	elif progress >= 0.33:
@@ -246,8 +250,15 @@ func harvest_crop(cell: Vector2i) -> String:
 	var cell_key := _cell_key(cell)
 	if not cells.has(cell_key):
 		return ""
-	if cells[cell_key]["state"] != FarmEnumsRef.CropState.MATURE:
+	var state: int = cells[cell_key].get("state", FarmEnumsRef.CropState.EMPTY)
+	var progress: float = float(cells[cell_key].get("growth_progress", 0.0))
+	# Cho phép thu hoạch ngay khi tiến độ đã đạt 100%, kể cả khi state chưa
+	# kịp cập nhật trong cùng frame/ngày.
+	if state != FarmEnumsRef.CropState.MATURE and progress < 1.0:
 		return ""
+	if state != FarmEnumsRef.CropState.MATURE:
+		cells[cell_key]["state"] = FarmEnumsRef.CropState.MATURE
+	cells[cell_key]["mature_day"] = GameState.current_day
 	var crop_type: int = cells[cell_key].get("type", FarmEnumsRef.CropType.NONE)
 	var item_id: String = FarmEnumsRef.get_harvest_id(crop_type)
 	cells.erase(cell_key)

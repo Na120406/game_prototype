@@ -61,7 +61,7 @@ theme_override_constants/separation = 8
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.5, 1)
 theme_override_font_sizes/font_size = 9
-text = "Speaker"
+text = "Người nói"
 
 [node name="Spacer" type="Control" parent="DialogueUI/Panel/Margin/VBox/Header"]
 layout_mode = 2

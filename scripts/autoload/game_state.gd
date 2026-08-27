@@ -231,6 +231,7 @@ func _load_config() -> void:
 	max_health = cm.get_max_health()
 	health = max_health
 	stamina_drain_rate = cm.get_value("game.stamina_drain_rate", 5.0)
+	gold = int(cm.get_value("money.starting_gold", 200))
 	
 	# Quest config
 	base_quest_chance = cm.get_base_quest_chance()
@@ -776,7 +777,8 @@ func reset() -> void:
 	lore_fragments_found = 0
 	weather_type = "clear"
 	is_day = true
-	gold = 200
+	var cm := _get_config_manager()
+	gold = int(cm.get_value("money.starting_gold", 200)) if cm != null else 200
 	move_speed_mult = 1.0
 	sleep_warning_shown_for_day = 0
 

@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1")
 item_id = "apple"
-display_name = "Apple"
-description = "A fresh apple from the orchard. Restores 10 energy."
+display_name = "Táo"
+description = "Một quả táo tươi từ vườn cây. Hồi phục 10 năng lượng."
 icon = "A"
 item_color = Color(0.85, 0.2, 0.15, 1)
 stack_size = 99
