@@ -64,7 +64,6 @@ game-demo/
 │   ├── quest/              # Dữ liệu nhiệm vụ
 │   └── tilesets/           # Tài nguyên tileset
 ├── tilesets/               # Texture tileset và asset môi trường
-├── design/                 # GDD và tài liệu thiết kế
 ├── docs/                   # Template và tài liệu NPC
 ├── project.godot           # Cấu hình project Godot
 └── README.md               # Tài liệu này
@@ -88,15 +87,6 @@ nằm trong phần `[autoload]` của `project.godot`.
 - `design/gdd/` — Game Design Document và định hướng thiết kế
 - `docs/characters/` — Thiết kế nhân vật/NPC
 - `docs/templates/` — Template viết tài liệu
-- `TODO.md` — Danh sách công việc còn lại (nếu có)
-
-## Quy tắc Git
-
-Không commit các file cache, file import và công cụ local. `.gitignore` đã loại trừ
-`.godot/`, `*.import`, `tools/`, file build/export, log và cấu hình IDE cá nhân.
-
-Không xóa asset được scene hoặc script tham chiếu. Asset mới cần đặt đúng thư mục và
-kiểm tra project chạy được bằng F5 trước khi commit.
 
 ## Quy trình phát triển
 
