@@ -1,6 +1,6 @@
-# GameDemo
+# Old Town
 
-**GameDemo** là một prototype game 2D góc nhìn từ trên xuống, kết hợp vòng lặp
+**Old Town** là một prototype game 2D góc nhìn từ trên xuống, kết hợp vòng lặp
 canh tác, khám phá và mô phỏng đời sống trong một thị trấn nhỏ. Dự án được xây dựng
 bằng **Godot 4.5** và **GDScript**.
 
