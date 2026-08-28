@@ -71,8 +71,9 @@ func _ready() -> void:
 	# Khi DialogueUI được load, sẽ tự động kết nối signals
 	get_tree().node_added.connect(_on_node_added)
 	
-	# Thử kết nối với DialogueUI nếu đã tồn tại
+	# Thử kết nối ngay và thêm một lần deferred để chắc chắn UI đã vào tree.
 	_connect_to_dialogue_ui()
+	call_deferred("_connect_to_dialogue_ui")
 	
 	print("[DialogueManager] Ready.")
 
@@ -95,9 +96,11 @@ func _on_node_added(node: Node) -> void:
 	if node.get_script().resource_path != "res://scripts/ui/dialogue_ui.gd":
 		return
 
-	# Kết nối với DialogueUI
+	# Kết nối với DialogueUI. Node added có thể chạy trước khi node được
+	# truy cập đầy đủ trong cây, nên thử lại ở deferred call.
 	var ui: Node = _get_dialogue_ui()
 	if ui == null:
+		call_deferred("_connect_to_dialogue_ui")
 		return
 	
 	# Kết nối các signal của UI với các hàm xử lý
@@ -126,16 +129,23 @@ func _connect_to_dialogue_ui() -> void:
 	var ui: Node = _get_dialogue_ui()
 	if ui == null:
 		return
-	
-	# Kết nối từng signal
+	register_dialogue_ui(ui)
+
+func register_dialogue_ui(ui: Node) -> void:
+	if ui == null or not is_instance_valid(ui):
+		return
+	if not ui.has_signal("dialogue_advance") or not ui.has_signal("dialogue_close") or not ui.has_signal("dialogue_choice"):
+		return
+
+	# Kết nối từng signal, có guard để không bị nối lặp sau các lần scene reload.
 	if not ui.dialogue_advance.is_connected(advance):
 		ui.dialogue_advance.connect(advance)
 	if not ui.dialogue_close.is_connected(close):
 		ui.dialogue_close.connect(close)
 	if not ui.dialogue_choice.is_connected(select_choice):
 		ui.dialogue_choice.connect(select_choice)
-	
-	print("[DM] Connected to DialogueUI signals.")
+
+	print("[DM] DialogueUI ready: choice_connected=%s" % str(ui.dialogue_choice.is_connected(select_choice)))
 
 
 # =============================================================================
@@ -154,8 +164,13 @@ func start_dialogue(dialogue_id: String, npc_name: String, npc_id: String = "") 
 		print("[DM] Already active, ignoring.")
 		return
 
-	# Đảm bảo đã kết nối với UI
+	# Đảm bảo đã kết nối với UI trước khi phát nội dung có choices.
 	_connect_to_dialogue_ui()
+	var dialogue_ui: Node = _get_dialogue_ui()
+	if dialogue_ui == null:
+		push_error("[DM] DialogueUI not found!")
+		return
+	register_dialogue_ui(dialogue_ui)
 
 	# =================================================================
 	# ĐỌC FILE JSON
@@ -187,11 +202,17 @@ func start_dialogue(dialogue_id: String, npc_name: String, npc_id: String = "") 
 	if parse_result != OK:
 		push_error("[DM] JSON parse error: %s" % path)
 		return
+	if not (json.get_data() is Dictionary):
+		push_error("[DM] Dialogue data is not a Dictionary: %s" % path)
+		return
 
 	# =================================================================
 	# KHỞI TẠO TRẠNG THÁI HỘI THOẠI
 	# =================================================================
 	_current_dialogue = json.get_data()  # Lưu nội dung dialogue
+	if not _current_dialogue.has("lines") or not (_current_dialogue["lines"] is Array) or _current_dialogue["lines"].is_empty():
+		push_error("[DM] Dialogue has no lines: %s" % path)
+		return
 	_current_npc = npc_name              # Lưu tên NPC
 	_current_npc_id = npc_id             # Lưu NPC id (dùng cho quest lookup)
 	_current_line = 0                    # Bắt đầu từ dòng 0
@@ -221,12 +242,16 @@ func _show_line() -> void:
 	var lines: Array = _current_dialogue.get("lines", [])
 	
 	# Nếu đã hết dòng -> kết thúc
-	if _current_line >= lines.size():
+	if _current_line < 0 or _current_line >= lines.size():
 		_end()
 		return
 
 	# Lấy nội dung dòng hiện tại
-	var line: Dictionary = lines[_current_line]
+	var line_variant: Variant = lines[_current_line]
+	if not (line_variant is Dictionary):
+		_end()
+		return
+	var line: Dictionary = line_variant
 	var cm := get_node_or_null("/root/ConfigManager")
 	var line_key := "dialogue.%s.%d" % [_current_npc_id if _current_npc_id != "" else _current_dialogue.get("id", ""), _current_line + 1]
 	# JSON remains the fallback/source structure; localization overrides only when keyed.
@@ -235,8 +260,15 @@ func _show_line() -> void:
 	if cm != null and cm.has_method("translate_text"):
 		text = cm.translate_text(line_key, text)
 	
-	# Lấy danh sách lựa chọn (nếu có)
+	# Lấy danh sách lựa chọn (nếu có). Nếu JSON chỉ khai báo choices_data,
+	# dựng nhãn nút trực tiếp từ field text.
 	var choices: Array = line.get("choices", [])
+	if choices.is_empty():
+		for choice: Variant in line.get("choices_data", []):
+			if choice is Dictionary:
+				choices.append(str(choice.get("text", choice.get("label", "?"))))
+			else:
+				choices.append(str(choice))
 	
 	# Kiểm tra đây có phải dòng cuối không (để hiển thị nút đóng)
 	var is_last: bool = (_current_line >= lines.size() - 1) and choices.is_empty()
@@ -302,6 +334,7 @@ func end_dialogue() -> void:
 #   index: int - thứ tự lựa chọn (0, 1, 2, ...)
 
 func select_choice(index: int) -> void:
+	print("[DM] select_choice(%d), active=%s, line=%d" % [index, str(is_active), _current_line])
 	# Không làm gì nếu không active
 	if not is_active:
 		return
@@ -309,23 +342,39 @@ func select_choice(index: int) -> void:
 	# Lấy danh sách dòng
 	var lines: Array = _current_dialogue.get("lines", [])
 
-	# Lấy dữ liệu lựa chọn của dòng hiện tại
-	var choice_data: Array = lines[_current_line].get("choices_data", [])
+	# Lấy dữ liệu lựa chọn của dòng hiện tại.
+	if _current_line < 0 or _current_line >= lines.size():
+		return
+	var line_variant: Variant = lines[_current_line]
+	if not (line_variant is Dictionary):
+		return
+	var line: Dictionary = line_variant
+	var choices: Array = line.get("choices", [])
+	var choice_data: Array = line.get("choices_data", [])
+	if choices.size() != choice_data.size():
+		push_warning("[DM] Dialogue choices mismatch at line %d: labels=%d data=%d" % [_current_line, choices.size(), choice_data.size()])
 
-	# Kiểm tra index hợp lệ
-	if index >= choice_data.size():
+	# Một số dialogue JSON cũ chỉ có choices_data. Vẫn tạo được lựa chọn
+	# tương ứng nếu mảng choices bị thiếu.
+	if choice_data.is_empty():
+		choice_data = choices
+	if index < 0 or index >= choice_data.size():
 		return
 
-	# Lấy action từ lựa chọn
-	var action: String = choice_data[index].get("action", "")
+	# Lấy action từ lựa chọn; hỗ trợ cả Dictionary và String.
+	var selected_choice: Variant = choice_data[index]
+	var action: String = str(selected_choice.get("action", "")) if selected_choice is Dictionary else ""
+	if action == "":
+		push_warning("[DM] Choice %d has no action; closing dialogue safely." % index)
+		action = "cancel_delivery"
 
 	# Lưu action để thực hiện sau
 	_pending_action = action
 
-	# Ẩn choices ngay lập tức
+	# Ẩn choices ngay lập tức và khóa double-click trong cùng frame.
 	var ui: Node = _get_dialogue_ui()
-	if ui != null:
-		ui._clear_choices()
+	if ui != null and ui.has_method("_clear_choices"):
+		ui.call("_clear_choices")
 
 	# Thực hiện action ngay
 	_execute_action(action)
@@ -342,20 +391,24 @@ func select_choice(index: int) -> void:
 
 func _execute_action(action: String) -> void:
 	# Xử lý theo loại action
+	print("[DM] Executing dialogue action: '%s'" % action)
 	match action:
 		"close":
 			# Đóng dialogue ngay lập tức
 			_end()
 		"confirm_delivery":
-			# Xác nhận giao hàng - hoàn thành quest delivery
+			# Nút Phải: trả item, nhận thưởng, sau đó hiển thị lời cảm ơn.
 			print("[DM] confirm_delivery action triggered")
 			var ok: bool = _try_complete_delivery()
 			print("[DM] complete_delivery_quest returned: %s" % str(ok))
-			# Chuyển sang dòng cảm ơn (line tiếp theo). Player ấn tiếp/click để tắt.
-			_current_line += 1
-			_show_line()
+			if ok:
+				_current_line += 1
+				_show_line()
+			else:
+				# Không đủ điều kiện thì đóng dialogue, không đánh dấu hoàn thành.
+				_end()
 		"cancel_delivery":
-			# Hủy giao hàng - chỉ đóng dialogue ngay
+			# Nút Không: không trả quest và kết thúc dialogue.
 			print("[DM] Delivery cancelled by player.")
 			_end()
 
@@ -370,29 +423,27 @@ func _try_complete_delivery() -> bool:
 	# để tránh complete nhầm quest của NPC khác.
 	var active_quests: Array = QuestSystem.get_active_quests()
 	var lookup_id: String = _current_npc_id if _current_npc_id != "" else _current_npc
-	var selected: Dictionary = GameState.get_selected_hotbar_item()
-	var selected_id: String = str(selected.get("id", ""))
-	var selected_amount: int = int(selected.get("amount", 0))
+	if lookup_id == "Marcus" or lookup_id == "Old Marcus":
+		lookup_id = "neighbor"
+	print("[DM] Delivery lookup: npc='%s', active_quests=%d" % [lookup_id, active_quests.size()])
 	for quest: Dictionary in active_quests:
 		if quest.get("type", "") != "delivery":
 			continue
 		var target: String = str(quest.get("target_npc", quest.get("giver", "")))
+		if target != lookup_id:
+			print("[DM] Skip delivery quest %s: target='%s'" % [str(quest.get("id", "")), target])
+			continue
+		var quest_id: String = str(quest.get("id", ""))
+		# Chỉ tìm đúng quest active của NPC; QuestSystem tự kiểm tra item/deadline.
+		if not QuestSystem.can_complete_delivery_quest(quest_id):
+			continue
 		var req_item: String = str(quest.get("required_item", ""))
 		var req_amount: int = int(quest.get("required_amount", 0))
-		var deadline: int = int(quest.get("deadline_day", 0))
-		if target != lookup_id or selected_id != req_item or selected_amount < req_amount:
-			continue
-		if deadline > 0 and GameState.current_day > deadline:
-			continue
-		var quest_id: String = quest.get("id", "")
 		print("[DM] Trying to complete delivery quest %s for %s (need %d x %s)" % [quest_id, target, req_amount, req_item])
-		var ok: bool = QuestSystem.complete_delivery_quest(quest_id)
-		if ok:
+		if QuestSystem.complete_delivery_quest(quest_id):
 			print("[DM] Delivery quest %s completed successfully." % quest_id)
 			return true
-		else:
-			print("[DM] Delivery quest %s FAILED to complete." % quest_id)
-	print("[DM] No matching delivery quest found for current NPC '%s'." % lookup_id)
+	print("[DM] No ready delivery quest found for current NPC '%s'." % lookup_id)
 	return false
 
 
@@ -406,6 +457,11 @@ func _end() -> void:
 	# Reset trạng thái
 	is_active = false
 	GameState.game_interacting = false  # Cho phép người chơi di chuyển
+	# DialogueUI là điểm duy nhất nhận E/chuột trái; sau khi dialogue kết thúc
+	# mới cho Player tiếp tục input gameplay.
+	if GameState.cinematic_intro_state == GameState.CINEMATIC_WAITING_DIALOGUE:
+		GameState.cinematic_intro_state = GameState.CINEMATIC_NONE
+		GameState.player_movement_locked = false
 	_pending_action = ""
 
 	# Ẩn UI dialogue

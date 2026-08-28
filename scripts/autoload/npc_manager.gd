@@ -767,7 +767,7 @@ func reset_npcs_for_sleep() -> void:
 				npc.get_parent().remove_child(npc)
 			manager.call("handoff_persistent_npc", npc, house_scene, "")
 		if npc.get_parent() != null:
-			npc.global_position = Vector2(20, 29)
+			npc.global_position = Vector2(80, 50)
 		if npc.has_method("clear_route"):
 			npc.call("clear_route")
 		if npc.has_method("stop_walking"):

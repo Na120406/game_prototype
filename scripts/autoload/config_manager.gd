@@ -147,9 +147,13 @@ func get_value(path: String, default: Variant = null) -> Variant:
 	var current: Variant = null
 	
 	# Xác định root config
-	if keys[0] == "game":
+	# Lưu ý: game_config.json có cấu trúc phẳng — các section scene/player/quest/
+	# inventory/cinematic_intro nằm TOP-LEVEL (không nằm trong "game"). Các getter
+	# gọi "scene.transition_duration", "player.move_speed", ... phải map về _game_config.
+	if keys[0] == "game" or keys[0] == "scene" or keys[0] == "player" \
+			or keys[0] == "quest" or keys[0] == "inventory" or keys[0] == "cinematic_intro":
 		current = _game_config
-	elif keys[0] == "npc":
+	elif keys[0] == "npc" or keys[0] == "scenes":
 		current = _npc_config
 	elif keys[0] == "money":
 		current = _money_config.get("money", {})

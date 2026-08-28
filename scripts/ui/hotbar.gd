@@ -259,6 +259,8 @@ func _setup_slots() -> void:
 	_recompute_number_positions()
 
 func _input(event: InputEvent) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	if not (event is InputEventMouseButton):
 		return
 	var mb: InputEventMouseButton = event
@@ -452,6 +454,8 @@ func highlight_slot(slot_index: int, on: bool) -> void:
 		style.border_width_bottom = unselected_border_width
 
 func _on_slot_input(event: InputEvent, slot_index: int) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	if not (event is InputEventMouseButton and event.pressed):
 		return
 	if slot_index >= GameState.toolbar.size():

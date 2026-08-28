@@ -81,8 +81,7 @@ func _get_config_manager() -> Node:
 	return tree.root.get_node_or_null("ConfigManager")
 
 func _physics_process(delta: float) -> void:
-	# Durante o cinematic intro, somente o auto-walk được phép chạy.
-	# Mọi input của player đều bị bỏ qua cho tới khi dialogue bắt đầu.
+	# Chỉ auto-walk được chạy trong giai đoạn di chuyển của cutscene.
 	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
 		_handle_cinematic_walk(delta)
 		move_and_slide()
@@ -92,8 +91,8 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 
-	# Lock movement khi đang cutscene/dialogue đặc biệt (nhưng cho phép đi tự động trong cinematic intro)
-	if GameState.player_movement_locked and GameState.cinematic_intro_state == GameState.CINEMATIC_NONE:
+	# Khóa movement trong mọi trạng thái intro/dialogue hoặc modal interaction.
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE:
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
 		move_and_slide()
 		return
@@ -220,7 +219,9 @@ func _update_animation(dir: Vector2) -> void:
 		_current_anim = anim_name
 		if animation_player.has_animation(anim_name):
 			animation_player.play(anim_name)
-		else:
+		elif animation_player.has_animation("idle"):
+			# Fallback an toàn: chỉ play "idle" nếu animation đó thực sự tồn tại
+			# (tránh error spam "Animation not found" mỗi frame khi chưa có asset).
 			animation_player.play("idle")
 
 func _update_sprite_flip() -> void:
@@ -293,15 +294,13 @@ func _set_state(new_state: State) -> void:
 	state_changed.emit(State.keys()[new_state], old_state_str)
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Trong cutscene Day 1, player không được input gì ngoài dialogue next (tự động xử lý bởi DialogueManager).
-	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
+	# Trong toàn bộ intro, Player không xử lý input gameplay. E và chuột trái
+	# được để DialogueUI nhận khi dialogue đã mở.
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE:
+		if DialogueManager.is_active and _is_dialogue_skip_event(event):
+			return
 		get_viewport().set_input_as_handled()
 		return
-
-	# E chỉ dùng cho dialogue next trong cinematic intro
-	if GameState.cinematic_intro_state == GameState.CINEMATIC_WAITING_DIALOGUE:
-		if event.is_action_pressed("interact"):
-			return  # Chặn E, dialogue tự xử lý
 
 	if event.is_action_pressed("interact"):
 		if current_state == State.INTERACTING:
@@ -359,6 +358,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if current_state == State.INTERACTING:
 			_exit_interaction()
+
+func _is_dialogue_skip_event(event: InputEvent) -> bool:
+	if event.is_action_pressed("interact"):
+		return true
+	return event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT
 
 func _interact() -> void:
 	if current_state == State.SLEEPING or current_state == State.DEAD or GameState.player_movement_locked:

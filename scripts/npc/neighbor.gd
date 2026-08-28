@@ -41,7 +41,7 @@ extends "res://scripts/npc/npc.gd"
 var home_position: Vector2 = Vector2(375, 200)
 var farm_work_position: Vector2 = Vector2(160, 200)
 var open_area_position: Vector2 = Vector2(250, 170)
-var house_sleep_position: Vector2 = Vector2(20, 29)
+var house_sleep_position: Vector2 = Vector2(80, 50)
 var town_position: Vector2 = Vector2(430, 90)
 var player_house_door_position: Vector2 = Vector2(85, 200)
 var marcus_farm_entry_position: Vector2 = Vector2(40, 200)
@@ -172,9 +172,11 @@ func _schedule_daily_from_house() -> void:
 		{"time": 6.0, "state": NPCState.WALKING, "action": "leave_house", "scene": SCENE_MARCUS_HOUSE, "pos": Vector2(420, 146), "route_id": "marcus_house_to_farm"},
 		{"time": 6.1, "state": NPCState.IDLE, "action": "stay_at_marcus_farm", "scene": SCENE_MARCUS_FARM, "pos": open_area_position},
 		{"time": 8.0, "state": NPCState.WALKING, "action": "visit_town", "scene": SCENE_MARCUS_FARM, "pos": Vector2(20, 135), "route_id": "marcus_farm_to_town"},
-		{"time": 8.2, "state": NPCState.WALKING, "action": "walk_in_town", "scene": SCENE_TOWN, "pos": town_position},
+		{"time": 8.2, "state": NPCState.WALKING, "action": "walk_away_from_town_portal", "scene": SCENE_TOWN, "pos": Vector2(430, 110)},
+		{"time": 8.3, "state": NPCState.IDLE, "action": "walk_in_town", "scene": SCENE_TOWN, "pos": Vector2(430, 110)},
 		{"time": 10.0, "state": NPCState.WALKING, "action": "visit_shop", "scene": SCENE_TOWN, "pos": Vector2(95, 105), "route_id": "town_to_shop"},
-		{"time": 11.0, "state": NPCState.IDLE, "action": "shop_break", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(210, 200)},
+		{"time": 11.0, "state": NPCState.WALKING, "action": "walk_away_from_shop_portal", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(210, 200)},
+		{"time": 11.1, "state": NPCState.IDLE, "action": "shop_break", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(210, 200)},
 		{"time": 12.0, "state": NPCState.WALKING, "action": "leave_shop", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(20, 135), "route_id": "shop_to_town"},
 		{"time": 12.2, "state": NPCState.WALKING, "action": "leave_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
 		{"time": 13.2, "state": NPCState.WORKING, "action": "work", "scene": SCENE_MARCUS_FARM, "pos": open_area_position},
@@ -200,7 +202,8 @@ func _schedule_waiting_at_player_house() -> void:
 func _schedule_after_intro_to_town() -> void:
 	schedule = [
 		# Sau intro, Marcus phải đến Town và ở đó từ 08:00 đến 12:00.
-		{"time": 8.0, "state": NPCState.WALKING, "action": "walk_in_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "farm_to_town"},
+		{"time": 7.0, "state": NPCState.WALKING, "action": "leave_player_farm", "scene": SCENE_PLAYER_FARM, "pos": Vector2(790, 300), "route_id": "farm_to_town"},
+		{"time": 7.1, "state": NPCState.WALKING, "action": "arrive_in_town", "scene": SCENE_TOWN, "pos": Vector2(430, 110), "route_id": "farm_to_town"},
 		# 12:00: rời Town qua portal và đi về Marcus Farm.
 		{"time": 12.0, "state": NPCState.WALKING, "action": "return_to_marcus_farm", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
 		# 12:00–20:00: ở Marcus Farm.
@@ -287,8 +290,16 @@ func interact(player: Node) -> void:
 
 	var chosen_id: String = _pick_dialogue_id()
 	print("[Neighbor] Chosen dialogue: %s" % chosen_id)
+	if not DialogueManager.dialogue_ended.is_connected(_on_dm_ended):
+		DialogueManager.dialogue_ended.connect(_on_dm_ended, CONNECT_ONE_SHOT)
 	DialogueManager.start_dialogue(chosen_id, npc_name, npc_id)
-	DialogueManager.dialogue_ended.connect(_on_dm_ended, CONNECT_ONE_SHOT)
+	if not DialogueManager.is_active:
+		is_interacting = false
+		GameState.player_movement_locked = false
+		# start_dialogue() có thể thất bại vì file/UI; tránh giữ one-shot cũ
+		# cho lần nói chuyện kế tiếp.
+		if DialogueManager.dialogue_ended.is_connected(_on_dm_ended):
+			DialogueManager.dialogue_ended.disconnect(_on_dm_ended)
 
 
 # Callback khi dialogue kết thúc. Day 1 lần đầu:
@@ -300,7 +311,8 @@ func _on_dm_ended() -> void:
 	is_interacting = false
 	npc_dialogue_finished.emit()
 
-	# Unlock player movement và reset cinematic state sau khi dialogue kết thúc
+	# DialogueManager đã giải phóng lock cutscene sau khi dialogue kết thúc.
+	# Giữ fallback này cho trường hợp dialogue bị đóng từ UI ngoài luồng.
 	GameState.player_movement_locked = false
 	GameState.cinematic_intro_state = GameState.CINEMATIC_NONE
 
@@ -313,6 +325,14 @@ func _on_dm_ended() -> void:
 			# 11:00 về farm.
 			GameState.set_flag("marcus_at_town_post_intro", true)
 			_schedule_after_intro_to_town()
+			# Cutscene có thể kết thúc muộn khi Marcus đã được chuyển sang
+			# marcus_farm_map. Khi đó farm_to_town bắt đầu ở farm_map và khiến
+			# NPC chạy thẳng về (790,300), thường là góc dưới phải.
+			# Luôn dùng route farm_to_town cho đoạn 08:00–11:00 của ngày 1,
+			# giống trường hợp skip nhanh đã được kiểm chứng ổn định.
+			for step: Dictionary in schedule:
+				if str(step.get("route_id", "")) == "marcus_farm_to_town":
+					step["route_id"] = "farm_to_town"
 			_apply_schedule_now()
 			print("[NPC] %s: intro complete before %.1f → route to town, then normal farm schedule." % [npc_name, _intro_deadline_hour])
 		else:
@@ -373,6 +393,7 @@ func _check_intro_trigger() -> void:
 
 	if not _should_trigger_intro_cutscene():
 		return
+	# Khóa ngay khi trigger, trước delay/auto-walk/dialogue.
 	_intro_attach_handled = true
 	_was_inside_house = false
 	print("[NPC] %s: starting cinematic intro (player left house)." % npc_name)
@@ -436,8 +457,16 @@ func _start_intro_dialogue() -> void:
 	talk_count += 1
 	npc_dialogue_started.emit()
 	GameState.cinematic_intro_state = GameState.CINEMATIC_WAITING_DIALOGUE
+	if not DialogueManager.dialogue_ended.is_connected(_on_dm_ended):
+		DialogueManager.dialogue_ended.connect(_on_dm_ended, CONNECT_ONE_SHOT)
 	DialogueManager.start_dialogue("neighbor", npc_name, npc_id)
-	DialogueManager.dialogue_ended.connect(_on_dm_ended, CONNECT_ONE_SHOT)
+	if not DialogueManager.is_active:
+		# Nếu không mở được JSON/UI, không để Player bị khóa vĩnh viễn.
+		is_interacting = false
+		GameState.cinematic_intro_state = GameState.CINEMATIC_NONE
+		GameState.player_movement_locked = false
+		if DialogueManager.dialogue_ended.is_connected(_on_dm_ended):
+			DialogueManager.dialogue_ended.disconnect(_on_dm_ended)
 
 
 # Check điều kiện trigger cutscene (gọi ngay + gọi lại sau defer).
@@ -482,9 +511,15 @@ func _should_trigger_intro_cutscene() -> bool:
 
 
 func _apply_schedule_now() -> void:
-	# Bỏ hành trình cũ ngay lập tức; target mới được NPC base xử lý bằng physics AI.
+	# Bỏ toàn bộ route/cache cũ sau cutscene. Nếu giữ route của schedule trước,
+	# lúc intro kết thúc muộn NPC có thể lấy waypoint của marcus_farm_map và đi
+	# chéo sai hướng thay vì rời farm_map của người chơi.
 	_last_schedule_time = -1.0
 	_schedule_target_scene = ""
+	_arrived_route_id = ""
+	_completed_route_id = ""
+	route_progress.clear()
+	clear_route()
 	tick_schedule(GameState.current_time)
 
 func _sync_now() -> void:
@@ -510,38 +545,20 @@ func _get_scene_manager() -> Node:
 func _pick_dialogue_id() -> String:
 	print("[Neighbor] _pick_dialogue_id() called, day=%d, npc_id=%s" % [GameState.current_day, npc_id])
 
-	# Day 1 lần đầu gặp: dialogue intro
-	if GameState.current_day <= 1 and talk_count <= 1:
+	# Kiểm tra quest active trước mọi nhánh thoại ngày 1/ngày 2.
+	# Không để talk_count hoặc thoại intro che mất quest đã nhận.
+	var delivery_quest: Dictionary = QuestSystem.get_active_delivery_quest_for_npc(npc_id)
+	var has_active_delivery: bool = not delivery_quest.is_empty()
+	if GameState.current_day <= 1 and talk_count <= 1 and not has_active_delivery:
 		return "neighbor"
 
-	# Kiểm tra có quest delivery active không
-	var delivery_quest: Dictionary = QuestSystem.get_active_delivery_quest_for_npc(npc_id)
-	print("[Neighbor] delivery_quest is_empty=%s" % delivery_quest.is_empty())
-
-	if not delivery_quest.is_empty():
-		var quest_id: String = delivery_quest.get("id", "")
-		var required_item: String = delivery_quest.get("required_item", "")
-		var required_amount: int = int(delivery_quest.get("required_amount", 1))
-
-		# CHỈ check item trên hotbar slot đang select (player phải cầm item quest trên tay)
-		var selected_item: Dictionary = GameState.get_selected_hotbar_item()
-		var selected_id: String = selected_item.get("id", "")
-		var selected_amount: int = int(selected_item.get("amount", 0))
-		var selected_crop_type: String = QuestSystem.harvest_to_crop_type(selected_id)
-
-		print("=== QUEST DELIVERY CHECK ===")
-		print("  Quest ID: %s" % quest_id)
-		print("  Quest needs: %s x%d" % [required_item, required_amount])
-		print("  Selected slot: id='%s', amount=%d, crop_type='%s'" % [selected_id, selected_amount, selected_crop_type])
-		print("  Match? %s" % str(selected_crop_type == required_item and selected_amount >= required_amount))
-		print("===========================")
-
-		# Chỉ trigger delivery khi slot hotbar đang select khớp quest
-		if selected_crop_type == required_item and selected_amount >= required_amount:
-			print("[Neighbor] >>> Returning neighbor_delivery")
+	print("[Neighbor] delivery_quest is_empty=%s npc_id=%s" % [delivery_quest.is_empty(), npc_id])
+	if has_active_delivery:
+		var quest_id: String = str(delivery_quest.get("id", ""))
+		var ready: bool = QuestSystem.can_complete_delivery_quest(quest_id)
+		print("[Neighbor] Quest %s active; ready_to_deliver=%s" % [quest_id, ready])
+		if ready:
 			return "neighbor_delivery"
-
-		print("[Neighbor] >>> Returning neighbor_still_need")
 		return "neighbor_still_need"
 
 	var available: Array = QuestSystem.get_available_quests_for_npc(npc_id)

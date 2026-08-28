@@ -124,6 +124,9 @@ func get_player_facing_cell(player_node: Node) -> Vector2i:
 	return _world_to_cell(world_pos)
 
 func _input(event: InputEvent) -> void:
+	# Không cho farm input hoạt động trong intro/dialogue cutscene.
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	# Chuột TRÁI = kiểm tra trạng thái cây trồng (show growth info) + thu hoạch
 	# nếu đã MATURE. KHÔNG thực hiện plow/water/plant — những hành động đó
 	# giờ dùng chuột phải. Tách khỏi E (portal) và chuột phải (tool/seed/

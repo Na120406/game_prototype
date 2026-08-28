@@ -91,7 +91,7 @@ color = Color(0.5, 0.35, 0.3, 0.8)
 
 [node name="Bed" type="StaticBody2D" parent="World"]
 z_index = 1
-position = Vector2(79, 47)
+position = Vector2(80, 50)
 
 [node name="Body" type="ColorRect" parent="World/Bed"]
 offset_left = -16.0

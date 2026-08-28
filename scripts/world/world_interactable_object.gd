@@ -51,6 +51,8 @@ func _ensure_prompt_label() -> void:
 
 
 func _process(_delta: float) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	# KHÔNG xử lý input ở đây — player._unhandled_input gọi interact(player)
 	# qua raycast/proximity. Trước đây _process cũng check
 	# Input.is_action_just_pressed gây double-trigger. Bỏ duplicate.
@@ -58,6 +60,8 @@ func _process(_delta: float) -> void:
 
 
 func interact(_player: Node) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	_do_interact()
 
 

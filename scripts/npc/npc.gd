@@ -41,6 +41,10 @@ var _target_pos: Vector2 = Vector2.ZERO
 @export var waypoint_reach_distance: float = 5.0
 @export var reroute_cooldown: float = 0.35
 
+# Khoảng cách lệch NPC ra khỏi vị trí cửa/cổng ngay sau khi handoff (px), để
+# NPC không chiếm chỗ ngay trước cửa và Player không bị chặn lối đi.
+const PORTAL_ARRIVAL_OFFSET: float = 14.0
+
 var _avoid_timer: float = 0.0
 var _last_schedule_time: float = -1.0
 var _schedule_target_scene: String = ""
@@ -152,9 +156,14 @@ func _move_along_schedule(delta: float) -> void:
 		if _advance_route_if_reached():
 			return
 	if _target_pos == Vector2.ZERO:
-		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
-		move_and_slide()
-		return
+		# Tọa độ zero chỉ là target hợp lệ khi NPC đã thật sự tới đó;
+		# không được dùng nó làm lý do đứng im khi route đang chạy.
+		if active_route_index >= 0 and not active_route.is_empty():
+			_target_pos = active_route[active_route_index].get("position", global_position)
+		else:
+			velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+			move_and_slide()
+			return
 	if global_position.distance_to(_target_pos) <= waypoint_reach_distance:
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
 		if current_state == NPCState.WALKING:
@@ -162,7 +171,11 @@ func _move_along_schedule(delta: float) -> void:
 		move_and_slide()
 		return
 	var to_target := global_position.direction_to(_target_pos)
+	# Không cho steering né Player làm lệch toàn bộ hướng lịch trình khi
+	# Marcus vừa ra khỏi cutscene và Player đang đứng gần portal.
 	var steering: Vector2 = _get_player_avoidance()
+	if active_route_index >= 0 or current_state == NPCState.WALKING:
+		steering = steering.limit_length(0.15)
 	var desired: Vector2 = (to_target + steering * avoid_strength).normalized() * move_speed
 	velocity = velocity.move_toward(desired, acceleration * delta)
 	move_and_slide()
@@ -252,29 +265,70 @@ func on_route_arrived(arrived_scene_path: String) -> void:
 	_arrived_route_id = active_route_id
 	_completed_route_id = active_route_id
 	clear_route()
-	# Resolve ngay step hiện hành theo giờ thực tế; không giữ trạng thái idle cũ.
-	if schedule_enabled and not schedule.is_empty():
-		tick_schedule(GameState.current_time)
-		if _get_host_scene_path() == arrived_scene_path:
-			return
+	# Sau handoff phải chọn target của scene ĐÍCH, không gọi tick_schedule()
+	# trước: tick_schedule có thể chọn step nguồn khi giờ vẫn thuộc bước cũ rồi
+	# kéo NPC quay lại cửa. Chọn step gần nhất đã có hiệu lực thuộc đúng scene.
+	var arrival_pos: Vector2 = global_position
+	var step_index: int = _find_arrival_step_index(arrived_scene_path)
+	if step_index < 0:
+		_target_pos = global_position
+		velocity = Vector2.ZERO
+		_change_state(NPCState.IDLE)
+		return
+	# Nếu step chọn có vị trí ngay tại cửa/cổng (NPC sẽ đứng chặn cửa bị delay),
+	# nhảy sang step kế tiếp trong cùng scene để NPC đi tiếp theo lịch trình
+	# thay vì đứng nguyên tại cửa chờ step tiếp theo.
+	var guard: int = 0
+	while guard < schedule.size():
+		guard += 1
+		var step: Dictionary = schedule[step_index]
+		var step_pos_value: Variant = step.get("pos", global_position)
+		var step_pos: Vector2 = step_pos_value as Vector2 if step_pos_value is Vector2 else global_position
+		if step_pos.distance_to(arrival_pos) > waypoint_reach_distance:
+			break
+		var next_index: int = _next_step_index_in_scene(step_index, arrived_scene_path)
+		if next_index < 0 or next_index == step_index:
+			break
+		step_index = next_index
+	var selected_step: Dictionary = schedule[step_index]
+	var selected_pos_value: Variant = selected_step.get("pos", global_position)
+	var selected_pos: Vector2 = selected_pos_value as Vector2 if selected_pos_value is Vector2 else global_position
+	current_schedule_step = step_index
+	_last_schedule_time = float(selected_step.get("time", _last_schedule_time))
+	_schedule_target_scene = arrived_scene_path
+	_target_pos = selected_pos
+	var state_value: int = int(selected_step.get("state", NPCState.IDLE))
+	_change_state(state_value as NPCState)
+	# Xuất hiện ngay lập tức nhưng lệch hẳn ra khỏi cửa theo hướng đi tới vị
+	# trí lịch trình — không chiếm chỗ ngay trước cửa/cổng. Physics tick tiếp
+	# theo sẽ tiếp tục di chuyển NPC tới _target_pos.
+	var to_target: Vector2 = arrival_pos.direction_to(_target_pos)
+	if to_target != Vector2.ZERO and arrival_pos.distance_to(_target_pos) > waypoint_reach_distance:
+		global_position = arrival_pos + to_target * PORTAL_ARRIVAL_OFFSET
+	velocity = Vector2.ZERO
+
+
+# Tìm step đang hiệu lực của scene vừa tới: step cuối có time <= current_time
+# trong scene đó; nếu chưa có step nào, trả về step đầu tiên của scene.
+func _find_arrival_step_index(arrived_scene_path: String) -> int:
+	for index: int in range(schedule.size() - 1, -1, -1):
+		var active_step: Dictionary = schedule[index]
+		if float(active_step.get("time", 0.0)) <= GameState.current_time and str(active_step.get("scene", "")) == arrived_scene_path:
+			return index
 	for index: int in range(schedule.size()):
 		var step: Dictionary = schedule[index]
-		if str(step.get("scene", "")) != arrived_scene_path:
-			continue
-		current_schedule_step = index
-		_last_schedule_time = float(step.get("time", _last_schedule_time))
-		_schedule_target_scene = arrived_scene_path
-		var raw_pos: Variant = step.get("pos", global_position)
-		_target_pos = raw_pos if raw_pos is Vector2 else global_position
-		var state_value: int = int(step.get("state", NPCState.IDLE))
-		_change_state(state_value as NPCState)
-		# Keep the NPC at the destination portal only; the following physics ticks
-		# move it toward the schedule position with velocity.
-		velocity = Vector2.ZERO
-		return
-	_target_pos = global_position
-	velocity = Vector2.ZERO
-	_change_state(NPCState.IDLE)
+		if str(step.get("scene", "")) == arrived_scene_path:
+			return index
+	return -1
+
+
+# Step kế tiếp (theo vòng, cùng scene) sau from_index; -1 nếu không có.
+func _next_step_index_in_scene(from_index: int, scene_path: String) -> int:
+	for offset: int in range(1, schedule.size() + 1):
+		var index: int = (from_index + offset) % schedule.size()
+		if str(schedule[index].get("scene", "")) == scene_path:
+			return index
+	return -1
 
 func _get_host_scene_path() -> String:
 	# Parent scene is authoritative while attached; NPC metadata is only a
@@ -467,6 +521,23 @@ func tick_schedule(current_time: float) -> void:
 	var selected_time: float = float(selected.get("time", 0.0))
 	var selected_scene: String = str(selected.get("scene", ""))
 	var selected_route_id: String = str(selected.get("route_id", ""))
+	# Sau khi handoff qua cổng, NPC đã ở scene đích nhưng step cũ (scene nguồn)
+	# vẫn có time <= current_time; áp dụng step đó sẽ kéo NPC quay lại/đứng chặn
+	# cửa. Chỉ áp dụng step thuộc đúng scene NPC đang đứng; target do
+	# on_route_arrived đặt sẽ được giữ cho tới khi step của scene hiện tại bắt đầu.
+	# Ngoại lệ: step transit ghi scene ĐÍCH nhưng có route mà waypoint nguồn nằm
+	# đúng scene NPC đang đứng (vd after_intro 20:00 go_to_bed) vẫn được áp dụng.
+	var host_scene: String = _get_host_scene_path()
+	if selected_scene != "" and host_scene != "" and selected_scene != host_scene:
+		var route_starts_here: bool = false
+		if selected_route_id != "":
+			var route_manager: Node = get_node_or_null("/root/NPCRouteManager")
+			if route_manager != null and route_manager.has_method("get_waypoint"):
+				var first_waypoint: Variant = route_manager.call("get_waypoint", selected_route_id, 0)
+				if first_waypoint is Dictionary:
+					route_starts_here = str(first_waypoint.get("scene", "")) == host_scene
+		if not route_starts_here:
+			return
 	# Do not reuse the route that has already delivered this NPC to the map.
 	# Only the schedule step's own route may drive the next transition.
 	if selected_route_id != "" and selected_route_id == _arrived_route_id and selected_scene == _get_host_scene_path():
@@ -479,9 +550,9 @@ func tick_schedule(current_time: float) -> void:
 	if _arrived_schedule_scene != "" and selected_scene != _arrived_schedule_scene:
 		_arrived_schedule_scene = ""
 		_arrived_schedule_time = -1.0
-	# A schedule step is authoritative only after the previous route has arrived.
-	# Do not replace an active route with a later scene step while still walking.
-	if active_route_id != "" and not active_route.is_empty() and selected_route_id == "":
+	# Chỉ giữ route đang chạy nếu bước hiện tại vẫn thuộc route đó. Khi lịch
+	# chuyển sang bước mới có route khác, phải cho phép thay route ngay.
+	if active_route_id != "" and not active_route.is_empty() and selected_route_id == "" and selected_scene == _get_host_scene_path():
 		return
 	if not day_changed and is_equal_approx(selected_time, _last_schedule_time) and selected_scene == _schedule_target_scene and selected_route_id == active_route_id:
 		return

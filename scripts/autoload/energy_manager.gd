@@ -109,7 +109,9 @@ func _start_fade_with_reset(do_teleport: bool, reset_to_hour: float) -> void:
 	overlay.color = Color(0, 0, 0, 0)
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.z_index = 9999
+	# KHÔNG set z_index > 4095 (CANVAS_ITEM_Z_MAX) — sẽ push error mỗi lần
+	# knock-out. Overlay đã nằm trong CanvasLayer layer 999 nên luôn hiển thị
+	# trên mọi thứ; z_index mặc định 0 là đủ.
 	var layer := CanvasLayer.new()
 	layer.name = "KnockOutLayer"
 	layer.layer = 999

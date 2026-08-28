@@ -384,6 +384,8 @@ func _update_tooltip_position(mouse_pos: Vector2) -> void:
 # =============================================================================
 
 func _input(event: InputEvent) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE:
+		return
 	if not visible:
 		return
 	if event.is_action_pressed("interact"):

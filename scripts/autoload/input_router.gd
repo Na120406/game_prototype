@@ -14,14 +14,16 @@ extends Node
 # =============================================================================
 
 func _input(event: InputEvent) -> void:
-	# Cutscene intro Day 1 khóa toàn bộ input global, bao gồm Tab.
-	# Không chặn dialogue input ở trạng thái WAITING_DIALOGUE.
-	if GameState.cinematic_intro_state == GameState.CINEMATIC_WALKING_TO_NPC:
+	# Trong intro/dialogue, chỉ cho phép E và chuột trái đi tiếp hội thoại.
+	# Không để TAB, phím hotbar hoặc input global khác lọt qua.
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		if _is_dialogue_skip_event(event) and DialogueManager.is_active:
+			return
 		get_viewport().set_input_as_handled()
 		return
 
-	# DEBUG — chỉ print cho key event
-	if event is InputEventKey:
+	# DEBUG — chỉ print cho key event khi gameplay không bị khóa
+	if event is InputEventKey and not GameState.player_movement_locked:
 		print("[InputRouter] key event pressed=", event.pressed, " echo=", event.echo, " physkey=", event.physical_keycode, " keycode=", event.keycode)
 	# Bỏ qua release/echo — chỉ quan tâm press
 	if not event.is_pressed() or event.is_echo():
@@ -37,6 +39,11 @@ func _input(event: InputEvent) -> void:
 		_handle_toggle_inventory()
 		get_viewport().set_input_as_handled()
 		return
+
+func _is_dialogue_skip_event(event: InputEvent) -> bool:
+	if event.is_action_pressed("interact"):
+		return true
+	return event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT
 
 func _handle_toggle_inventory() -> void:
 	print("[InputRouter] _handle_toggle_inventory entered")

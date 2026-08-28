@@ -64,9 +64,14 @@ var _is_typing: bool = false
 var _choices: Array = []
 var _choice_btns: Array = []
 var _is_last_line: bool = false
+# Khóa chọn choice để tránh double-fire giữa GUI dispatch và _input fallback.
+var _choice_locked: bool = false
 
 func _ready() -> void:
 	visible = false
+	# DialogueUI tự xử lý click choice trong _input để tránh các Control cha
+	# hoặc CanvasLayer khác chặn GUI dispatch của Button động.
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	
 	_name_lbl = find_child("Name", true, false)
 	_text_lbl = find_child("Text", true, false)
@@ -95,10 +100,35 @@ func _ready() -> void:
 	
 	if _text_lbl != null:
 		_text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD
+		_text_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _border_rect != null:
+		_border_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _panel != null:
+		_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	if _margin != null:
+		_margin.mouse_filter = Control.MOUSE_FILTER_PASS
 	if _choices_box != null:
+		_choices_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_choices_box.visible = false
+	# Container chứa choices không được nuốt click — chỉ Button con được nhận
+	# GUI event (và _input hit-test làm fallback).
+	var _vbox: Control = find_child("VBox", true, false)
+	if _vbox != null:
+		_vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var _header: Control = find_child("Header", true, false)
+	if _header != null:
+		_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _type_timer != null:
 		_type_timer.timeout.connect(_on_type_timer_timeout)
+
+	# Đăng ký trực tiếp sau khi DialogueUI vào scene tree, tránh race với
+	# SceneTree.node_added của DialogueManager.
+	call_deferred("_register_with_dialogue_manager")
+
+func _register_with_dialogue_manager() -> void:
+	var manager: Node = get_node_or_null("/root/DialogueManager")
+	if manager != null and manager.has_method("register_dialogue_ui"):
+		manager.call("register_dialogue_ui", self)
 
 func _update_panel_position() -> void:
 	if _panel != null:
@@ -107,9 +137,33 @@ func _update_panel_position() -> void:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
+	# Trong cutscene, chỉ E và chuột trái được dùng để tua hội thoại.
+	# Các input còn lại bị Player/InputRouter chặn.
 
-	# Nếu đang trong choices - KHÔNG xử lý click để button hoạt động
+	# Khi choices đang hiển thị, click vào nút được xử lý BẰNG HAI ĐƯỜNG:
+	# 1) GUI dispatch chuẩn của Button (mouse_filter STOP) — đường chính.
+	# 2) Fallback hit-test ở đây bằng vị trí chuột viewport (khớp global rect).
+	# _on_choice_pressed có guard chống double-fire giữa hai đường này.
 	if _choices.size() > 0:
+		if event is InputEventMouseButton:
+			var choice_mouse: InputEventMouseButton = event
+			if choice_mouse.button_index == MOUSE_BUTTON_LEFT and choice_mouse.pressed:
+				var mouse_pos: Vector2 = get_viewport().get_mouse_position()
+				var hit: bool = false
+				for i: int in range(_choice_btns.size()):
+					var button: Button = _choice_btns[i]
+					if is_instance_valid(button) and button.get_global_rect().has_point(mouse_pos):
+						hit = true
+						_on_choice_pressed(i)
+						return
+				if not hit:
+					print("[DialogueUI] Click at %s missed choice buttons (n=%d)" % [str(mouse_pos), _choice_btns.size()])
+			return
+		if event.is_action_pressed("interact"):
+			# E chọn nút đầu tiên (Phải) khi choices đang hiển thị.
+			_on_choice_pressed(0)
+			get_viewport().set_input_as_handled()
+			return
 		return
 
 	if event is InputEventMouseButton:
@@ -149,6 +203,7 @@ func show_text(speaker: String, text: String, choices: Array = [], is_last: bool
 	_is_last_line = is_last
 	_current_char = 0
 	_is_typing = true
+	_choice_locked = false  # Mở khóa cho dòng mới
 
 	if _name_lbl != null:
 		_name_lbl.text = speaker
@@ -195,9 +250,12 @@ func _show_choices() -> void:
 	_choices_box.custom_minimum_size.y = 60  # Đảm bảo có không gian hiển thị
 	for i in range(_choices.size()):
 		var btn := Button.new()
-		# Xử lý 2 format: object {text, action} hoặc string đơn
+		# Button giữ mouse_filter STOP mặc định để GUI dispatch nhận click trực
+		# tiếp (đường chính). _input hit-test ở trên chỉ là fallback.
+		# choices là nhãn hiển thị; action được lấy từ choices_data trong
+		# DialogueManager.select_choice().
 		if _choices[i] is Dictionary:
-			btn.text = _choices[i].get("text", "?")
+			btn.text = str(_choices[i].get("text", _choices[i].get("label", "?")))
 		else:
 			btn.text = str(_choices[i])
 
@@ -231,27 +289,45 @@ func _show_choices() -> void:
 		btn.add_theme_stylebox_override("hover", hover_style)
 
 		btn.pressed.connect(_on_choice_pressed.bind(i))
+		# Add trước khi layout để Button có hitbox ngay trong frame này.
 		_choices_box.add_child(btn)
 		_choice_btns.append(btn)
 
 func _on_choice_pressed(idx: int) -> void:
+	if _choice_locked:
+		return
+	if idx < 0 or idx >= _choices.size():
+		return
+	_choice_locked = true
 	print("[DialogueUI] Choice pressed: %d" % idx)
 	for btn in _choice_btns:
 		btn.disabled = true
-	dialogue_choice.emit(idx)
+	get_viewport().set_input_as_handled()
+
+	# Gọi trực tiếp manager thay vì phụ thuộc vào việc signal đã được nối
+	# đúng thời điểm khi UI được spawn/reload.
+	var manager: Node = get_node_or_null("/root/DialogueManager")
+	if manager != null and manager.has_method("select_choice"):
+		manager.call("select_choice", idx)
+	else:
+		dialogue_choice.emit(idx)
 
 func _clear_choices() -> void:
 	for btn in _choice_btns:
 		btn.queue_free()
 	_choice_btns.clear()
-	_choices_box.visible = false
+	if _choices_box != null:
+		_choices_box.visible = false
 	_choices.clear()
 
 func hide_dialogue() -> void:
 	visible = false
 	_is_typing = false
+	_choice_locked = false
 	if _type_timer != null:
 		_type_timer.stop()
+	if _choices_box != null:
+		_choices_box.visible = false
 	_choices.clear()
 	for btn in _choice_btns:
 		btn.queue_free()

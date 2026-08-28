@@ -41,6 +41,9 @@ func _ensure_player_at_default() -> void:
 	if sm != null and sm.get("_is_via_portal") == true:
 		# Đang chuyển scene qua portal → SceneManager lo. KHÔNG override.
 		return
+	if sm != null and sm.get("current_scene_path") == scene_file_path:
+		# SceneManager đã xử lý spawn, kể cả trường hợp cờ portal vừa được clear.
+		return
 	var player := tree.get_first_node_in_group("player")
 	if player == null or not player.has_method("force_position"):
 		return

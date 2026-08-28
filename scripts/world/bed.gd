@@ -76,6 +76,8 @@ func is_player_nearby() -> bool:
 
 
 func _process(_delta: float) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	var nearby := is_player_nearby()
 	if nearby != _player_nearby:
 		_player_nearby = nearby
@@ -85,6 +87,8 @@ func _process(_delta: float) -> void:
 
 
 func interact(_player_ref: Node) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	sleep_requested.emit()
 
 

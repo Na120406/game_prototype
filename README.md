@@ -84,6 +84,7 @@ nằm trong phần `[autoload]` của `project.godot`.
 
 ## Tài liệu dự án
 
+- `docs/ARCHITECTURE.md` — **Bản đồ mã nguồn & kiến trúc** (đọc trước khi sửa code)
 - `design/gdd/` — Game Design Document và định hướng thiết kế
 - `docs/characters/` — Thiết kế nhân vật/NPC
 - `docs/templates/` — Template viết tài liệu

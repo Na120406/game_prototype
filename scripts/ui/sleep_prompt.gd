@@ -74,6 +74,8 @@ func hide_prompt() -> void:
 		backdrop.visible = false
 
 func _input(event: InputEvent) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE:
+		return
 	if not _is_open:
 		return
 	if event.is_action_pressed("ui_cancel"):

@@ -143,6 +143,35 @@ func crop_to_harvest(item_id: String) -> String:
 			return harvest_id
 	return item_id
 
+# Chuẩn hóa item giao quest về cùng một crop ID. Item thu hoạch có thể dùng
+# dạng "tomato_harvest", còn quest lưu "tomato"; cả hai phải được coi là một.
+func normalize_delivery_item_id(item_id: String) -> String:
+	return harvest_to_crop_type(str(item_id))
+
+func delivery_items_match(required_item: String, offered_item: String) -> bool:
+	var required := normalize_delivery_item_id(required_item)
+	var offered := normalize_delivery_item_id(offered_item)
+	return required != "" and required == offered
+
+func can_complete_delivery_quest(quest_id: String) -> bool:
+	var quest_idx := _find_active_quest(quest_id)
+	if quest_idx < 0:
+		return false
+	var quest: Dictionary = active_quests[quest_idx]
+	if quest.get("type", "") != "delivery":
+		return false
+	var deadline: int = int(quest.get("deadline_day", 0))
+	if deadline > 0 and GameState.current_day > deadline:
+		return false
+	var required_item := str(quest.get("required_item", ""))
+	var required_amount: int = int(quest.get("required_amount", 0))
+	if required_item == "" or required_amount <= 0:
+		return false
+	var selected: Dictionary = GameState.get_selected_hotbar_item()
+	var selected_id := str(selected.get("id", ""))
+	var selected_amount: int = int(selected.get("amount", 0))
+	return delivery_items_match(required_item, selected_id) and selected_amount >= required_amount
+
 # Định nghĩa tất cả quest có trong game
 var quest_definitions: Dictionary = {}
 const QUEST_JSON_PATH := "res://resources/quest/quest_data.json"
@@ -260,6 +289,11 @@ func _build_quest_library() -> void:
 # Trả về: true nếu nhận thành công
 
 func accept_quest(quest_id: String, quest_data: Dictionary = {}) -> bool:
+	# Day 1 không cho nhận bất kỳ quest nào; quest chỉ mở từ day 2.
+	if GameState.current_day < 2:
+		print("[QuestSystem] Quest %s rejected: quests start on day 2." % quest_id)
+		return false
+
 	# Quest không repeatable chỉ được nhận một lần trong toàn bộ session.
 	# Guard này cũng bảo vệ khi UI bị click nhiều lần hoặc nhận bằng API khác.
 	if is_quest_completed(quest_id) or is_quest_failed(quest_id):
@@ -668,6 +702,8 @@ func _get_gold_reward(amount: int) -> int:
 	return int(GOLD_REWARD_BY_AMOUNT.get(amount, 25))
 
 func generate_random_delivery_quest(npc_id: String) -> Dictionary:
+	if GameState.current_day < 2:
+		return {}
 	var crop_type: String = FARM_CROPS[randi() % FARM_CROPS.size()]
 	var required_amount: int = (randi() % 5) + 1  # 1-5
 
@@ -681,6 +717,7 @@ func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 		"name": quest_name,
 		"description": quest_desc,
 		"giver": npc_id,
+		"target_npc": npc_id,
 		"type": "delivery",
 		"required_item": crop_type,
 		"required_amount": required_amount,
@@ -704,6 +741,8 @@ func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 # Trả về 1 nhiệm vụ giao hàng ngẫu nhiên cho NPC. Dùng cho bảng tin.
 
 func get_random_quest_for_npc(npc_id: String) -> Dictionary:
+	if GameState.current_day < 2:
+		return {}
 	return generate_random_delivery_quest(npc_id)
 
 
@@ -715,6 +754,11 @@ func get_random_quest_for_npc(npc_id: String) -> Dictionary:
 # Bao gồm: quest tĩnh có sẵn + 1-2 quest ngẫu nhiên (delivery)
 
 func get_quests_for_board(npc_id: String) -> Array:
+	# Day 1 luôn trả về danh sách rỗng, không cho bất kỳ board/API nào sinh quest.
+	if GameState.current_day < 2:
+		if _daily_board_quest_day != GameState.current_day:
+			_regenerate_daily_quests()
+		return []
 	# Kiểm tra nếu cần reset cache (sang ngày mới)
 	if _daily_board_quest_day != GameState.current_day:
 		_regenerate_daily_quests()
@@ -734,13 +778,19 @@ func _regenerate_daily_quests() -> void:
 	_daily_board_has_quests.clear()
 	_daily_board_quest_day = GameState.current_day
 
-	# Tạo quests cho tất cả NPC có bảng tin
-	# Hiện tại chỉ có "neighbor"
+	# Tạo quests cho tất cả NPC có bảng tin.
+	# Day 1 vẫn khởi tạo cache rỗng; chỉ day 2+ mới roll xác suất.
 	var npcs_with_boards: Array[String] = ["neighbor"]
+	if GameState.current_day < 2:
+		for npc_id: String in npcs_with_boards:
+			_daily_board_has_quests[npc_id] = false
+			_daily_board_quests[npc_id] = []
+		print("[QuestSystem] Day %d: quest board disabled until day 2." % GameState.current_day)
+		return
 
 	for npc_id: String in npcs_with_boards:
 		# Roll xác suất xuất hiện quest (chỉ roll 1 lần mỗi ngày)
-		var chance: float = GameState.base_quest_chance + GameState.quest_appearance_bonus
+		var chance: float = clampf(GameState.base_quest_chance + GameState.quest_appearance_bonus, 0.0, 1.0)
 		var rolled: bool = randf() <= chance
 
 		if not rolled:
@@ -776,6 +826,11 @@ func _regenerate_daily_quests() -> void:
 # Trả về true nếu hôm nay bảng tin có quest (sau khi roll)
 
 func has_quests_today(npc_id: String) -> bool:
+	# Day 1 luôn không có quest, kể cả khi caller chưa mở board.
+	if GameState.current_day < 2:
+		if _daily_board_quest_day != GameState.current_day:
+			_regenerate_daily_quests()
+		return false
 	# Kiểm tra nếu cần reset cache (sang ngày mới)
 	if _daily_board_quest_day != GameState.current_day:
 		_regenerate_daily_quests()
@@ -791,41 +846,47 @@ func has_quests_today(npc_id: String) -> bool:
 # Trả về quest delivery đang active cho NPC nếu có
 
 func get_active_delivery_quest_for_npc(npc_id: String) -> Dictionary:
-	# Chọn quest theo item đang cầm, không chọn cứng quest đầu tiên.
-	var selected: Dictionary = GameState.get_selected_hotbar_item()
-	var selected_id: String = str(selected.get("id", ""))
-	var selected_amount: int = int(selected.get("amount", 0))
+	# Quest active phải được phát hiện độc lập với item đang chọn. Nếu có nhiều
+	# quest cùng NPC, ưu tiên quest khớp item và đủ lượng ở slot hotbar đang chọn;
+	# nếu chưa đủ thì vẫn trả về quest đầu tiên để NPC hiển thị thoại "còn thiếu".
+	var fallback: Dictionary = {}
 	for quest: Dictionary in active_quests:
 		if quest.get("type", "") != "delivery":
 			continue
 		var target: String = str(quest.get("target_npc", quest.get("giver", "")))
-		var required_item: String = str(quest.get("required_item", ""))
-		var required_amount: int = int(quest.get("required_amount", 0))
 		var deadline: int = int(quest.get("deadline_day", 0))
-		if target == npc_id and selected_id == required_item and selected_amount >= required_amount and (deadline <= 0 or GameState.current_day <= deadline):
+		if target != npc_id or (deadline > 0 and GameState.current_day > deadline):
+			continue
+		if fallback.is_empty():
+			fallback = quest
+		if can_complete_delivery_quest(str(quest.get("id", ""))):
 			return quest
-	return {}
+	return fallback
 
 
 # =============================================================================
-# HÀM KIỂM TRA ĐỦ VẬT PHẨM CHƯA (has_required_items)
+# HÀM KIỂM TRA ITEM ĐANG CHỌN CHO QUEST (has_required_items)
 # =============================================================================
-# Kiểm tra player có đủ vật phẩm cho quest delivery không
+# Kiểm tra slot hotbar đang chọn có đúng và đủ vật phẩm giao hàng không
 
 func has_required_items(quest_id: String) -> bool:
 	for quest: Dictionary in active_quests:
 		if quest.get("id", "") == quest_id:
-			var required_item: String = quest.get("required_item", "")
+			var required_item: String = str(quest.get("required_item", ""))
 			var required_amount: int = int(quest.get("required_amount", 0))
-			var player_amount: int = GameState.get_item_count(required_item)
-			return player_amount >= required_amount
+			if required_item == "" or required_amount <= 0:
+				return false
+			var selected: Dictionary = GameState.get_selected_hotbar_item()
+			var selected_id := str(selected.get("id", ""))
+			var selected_amount: int = int(selected.get("amount", 0))
+			return delivery_items_match(required_item, selected_id) and selected_amount >= required_amount
 	return false
 
 
 # =============================================================================
 # HÀM HOÀN THÀNH GIAO HÀNG (complete_delivery_quest)
 # =============================================================================
-# Trả về true nếu thành công. Consume items từ inventory.
+# Trả về true nếu thành công. Consume item từ slot hotbar đang chọn.
 
 func complete_delivery_quest(quest_id: String) -> bool:
 	var quest_idx: int = _find_active_quest(quest_id)
@@ -839,22 +900,20 @@ func complete_delivery_quest(quest_id: String) -> bool:
 		print("[QuestSystem] complete_delivery_quest: quest %s expired" % quest_id)
 		return false
 
-	# Kiểm tra đủ item chưa
-	var required_item: String = quest.get("required_item", "")  # crop type vd "tomato"
+	# Chỉ giao bằng item đang được chọn trên hotbar.
+	var required_item: String = str(quest.get("required_item", ""))
 	var required_amount: int = int(quest.get("required_amount", 0))
-	# Dùng trực tiếp required_item vì đây là item_id chuẩn trong inventory/hotbar
-	# (ví dụ: "tomato", không phải "tomato_harvest").
 	var slot: Dictionary = GameState.get_selected_hotbar_item()
 	var slot_id: String = str(slot.get("id", ""))
 	var slot_amount: int = int(slot.get("amount", 0))
 	print("[QuestSystem] complete_delivery_quest(%s): need %d x %s" % [quest_id, required_amount, required_item])
 	print("[QuestSystem] Selected slot: id='%s' amount=%d" % [slot_id, slot_amount])
-	if slot_id != required_item or slot_amount < required_amount:
-		print("[QuestSystem] NOT ENOUGH or WRONG item in selected slot")
+	if not can_complete_delivery_quest(quest_id):
+		print("[QuestSystem] NOT ENOUGH or WRONG item in inventory")
 		return false
 
-	# Trừ items từ hotbar slot đang select
-	var remove_ok: bool = GameState.remove_item(required_item, required_amount)
+	# Chỉ trừ đúng stack đang được chọn trên hotbar sau khi đã kiểm tra đủ lượng.
+	var remove_ok: bool = GameState.remove_item(slot_id, required_amount)
 	print("[QuestSystem] remove_item returned: %s" % str(remove_ok))
 	if not remove_ok:
 		print("[QuestSystem] FAILED to remove items")

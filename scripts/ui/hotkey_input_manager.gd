@@ -36,6 +36,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_pressed() or event.is_echo():
 		return
 
+	# Trong cutscene/dialogue, chỉ DialogueUI được phép xử lý E/chuột trái.
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		get_viewport().set_input_as_handled()
+		return
+
 	# Phát hiện UI/popup đang mở → chặn hoàn toàn
 	if _is_blocking_popup_open():
 		# Nếu player vô tình nhấn 1-5 / E / click chuột trong khi UI mở → nuốt

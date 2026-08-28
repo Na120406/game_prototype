@@ -19,7 +19,7 @@
 		  "state": "sleeping",
 		  "action": "sleep",
 		  "scene": "res://scenes/maps/marcus_house_map.tscn",
-		  "pos": { "x": 20, "y": 29 },
+		  "pos": { "x": 80, "y": 50 },
 		  "route_id": ""
 		},
 		{
@@ -27,7 +27,15 @@
 		  "state": "waking",
 		  "action": "wake_up",
 		  "scene": "res://scenes/maps/marcus_house_map.tscn",
-		  "pos": { "x": 20, "y": 29 },
+		  "pos": { "x": 80, "y": 50 },
+		  "route_id": ""
+		},
+		{
+		  "time": 6.1,
+		  "state": "walking",
+		  "action": "stay_at_marcus_farm",
+		  "scene": "res://scenes/maps/marcus_farm_map.tscn",
+		  "pos": { "x": 160, "y": 200 },
 		  "route_id": ""
 		},
 		{
@@ -56,10 +64,18 @@
 		},
 		{
 		  "time": 9.0,
+		  "state": "walking",
+		  "action": "walk_away_from_town_portal",
+		  "scene": "res://scenes/maps/town_map.tscn",
+		  "pos": { "x": 430, "y": 110 },
+		  "route_id": ""
+		},
+		{
+		  "time": 9.1,
 		  "state": "idle",
 		  "action": "arrive_at_town",
 		  "scene": "res://scenes/maps/town_map.tscn",
-		  "pos": { "x": 430, "y": 90 },
+		  "pos": { "x": 430, "y": 110 },
 		  "route_id": ""
 		},
 		{
@@ -72,6 +88,14 @@
 		},
 		{
 		  "time": 11.0,
+		  "state": "walking",
+		  "action": "walk_away_from_shop_portal",
+		  "scene": "res://scenes/maps/inside_shop_map.tscn",
+		  "pos": { "x": 210, "y": 200 },
+		  "route_id": ""
+		},
+		{
+		  "time": 11.1,
 		  "state": "idle",
 		  "action": "rest_in_shop",
 		  "scene": "res://scenes/maps/inside_shop_map.tscn",
@@ -123,7 +147,7 @@
 		  "state": "sleeping",
 		  "action": "sleep",
 		  "scene": "res://scenes/maps/marcus_house_map.tscn",
-		  "pos": { "x": 20, "y": 29 },
+		  "pos": { "x": 80, "y": 50 },
 		  "route_id": ""
 		}
 	  ],
@@ -139,11 +163,19 @@
 	  ],
 	  "after_intro_to_town": [
 		{
-		  "time": 8.0,
-		  "state": "idle",
-		  "action": "walk_in_town",
+		  "time": 7.0,
+		  "state": "walking",
+		  "action": "leave_player_farm",
+		  "scene": "res://scenes/maps/farm_map.tscn",
+		  "pos": { "x": 790, "y": 300 },
+		  "route_id": "farm_to_town"
+		},
+		{
+		  "time": 7.1,
+		  "state": "walking",
+		  "action": "arrive_in_town",
 		  "scene": "res://scenes/maps/town_map.tscn",
-		  "pos": { "x": 430, "y": 90 },
+		  "pos": { "x": 430, "y": 110 },
 		  "route_id": "farm_to_town"
 		},
 		{

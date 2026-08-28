@@ -309,11 +309,15 @@ func advance_day(reset_to_hour: float = 6.0) -> void:
 	# is_day phải khớp với giờ reset (không hardcode true). Ví dụ reset 1:00 →
 	# vẫn là đêm, is_day = false.
 	is_day = current_time >= 6.0 and current_time < 22.0
-	# Tăng bonus quest nếu chưa đạt cap +10%/ngày (reset khi nhận quest thành công).
-	if quest_bonus_day < current_day:
+	# Tăng bonus sau mỗi ngày đã bắt đầu roll quest. Day 1 chỉ là tutorial,
+	# không tính bonus vì chưa có lượt roll quest.
+	if current_day >= 3 and quest_bonus_day < current_day:
 		quest_appearance_bonus = minf(quest_appearance_bonus + quest_bonus_per_day, 1.0)
 		quest_bonus_day = current_day
 		print("[GameState] Quest chance increased to %.0f%%" % ((base_quest_chance + quest_appearance_bonus) * 100))
+	elif current_day == 2 and quest_bonus_day < current_day:
+		# Lượt roll đầu tiên ở day 2 dùng đúng base chance.
+		quest_bonus_day = current_day
 	# Kiểm tra quest hết hạn
 	var expired: int = 0
 	var qs = get_node_or_null("/root/QuestSystem")

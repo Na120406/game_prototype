@@ -163,6 +163,9 @@ func change_scene(scene_path: String, portal_id: String = "", use_transition: bo
 		var current: Node = get_tree().current_scene
 		if current != null:
 			old_path = current.scene_file_path
+		if old_path == "res://scenes/maps/inside_house_map.tscn" and scene_path == "res://scenes/maps/farm_map.tscn":
+			GameState.just_left_inside_house = true
+			print("[SceneManager] Player just left inside_house_map for farm_map")
 		scene_changing.emit(old_path, scene_path)
 		_load_scene(scene_path)
 		call_deferred("_emit_scene_changed_once", scene_path)
@@ -254,9 +257,9 @@ func _on_fade_to_black_complete(scene_path: String) -> void:
 		old_scene_path = current.scene_file_path
 
 	# Set flag để trigger day1 intro cutscene với Marcus
-	if old_scene_path == "res://scenes/maps/inside_house_map.tscn":
+	if old_scene_path == "res://scenes/maps/inside_house_map.tscn" and scene_path == "res://scenes/maps/farm_map.tscn":
 		GameState.just_left_inside_house = true
-		print("[SceneManager] Player just left inside_house_map")
+		print("[SceneManager] Player just left inside_house_map for farm_map")
 
 	scene_changing.emit(old_scene_path, scene_path)
 	# Load scene mới
@@ -371,7 +374,36 @@ func _load_scene(scene_path: String) -> void:
 		return
 
 	var spawn_pos := _pick_spawn_position(new_scene, scene_path)
-	player.force_position(spawn_pos)
+	player.force_position(_resolve_player_spawn_collision(player, spawn_pos))
+	# Luôn khôi phục hiển thị player sau khi thay scene. Background NPC map có
+	# thể bị đặt TRANSPARENT; tuyệt đối không để trạng thái CanvasItem đó lan sang
+	# Player scene mới.
+	player.visible = true
+	player.modulate = Color.WHITE
+	# Khôi phục toàn bộ CanvasItem chain của scene mới; modulate của node cha
+	# có thể vẫn là TRANSPARENT sau quá trình background NPC handoff.
+	var visual_parent: Node = player.get_parent()
+	while visual_parent != null and visual_parent != get_tree().root:
+		if visual_parent is CanvasItem:
+			(visual_parent as CanvasItem).visible = true
+			(visual_parent as CanvasItem).modulate = Color.WHITE
+		visual_parent = visual_parent.get_parent()
+	var player_sprite: Node = player.get_node_or_null("Sprite2D")
+	if player_sprite is CanvasItem:
+		player_sprite.visible = true
+		player_sprite.modulate = Color.WHITE
+	# Camera cũ có thể còn active trong scene/background; tắt toàn bộ camera
+	# khác trước khi bật camera của Player mới.
+	for camera_node: Node in get_tree().get_nodes_in_group("camera"):
+		if camera_node is Camera2D and camera_node != player.get_node_or_null("Camera2D"):
+			(camera_node as Camera2D).enabled = false
+	var player_camera: Node = player.get_node_or_null("Camera2D")
+	if player_camera is Camera2D:
+		player_camera.enabled = true
+		player_camera.make_current()
+	# SceneRoot có callback deferred và có thể chạm lại Player sau đoạn này.
+	# Chạy khôi phục lần cuối sau toàn bộ callback của scene mới.
+	call_deferred("_finalize_player_after_scene_load", player, spawn_pos)
 	_is_via_portal = false
 	print("[SceneManager] Spawned player at %s" % str(spawn_pos))
 
@@ -383,6 +415,54 @@ func _load_scene(scene_path: String) -> void:
 	_farm_snapshot.clear()
 	print("[SceneManager] Cleared farm snapshot for fresh load")
 
+
+func _resolve_player_spawn_collision(player: Node, spawn_pos: Vector2) -> Vector2:
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return spawn_pos
+	for candidate: Node in scene.get_tree().get_nodes_in_group("npc"):
+		if candidate == player or not candidate is Node2D or not is_instance_valid(candidate):
+			continue
+		var npc_pos: Vector2 = (candidate as Node2D).global_position
+		if npc_pos.distance_to(spawn_pos) >= 24.0:
+			continue
+		# Đặt Player lệch xuống dưới NPC, rồi thử các hướng dự phòng.
+		for offset: Vector2 in [Vector2(0, 28), Vector2(28, 0), Vector2(-28, 0), Vector2(0, -28)]:
+			var candidate_pos: Vector2 = spawn_pos + offset
+			var occupied := false
+			for other: Node in scene.get_tree().get_nodes_in_group("npc"):
+				if other != player and other is Node2D and is_instance_valid(other) and (other as Node2D).global_position.distance_to(candidate_pos) < 24.0:
+					occupied = true
+					break
+			if not occupied:
+				return candidate_pos
+	return spawn_pos
+
+func _finalize_player_after_scene_load(player: Node, spawn_pos: Vector2) -> void:
+	# Chờ toàn bộ callback deferred của SceneRoot/NPCManager trong frame load
+	# xong rồi mới khôi phục Player; lỗi chỉ xuất hiện khi đuổi sát NPC vì lúc
+	# đó hai chuỗi handoff chạy cùng thời điểm.
+	await get_tree().process_frame
+	if player == null or not is_instance_valid(player):
+		return
+	if player.get_parent() != get_tree().current_scene:
+		return
+	player.force_position(_resolve_player_spawn_collision(player, spawn_pos))
+	# Chỉ bật Player scene đang active, không bật lại background NPC map.
+	var active_scene: Node = get_tree().current_scene
+	if active_scene is CanvasItem:
+		(active_scene as CanvasItem).visible = true
+		(active_scene as CanvasItem).modulate = Color.WHITE
+	player.visible = true
+	player.modulate = Color.WHITE
+	var sprite: Node = player.get_node_or_null("Sprite2D")
+	if sprite is CanvasItem:
+		(sprite as CanvasItem).visible = true
+		(sprite as CanvasItem).modulate = Color.WHITE
+	var camera: Node = player.get_node_or_null("Camera2D")
+	if camera is Camera2D:
+		(camera as Camera2D).enabled = true
+		(camera as Camera2D).make_current()
 
 # =============================================================================
 # HÀM PICK SPAWN POSITION
@@ -626,13 +706,20 @@ func _finish_npc_handoff(npc: Node2D, destination: Node, target_scene_path: Stri
 	# portals sharing the same player-facing ID, so resolving by ID alone can
 	# place Marcus at the first/left-most portal in Town. Use the exact
 	# destination waypoint recorded by npc.gd first.
-	var route_position: Variant = npc.get_meta("route_arrival_position", null)
+	var route_position: Variant = null
+	# Godot 4.5: get_meta() vẫn push error nếu key không tồn tại dù có default.
+	# Meta này chỉ được set khi NPC đi theo route (npc.gd) — khi attach lần đầu
+	# hoặc preservation handoff thì không có → phải check has_meta trước.
+	if npc.has_meta("route_arrival_position"):
+		route_position = npc.get_meta("route_arrival_position")
 	# Only a real route handoff may consume the route arrival waypoint. When the
 	# Player changes scene, NPCManager calls this method with target_portal_id=""
 	# merely to preserve Marcus in the outgoing background map. Reusing stale
 	# route_arrival_position there would teleport the NPC and corrupt the next
 	# Player portal transition.
 	if target_portal_id != "" and route_position is Vector2:
+		# Không để NPC đứng chồng lên cửa: đặt lệch vào trong map, cách portal
+		# đủ xa để Player có thể xuất hiện và đi qua mà không bị physics đẩy.
 		npc.global_position = route_position
 		npc.set_meta("portal_arrival_position", npc.global_position)
 		npc.set_meta("portal_arrival_scene", target_scene_path)

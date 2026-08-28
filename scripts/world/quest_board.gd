@@ -30,6 +30,10 @@ func _ready() -> void:
 	body_exited.connect(_on_body_exited)
 
 func _process(_delta: float) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	if _player_inside and Input.is_action_just_pressed("interact"):
 		_toggle_ui()
 

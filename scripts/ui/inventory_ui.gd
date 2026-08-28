@@ -483,6 +483,8 @@ func _apply_ctx_menu_font() -> void:
 # =============================================================================
 
 func _input(event: InputEvent) -> void:
+	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
+		return
 	# Toggle inventory cũng được bắt ở HotkeyInputManager (autoload) để chắc
 	# chắn hoạt động dù packed scene này bị delay load. Handler ở đây vẫn
 	# giữ làm fallback — _input chạy trước GUI dispatch.
