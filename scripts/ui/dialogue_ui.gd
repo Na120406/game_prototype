@@ -1,3 +1,4 @@
+@tool
 extends Control
 
 signal dialogue_advance()
@@ -30,6 +31,17 @@ signal dialogue_choice(index: int)
 
 ## Background panel size
 @export_group("Panel Size")
+## Enable auto-fit (panel tự co giãn theo text). Tắt để dùng fixed height.
+@export var auto_fit_height: bool = false:
+	set(value):
+		auto_fit_height = value
+		_update_panel_height()
+## Fixed height khi auto_fit_height = false.
+@export var panel_fixed_height: int = 60:
+	set(value):
+		panel_fixed_height = value
+		_update_panel_height()
+## Min height (chỉ dùng khi auto_fit_height = true).
 @export var panel_min_height: int = 24:
 	set(value):
 		panel_min_height = value
@@ -132,8 +144,22 @@ func _register_with_dialogue_manager() -> void:
 		manager.call("register_dialogue_ui", self)
 
 func _update_panel_position() -> void:
-	if _panel != null:
-		_panel.offset_top = -panel_min_height + panel_height_offset
+	_update_panel_height()
+
+func _update_panel_height() -> void:
+	# Áp dụng fixed height hoặc min height tùy theo mode.
+	if _panel == null:
+		return
+	if auto_fit_height:
+		# Auto-fit mode: panel tự co giãn, chỉ set min height.
+		_panel.custom_minimum_size.y = panel_min_height
+	else:
+		# Fixed mode: set custom_minimum_size = fixed height → panel không co giãn.
+		_panel.custom_minimum_size.y = panel_fixed_height
+	
+	# Cập nhật vị trí panel (offset top).
+	var height: float = panel_fixed_height if not auto_fit_height else panel_min_height
+	_panel.offset_top = -height + panel_height_offset
 
 func _input(event: InputEvent) -> void:
 	if not visible:
@@ -218,8 +244,9 @@ func show_text(speaker: String, text: String, choices: Array = [], is_last: bool
 	_choice_btns.clear()
 
 	visible = true
-	# Fit panel theo chiều cao nội dung cuối (đo full text, không theo text đang type).
-	_fit_panel_to_content()
+	# Chỉ fit panel khi auto_fit_height = true, còn fixed thì giữ nguyên chiều cao.
+	if auto_fit_height:
+		_fit_panel_to_content()
 	if _type_timer != null:
 		var safe_text_speed: float = maxf(text_speed, 0.01)
 		_type_timer.start(1.0 / safe_text_speed)
@@ -245,8 +272,9 @@ func _on_type_timer_timeout() -> void:
 func _on_text_done() -> void:
 	if _choices.size() > 0:
 		_show_choices()
-	# Sau khi type xong + hiện choices, fit lại panel theo nội dung đầy đủ.
-	_fit_panel_to_content()
+	# Chỉ fit lại khi auto_fit_height = true.
+	if auto_fit_height:
+		_fit_panel_to_content()
 
 # Đo chiều cao nội dung (tên + full text + margin + choices) và set chiều cao
 # panel cho khớp — làm cho box hội thoại "fit với text". Tạm dừng timer type để
