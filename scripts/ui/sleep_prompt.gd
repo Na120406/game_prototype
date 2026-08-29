@@ -24,11 +24,37 @@ signal sleep_cancelled()
 		panel_margin_bottom = value
 		_apply_panel_style()
 
+## Spacing bên trong box (khoảng cách giữa các phần tử).
+@export_group("Content Spacing")
+## Khoảng cách giữa Title và 2 nút (VBox separation).
+@export var title_to_buttons_spacing: int = 8:
+	set(value):
+		title_to_buttons_spacing = value
+		_apply_content_spacing()
+## Khoảng cách giữa 2 nút Yes/No (HBox separation).
+@export var buttons_spacing: int = 8:
+	set(value):
+		buttons_spacing = value
+		_apply_content_spacing()
+
+## Font size cho text và nút.
+@export_group("Font Size")
+@export var title_font_size: int = 8:
+	set(value):
+		title_font_size = value
+		_apply_font_sizes()
+@export var button_font_size: int = 8:
+	set(value):
+		button_font_size = value
+		_apply_font_sizes()
+
 var _is_open: bool = false
 
 func _ready() -> void:
 	visible = false
 	_apply_panel_style()  # Áp dụng margin từ export vars
+	_apply_content_spacing()  # Áp dụng spacing bên trong
+	_apply_font_sizes()  # Áp dụng font size
 	
 	var panel := find_child("Panel", true, false)
 	if panel != null:
@@ -83,6 +109,30 @@ func _apply_panel_style() -> void:
 	style.content_margin_bottom = panel_margin_bottom
 	
 	panel.add_theme_stylebox_override("panel", style)
+
+func _apply_content_spacing() -> void:
+	# Áp dụng spacing giữa các phần tử từ export vars.
+	var vbox: VBoxContainer = find_child("VBox", true, false)
+	if vbox != null:
+		vbox.add_theme_constant_override("separation", title_to_buttons_spacing)
+	
+	var hbox: HBoxContainer = find_child("HBox", true, false)
+	if hbox != null:
+		hbox.add_theme_constant_override("separation", buttons_spacing)
+
+func _apply_font_sizes() -> void:
+	# Áp dụng font size từ export vars.
+	var title: Label = find_child("Title", true, false)
+	if title != null:
+		title.add_theme_font_size_override("font_size", title_font_size)
+	
+	var yes_btn: Button = find_child("YesBtn", true, false)
+	if yes_btn != null:
+		yes_btn.add_theme_font_size_override("font_size", button_font_size)
+	
+	var no_btn: Button = find_child("NoBtn", true, false)
+	if no_btn != null:
+		no_btn.add_theme_font_size_override("font_size", button_font_size)
 
 func _find_panel() -> Control:
 	return find_child("Panel", true, false)
