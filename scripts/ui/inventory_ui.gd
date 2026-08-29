@@ -535,7 +535,7 @@ func _build_tabs() -> void:
 	_title_button = Button.new()
 	_title_button.name = "TitleTabButton"
 	_title_button.text = _tr("ui.inventory.title", "TÚI ĐỒ")
-	_title_button.flat = true
+	# KHÔNG set flat=true — flat khiến Godot bỏ vẽ background/border, nút chỉ còn text.
 	_title_button.focus_mode = Control.FOCUS_NONE
 	_title_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_title_button.pressed.connect(_switch_tab.bind(TAB_INVENTORY))
@@ -546,7 +546,6 @@ func _build_tabs() -> void:
 	_quest_tab_button = Button.new()
 	_quest_tab_button.name = "QuestTabButton"
 	_quest_tab_button.text = _tr("ui.inventory.quest_tab", "NHIỆM VỤ")
-	_quest_tab_button.flat = true
 	_quest_tab_button.focus_mode = Control.FOCUS_NONE
 	_quest_tab_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_quest_tab_button.pressed.connect(_switch_tab.bind(TAB_QUEST))
