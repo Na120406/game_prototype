@@ -140,8 +140,17 @@ var _quest_empty_label: Label = null
 
 # Style (background layer) cho 2 nút tab — định nghĩa trong inventory_ui.tscn.
 # Cả 2 dùng nền giống kho đồ + viền vàng nhẹ; tab được chọn dùng style sáng hơn.
+@export_group("Tab Buttons")
 @export var tab_style_normal: StyleBoxFlat
 @export var tab_style_active: StyleBoxFlat
+## Chiều rộng nút "TÚI ĐỒ" (inventory tab).
+@export var tab_inv_width: int = 60
+## Chiều rộng nút "NHIỆM VỤ" (quest tab).
+@export var tab_quest_width: int = 70
+## Màu text tab đang chọn (sáng).
+@export var tab_text_active_color: Color = Color(1.0, 0.88, 0.55, 1.0)
+## Màu text tab không chọn (nhạt giống viền).
+@export var tab_text_inactive_color: Color = Color(0.62, 0.48, 0.28, 1.0)
 
 # Context menu hiện khi chuột phải vào 1 inventory slot có CONSUMABLE.
 # Hiển thị 1 nút "Dùng" cạnh slot. Bấm "Dùng" → consume; bấm chỗ khác
@@ -540,7 +549,7 @@ func _build_tabs() -> void:
 	_title_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_title_button.pressed.connect(_switch_tab.bind(TAB_INVENTORY))
 	panel.add_child(_title_button)
-	_title_button.size = Vector2(float(title_width), float(TAB_HEIGHT))
+	_title_button.size = Vector2(float(tab_inv_width), float(TAB_HEIGHT))
 
 	# --- Nút "NHIỆM VỤ" (tag) ---
 	_quest_tab_button = Button.new()
@@ -550,8 +559,7 @@ func _build_tabs() -> void:
 	_quest_tab_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_quest_tab_button.pressed.connect(_switch_tab.bind(TAB_QUEST))
 	panel.add_child(_quest_tab_button)
-	var quest_tab_w: int = title_width + 10
-	_quest_tab_button.size = Vector2(float(quest_tab_w), float(TAB_HEIGHT))
+	_quest_tab_button.size = Vector2(float(tab_quest_width), float(TAB_HEIGHT))
 
 	# --- Panel danh sách quest (con của GridBox, thay thế grid khi ở tab quest) ---
 	_quest_panel = PanelContainer.new()
@@ -627,14 +635,15 @@ func _apply_tab_button_style(btn: Button, active: bool) -> void:
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(state, style)
 	btn.add_theme_font_size_override("font_size", 8)
-	# Text active sáng vàng; inactive nhạt như viền của ô không được chọn.
-	btn.add_theme_color_override("font_color", Color(1, 0.88, 0.55, 1) if active else Color(0.62, 0.48, 0.28, 1))
+	# Text active/inactive dùng màu từ @export vars (có thể chỉnh trong editor).
+	btn.add_theme_color_override("font_color", tab_text_active_color if active else tab_text_inactive_color)
 
 func _apply_quest_panel_style() -> void:
 	if _quest_panel == null:
 		return
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.04, 0.1, 0.0)
+	# Nền 100% opacity (không trong suốt) giống GridBox inventory.
+	style.bg_color = Color(0.06, 0.04, 0.1, 1.0)
 	style.border_color = Color(0.5, 0.4, 0.25, 0.0)
 	style.corner_radius_top_left = 4
 	style.corner_radius_top_right = 4
@@ -673,7 +682,8 @@ func _update_tab_visuals() -> void:
 		_title_button.z_index = -1  # luôn sau GridBox
 	if _quest_tab_button != null:
 		_apply_tab_button_style(_quest_tab_button, not title_active)
-		_quest_tab_button.position = Vector2(float(title_width) + 4.0, _tab_y(not title_active, grid_top))
+		# Quest tab nằm bên cạnh inv tab (dùng tab_inv_width thay vì title_width).
+		_quest_tab_button.position = Vector2(float(tab_inv_width) + 4.0, _tab_y(not title_active, grid_top))
 		_quest_tab_button.z_index = -1  # luôn sau GridBox
 
 # Y của tab theo trạng thái. Tab active nhô lên 2px so với inactive; mép dưới cả
@@ -762,6 +772,27 @@ func _create_quest_list_item(quest: Dictionary) -> Control:
 	info.add_theme_color_override("font_color", Color(1.0, 0.6, 0.5, 1.0))
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(info)
+
+	# Dòng phần thưởng: gold + item (nếu có)
+	var reward_dict: Dictionary = quest.get("reward", {})
+	var gold: int = int(reward_dict.get("gold", quest.get("reward_gold", 0)))
+	var item_id: String = str(reward_dict.get("item", ""))
+	var reward_text := ""
+	if gold > 0:
+		reward_text = "%s: %d G" % [_tr("ui.quest.reward", "Phần thưởng"), gold]
+	if not item_id.is_empty():
+		var item_name: String = GameState.get_item_display_name(item_id)
+		if reward_text.is_empty():
+			reward_text = "%s: %s" % [_tr("ui.quest.reward", "Phần thưởng"), item_name]
+		else:
+			reward_text += " + %s" % item_name
+	if not reward_text.is_empty():
+		var reward_label := Label.new()
+		reward_label.text = reward_text
+		reward_label.add_theme_font_size_override("font_size", 7)
+		reward_label.add_theme_color_override("font_color", Color(0.95, 0.85, 0.4, 1.0))
+		reward_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(reward_label)
 
 	return item
 
