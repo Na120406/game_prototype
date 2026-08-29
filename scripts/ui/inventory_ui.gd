@@ -1,3 +1,4 @@
+@tool
 extends CanvasLayer
 
 func _tr(key: String, fallback: String = "") -> String:
@@ -148,17 +149,38 @@ var _quest_empty_label: Label = null
 ## Chiều rộng nút "NHIỆM VỤ" (quest tab).
 @export var tab_quest_width: int = 70
 ## Màu text tab đang chọn (sáng).
-@export var tab_text_active_color: Color = Color(1.0, 0.88, 0.55, 1.0)
+@export var tab_text_active_color: Color = Color(1.0, 0.88, 0.55, 1.0):
+	set(value):
+		tab_text_active_color = value
+		_update_tab_visuals()
 ## Màu text tab không chọn (nhạt giống viền).
-@export var tab_text_inactive_color: Color = Color(0.62, 0.48, 0.28, 1.0)
+@export var tab_text_inactive_color: Color = Color(0.62, 0.48, 0.28, 1.0):
+	set(value):
+		tab_text_inactive_color = value
+		_update_tab_visuals()
 ## Content margin (khoảng cách text đến mép nút) — điều chỉnh vị trí text.
-@export var tab_content_margin_left: int = 6
-@export var tab_content_margin_top: int = 1
-@export var tab_content_margin_right: int = 6
+@export var tab_content_margin_left: int = 6:
+	set(value):
+		tab_content_margin_left = value
+		_update_tab_visuals()
+@export var tab_content_margin_top: int = 1:
+	set(value):
+		tab_content_margin_top = value
+		_update_tab_visuals()
+@export var tab_content_margin_right: int = 6:
+	set(value):
+		tab_content_margin_right = value
+		_update_tab_visuals()
 ## Content margin BOTTOM riêng cho tab "TÚI ĐỒ" (giá trị cao → text dịch lên).
-@export var tab_inv_content_margin_bottom: int = 5
+@export var tab_inv_content_margin_bottom: int = 5:
+	set(value):
+		tab_inv_content_margin_bottom = value
+		_update_tab_visuals()
 ## Content margin BOTTOM riêng cho tab "NHIỆM VỤ" (giá trị cao → text dịch lên).
-@export var tab_quest_content_margin_bottom: int = 5
+@export var tab_quest_content_margin_bottom: int = 5:
+	set(value):
+		tab_quest_content_margin_bottom = value
+		_update_tab_visuals()
 
 # Context menu hiện khi chuột phải vào 1 inventory slot có CONSUMABLE.
 # Hiển thị 1 nút "Dùng" cạnh slot. Bấm "Dùng" → consume; bấm chỗ khác
@@ -698,6 +720,9 @@ func _switch_tab(tab: int) -> void:
 #   - viền + text sáng hơn (set trong _apply_tab_button_style).
 # Tab không chọn thấp hơn, viền + text nhạt hơn.
 func _update_tab_visuals() -> void:
+	# Guard: nút chưa được build (khi chỉnh export trong editor trước _ready).
+	if _title_button == null or _quest_tab_button == null:
+		return
 	var gridbox: Control = get_node_or_null("Root/Panel/GridBox") as Control
 	var grid_top: float = gridbox.position.y if gridbox != null else float(title_height) - 4.0
 	var title_active: bool = _current_tab == TAB_INVENTORY
