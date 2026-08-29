@@ -73,7 +73,48 @@ const FARM_CROPS: Array[String] = [
 	"turnip",   # Củ cải (seed: seed_turnip, harvest: turnip)
 ]
 
-# Phần thưởng theo số lượng: amount → gold reward
+# Phần thưởng theo loại cây trồng và số lượng
+# Công thức: reward = (sell_price + grow_days×3) × amount × 1.4
+# Làm tròn về bội số 5 để dễ nhớ
+const GOLD_REWARD_BY_CROP_AND_AMOUNT: Dictionary = {
+	"turnip": {  # Củ cải: 4 ngày, giá trị thấp nhất
+		1: 55,
+		2: 115,
+		3: 175,
+		4: 235,
+		5: 290,
+	},
+	"tomato": {  # Cà chua: 5 ngày
+		1: 65,
+		2: 130,
+		3: 195,
+		4: 260,
+		5: 325,
+	},
+	"wheat": {  # Lúa mì: 6 ngày
+		1: 65,
+		2: 130,
+		3: 195,
+		4: 260,
+		5: 325,
+	},
+	"potato": {  # Khoai tây: 7 ngày
+		1: 85,
+		2: 170,
+		3: 260,
+		4: 345,
+		5: 430,
+	},
+	"corn": {  # Ngô: 8 ngày, giá trị cao nhất
+		1: 95,
+		2: 190,
+		3: 285,
+		4: 385,
+		5: 480,
+	},
+}
+
+# Phần thưởng cũ (fallback) — deprecated, giữ lại để không break existing code
 const GOLD_REWARD_BY_AMOUNT: Dictionary = {
 	1: 25,
 	2: 50,
@@ -750,7 +791,14 @@ func get_quest_deadline_days(quest: Dictionary) -> int:
 # Tạo nhiệm vụ giao hàng ngẫu nhiên với cây trồng (1-5 vật phẩm)
 # Trả về Dictionary quest mới, KHÔNG lưu vào definitions (chỉ dùng 1 lần rồi bỏ)
 
-func _get_gold_reward(amount: int) -> int:
+func _get_gold_reward(amount: int, crop_type: String = "") -> int:
+	# Nếu có crop_type, tra theo bảng cân bằng mới
+	if crop_type != "" and GOLD_REWARD_BY_CROP_AND_AMOUNT.has(crop_type):
+		var crop_rewards: Dictionary = GOLD_REWARD_BY_CROP_AND_AMOUNT[crop_type]
+		if crop_rewards.has(amount):
+			return int(crop_rewards[amount])
+	
+	# Fallback: ConfigManager hoặc bảng cũ
 	var cm: Node = get_node_or_null("/root/ConfigManager")
 	if cm != null:
 		return int(cm.get_value("money_config.quest_rewards.gold_by_amount.%d" % amount, GOLD_REWARD_BY_AMOUNT.get(amount, 25)))
@@ -779,7 +827,8 @@ func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 		"days_to_complete_min": 2,
 		"days_to_complete_max": 3,
 		"reward": {
-			"gold": _get_gold_reward(required_amount),
+			# Dùng bảng reward mới — cân bằng theo giá trị + thời gian trồng
+			"gold": _get_gold_reward(required_amount, crop_type),
 			"relationship": RELATIONSHIP_REWARD_BY_AMOUNT.get(required_amount, 2),
 		},
 		"repeatable": false,
