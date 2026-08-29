@@ -3,6 +3,10 @@
 [ext_resource type="Script" uid="uid://m47dly1dk4rn" path="res://scripts/ui/inventory_ui.gd" id="1_inv"]
 
 [sub_resource type="StyleBoxFlat" id="SB_tab_normal"]
+content_margin_left = 6.0
+content_margin_top = 1.0
+content_margin_right = 6.0
+content_margin_bottom = 5.0
 bg_color = Color(0.06, 0.04, 0.1, 0.97)
 border_width_left = 2
 border_width_top = 2
@@ -11,44 +15,24 @@ border_width_bottom = 2
 border_color = Color(0.62, 0.48, 0.28, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
-corner_radius_bottom_right = 0
-corner_radius_bottom_left = 0
+
+[sub_resource type="StyleBoxFlat" id="SB_tab_active"]
 content_margin_left = 6.0
 content_margin_top = 1.0
 content_margin_right = 6.0
 content_margin_bottom = 5.0
-
-[sub_resource type="StyleBoxFlat" id="SB_tab_active"]
 bg_color = Color(0.06, 0.04, 0.1, 0.97)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
-border_width_bottom = 0
 border_color = Color(0.95, 0.8, 0.45, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
-corner_radius_bottom_right = 0
-corner_radius_bottom_left = 0
-content_margin_left = 6.0
-content_margin_top = 1.0
-content_margin_right = 6.0
-content_margin_bottom = 5.0
 
 [node name="InventoryUI" type="CanvasLayer"]
 layer = 100
 follow_viewport_scale = 0.001
 script = ExtResource("1_inv")
-tab_style_normal = SubResource("SB_tab_normal")
-tab_style_active = SubResource("SB_tab_active")
-tab_inv_width = 60
-tab_quest_width = 70
-tab_text_active_color = Color(1, 0.88, 0.55, 1)
-tab_text_inactive_color = Color(0.62, 0.48, 0.28, 1)
-tab_content_margin_left = 6
-tab_content_margin_top = 1
-tab_content_margin_right = 6
-tab_inv_content_margin_bottom = 5
-tab_quest_content_margin_bottom = 5
 panel_width = 256
 panel_height = 129
 title_width = 60
@@ -56,6 +40,9 @@ inner_padding = 2
 title_text_v_offset = -1
 screen_offset_x = -2
 screen_offset_y = -18
+tab_style_normal = SubResource("SB_tab_normal")
+tab_style_active = SubResource("SB_tab_active")
+tab_quest_content_margin_bottom = 13
 ctx_menu_w = 22
 ctx_menu_h = 12
 ctx_btn_h = 8

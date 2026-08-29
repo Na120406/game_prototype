@@ -622,10 +622,23 @@ func _build_tabs() -> void:
 
 func _apply_tab_button_style(btn: Button, active: bool, is_inv_tab: bool) -> void:
 	# Dùng StyleBoxFlat định nghĩa trong .tscn (tab_style_normal/tab_style_active).
-	var style: StyleBoxFlat = tab_style_active if active else tab_style_normal
-	if style == null:
+	var base_style: StyleBoxFlat = tab_style_active if active else tab_style_normal
+	var style := StyleBoxFlat.new()
+	
+	if base_style != null:
+		# Clone từ .tscn resource (background, border, corner radius).
+		style.bg_color = base_style.bg_color
+		style.border_color = base_style.border_color
+		style.border_width_left = base_style.border_width_left
+		style.border_width_top = base_style.border_width_top
+		style.border_width_right = base_style.border_width_right
+		style.border_width_bottom = base_style.border_width_bottom
+		style.corner_radius_top_left = base_style.corner_radius_top_left
+		style.corner_radius_top_right = base_style.corner_radius_top_right
+		style.corner_radius_bottom_right = base_style.corner_radius_bottom_right
+		style.corner_radius_bottom_left = base_style.corner_radius_bottom_left
+	else:
 		# Fallback an toàn nếu .tscn chưa gán resource (nền giống kho đồ + viền vàng).
-		style = StyleBoxFlat.new()
 		style.bg_color = Color(0.06, 0.04, 0.1, 0.97)
 		style.border_color = Color(0.95, 0.8, 0.45, 1.0) if active else Color(0.62, 0.48, 0.28, 1.0)
 		style.border_width_left = 2
@@ -636,12 +649,14 @@ func _apply_tab_button_style(btn: Button, active: bool, is_inv_tab: bool) -> voi
 		style.corner_radius_top_right = 4
 		style.corner_radius_bottom_right = 0
 		style.corner_radius_bottom_left = 0
-		# Content margin từ @export vars — điều chỉnh vị trí text trong nút.
-		style.content_margin_left = tab_content_margin_left
-		style.content_margin_top = tab_content_margin_top
-		style.content_margin_right = tab_content_margin_right
-		# Margin bottom riêng cho từng tab (inv vs quest).
-		style.content_margin_bottom = tab_inv_content_margin_bottom if is_inv_tab else tab_quest_content_margin_bottom
+	
+	# Content margin LUÔN từ @export vars (không dùng từ .tscn) — đây là giá trị người dùng chỉnh.
+	style.content_margin_left = tab_content_margin_left
+	style.content_margin_top = tab_content_margin_top
+	style.content_margin_right = tab_content_margin_right
+	# Margin bottom riêng cho từng tab (inv vs quest).
+	style.content_margin_bottom = tab_inv_content_margin_bottom if is_inv_tab else tab_quest_content_margin_bottom
+	
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(state, style)
 	btn.add_theme_font_size_override("font_size", 8)
