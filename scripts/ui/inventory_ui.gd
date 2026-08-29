@@ -155,7 +155,10 @@ var _quest_empty_label: Label = null
 @export var tab_content_margin_left: int = 6
 @export var tab_content_margin_top: int = 1
 @export var tab_content_margin_right: int = 6
-@export var tab_content_margin_bottom: int = 5
+## Content margin BOTTOM riêng cho tab "TÚI ĐỒ" (giá trị cao → text dịch lên).
+@export var tab_inv_content_margin_bottom: int = 5
+## Content margin BOTTOM riêng cho tab "NHIỆM VỤ" (giá trị cao → text dịch lên).
+@export var tab_quest_content_margin_bottom: int = 5
 
 # Context menu hiện khi chuột phải vào 1 inventory slot có CONSUMABLE.
 # Hiển thị 1 nút "Dùng" cạnh slot. Bấm "Dùng" → consume; bấm chỗ khác
@@ -617,7 +620,7 @@ func _build_tabs() -> void:
 	QuestSystem.quest_completed.connect(_on_quest_resolved)
 	QuestSystem.quest_failed.connect(_on_quest_resolved)
 
-func _apply_tab_button_style(btn: Button, active: bool) -> void:
+func _apply_tab_button_style(btn: Button, active: bool, is_inv_tab: bool) -> void:
 	# Dùng StyleBoxFlat định nghĩa trong .tscn (tab_style_normal/tab_style_active).
 	var style: StyleBoxFlat = tab_style_active if active else tab_style_normal
 	if style == null:
@@ -637,7 +640,8 @@ func _apply_tab_button_style(btn: Button, active: bool) -> void:
 		style.content_margin_left = tab_content_margin_left
 		style.content_margin_top = tab_content_margin_top
 		style.content_margin_right = tab_content_margin_right
-		style.content_margin_bottom = tab_content_margin_bottom
+		# Margin bottom riêng cho từng tab (inv vs quest).
+		style.content_margin_bottom = tab_inv_content_margin_bottom if is_inv_tab else tab_quest_content_margin_bottom
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(state, style)
 	btn.add_theme_font_size_override("font_size", 8)
@@ -683,11 +687,11 @@ func _update_tab_visuals() -> void:
 	var grid_top: float = gridbox.position.y if gridbox != null else float(title_height) - 4.0
 	var title_active: bool = _current_tab == TAB_INVENTORY
 	if _title_button != null:
-		_apply_tab_button_style(_title_button, title_active)
+		_apply_tab_button_style(_title_button, title_active, true)  # true = inv tab
 		_title_button.position = Vector2(2.0, _tab_y(title_active, grid_top))
 		_title_button.z_index = -1  # luôn sau GridBox
 	if _quest_tab_button != null:
-		_apply_tab_button_style(_quest_tab_button, not title_active)
+		_apply_tab_button_style(_quest_tab_button, not title_active, false)  # false = quest tab
 		# Quest tab nằm bên cạnh inv tab (dùng tab_inv_width thay vì title_width).
 		_quest_tab_button.position = Vector2(float(tab_inv_width) + 4.0, _tab_y(not title_active, grid_top))
 		_quest_tab_button.z_index = -1  # luôn sau GridBox
