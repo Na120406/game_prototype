@@ -25,7 +25,8 @@ signal dialogue_choice(index: int)
 @export var text_margin_left: int = 5
 @export var text_margin_right: int = 5
 @export var text_margin_top: int = 4
-@export var text_margin_bottom: int = 4
+## Khoảng hở dưới text (10px thêm để hội thoại thoáng, không bị sát mép panel).
+@export var text_margin_bottom: int = 14
 
 ## Background panel size
 @export_group("Panel Size")

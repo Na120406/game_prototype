@@ -138,6 +138,11 @@ var _quest_panel: PanelContainer = null # panel chứa list quest (con của Gri
 var _quest_list_box: VBoxContainer = null
 var _quest_empty_label: Label = null
 
+# Style (background layer) cho 2 nút tab — định nghĩa trong inventory_ui.tscn.
+# Cả 2 dùng nền giống kho đồ + viền vàng nhẹ; tab được chọn dùng style sáng hơn.
+@export var tab_style_normal: StyleBoxFlat
+@export var tab_style_active: StyleBoxFlat
+
 # Context menu hiện khi chuột phải vào 1 inventory slot có CONSUMABLE.
 # Hiển thị 1 nút "Dùng" cạnh slot. Bấm "Dùng" → consume; bấm chỗ khác
 # (ô khác, panel khác, phím khác) → ẩn menu.
@@ -601,23 +606,25 @@ func _build_tabs() -> void:
 	QuestSystem.quest_failed.connect(_on_quest_resolved)
 
 func _apply_tab_button_style(btn: Button, active: bool) -> void:
-	var style := StyleBoxFlat.new()
-	# Nền + viền + bo góc giống bảng inventory (nâu tối + viền vàng nâu, radius 4).
-	# Tab active: viền sáng hơn, đáy không viền để nối liền với panel phía dưới.
-	style.bg_color = Color(0.06, 0.04, 0.1, 0.97) if active else Color(0.04, 0.03, 0.08, 0.97)
-	style.border_color = Color(0.95, 0.78, 0.42, 1.0) if active else Color(0.5, 0.4, 0.25, 0.9)
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 0 if active else 2
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_right = 0
-	style.corner_radius_bottom_left = 0
-	style.content_margin_left = 6
-	style.content_margin_top = 1
-	style.content_margin_right = 6
-	style.content_margin_bottom = 1
+	# Dùng StyleBoxFlat định nghĩa trong .tscn (tab_style_normal/tab_style_active).
+	var style: StyleBoxFlat = tab_style_active if active else tab_style_normal
+	if style == null:
+		# Fallback an toàn nếu .tscn chưa gán resource (nền giống kho đồ + viền vàng).
+		style = StyleBoxFlat.new()
+		style.bg_color = Color(0.06, 0.04, 0.1, 0.97)
+		style.border_color = Color(0.95, 0.8, 0.45, 1.0) if active else Color(0.62, 0.48, 0.28, 1.0)
+		style.border_width_left = 2
+		style.border_width_top = 2
+		style.border_width_right = 2
+		style.border_width_bottom = 0 if active else 2
+		style.corner_radius_top_left = 4
+		style.corner_radius_top_right = 4
+		style.corner_radius_bottom_right = 0
+		style.corner_radius_bottom_left = 0
+		style.content_margin_left = 6
+		style.content_margin_top = 1
+		style.content_margin_right = 6
+		style.content_margin_bottom = 1
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(state, style)
 	btn.add_theme_font_size_override("font_size", 8)
