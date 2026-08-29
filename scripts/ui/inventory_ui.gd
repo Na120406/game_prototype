@@ -729,12 +729,14 @@ func _update_tab_visuals() -> void:
 	if _title_button != null:
 		_apply_tab_button_style(_title_button, title_active, true)  # true = inv tab
 		_title_button.position = Vector2(2.0, _tab_y(title_active, grid_top))
-		_title_button.z_index = -1  # luôn sau GridBox
+		# Tab được chọn nằm TRÊN (z=1), tab không chọn nằm SAU GridBox (z=-1).
+		_title_button.z_index = 1 if title_active else -1
 	if _quest_tab_button != null:
 		_apply_tab_button_style(_quest_tab_button, not title_active, false)  # false = quest tab
 		# Quest tab nằm bên cạnh inv tab (dùng tab_inv_width thay vì title_width).
 		_quest_tab_button.position = Vector2(float(tab_inv_width) + 4.0, _tab_y(not title_active, grid_top))
-		_quest_tab_button.z_index = -1  # luôn sau GridBox
+		# Quest tab được chọn thì nằm trên (z=1), không chọn thì sau (z=-1).
+		_quest_tab_button.z_index = 1 if not title_active else -1
 
 # Y của tab theo trạng thái. Tab active nhô lên 2px so với inactive; mép dưới cả
 # 2 bị GridBox che (nằm sau) nên chỉ phần nhô lên trên là thấy được.
