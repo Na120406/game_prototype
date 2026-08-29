@@ -151,6 +151,11 @@ var _quest_empty_label: Label = null
 @export var tab_text_active_color: Color = Color(1.0, 0.88, 0.55, 1.0)
 ## Màu text tab không chọn (nhạt giống viền).
 @export var tab_text_inactive_color: Color = Color(0.62, 0.48, 0.28, 1.0)
+## Content margin (khoảng cách text đến mép nút) — điều chỉnh vị trí text.
+@export var tab_content_margin_left: int = 6
+@export var tab_content_margin_top: int = 1
+@export var tab_content_margin_right: int = 6
+@export var tab_content_margin_bottom: int = 5
 
 # Context menu hiện khi chuột phải vào 1 inventory slot có CONSUMABLE.
 # Hiển thị 1 nút "Dùng" cạnh slot. Bấm "Dùng" → consume; bấm chỗ khác
@@ -628,10 +633,11 @@ func _apply_tab_button_style(btn: Button, active: bool) -> void:
 		style.corner_radius_top_right = 4
 		style.corner_radius_bottom_right = 0
 		style.corner_radius_bottom_left = 0
-		style.content_margin_left = 6
-		style.content_margin_top = 1
-		style.content_margin_right = 6
-		style.content_margin_bottom = 5
+		# Content margin từ @export vars — điều chỉnh vị trí text trong nút.
+		style.content_margin_left = tab_content_margin_left
+		style.content_margin_top = tab_content_margin_top
+		style.content_margin_right = tab_content_margin_right
+		style.content_margin_bottom = tab_content_margin_bottom
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(state, style)
 	btn.add_theme_font_size_override("font_size", 8)
