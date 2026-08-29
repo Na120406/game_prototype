@@ -323,12 +323,10 @@ func accept_quest(quest_id: String, quest_data: Dictionary = {}) -> bool:
 				quest_rejected_duplicate_item.emit(req_item, quest_id)
 				return false
 
-		# Tính deadline ngẫu nhiên từ 2-3 ngày
-		var days_min: int = quest_def.get("days_to_complete_min", 2)
-		var days_max: int = quest_def.get("days_to_complete_max", 3)
-		var days_range: int = days_max - days_min + 1
-		var deadline_days: int = days_min + (randi() % days_range)
+		# Tính deadline: delivery quest theo thời gian trồng cây, quest khác 2-3 ngày.
+		var deadline_days: int = get_quest_deadline_days(quest)
 		quest["deadline_day"] = GameState.current_day + deadline_days
+		quest["deadline_days"] = deadline_days
 		print("[QuestSystem] Quest %s deadline: day %d (%d days)" % [quest_id, quest["deadline_day"], deadline_days])
 
 		# Đăng ký intervention nếu có
@@ -344,12 +342,10 @@ func accept_quest(quest_id: String, quest_data: Dictionary = {}) -> bool:
 	else:
 		# Dynamic quest - dùng quest_data trực tiếp
 		quest = quest_data.duplicate()
-		# Tính deadline cho dynamic quest
-		var days_min: int = quest.get("days_to_complete_min", 2)
-		var days_max: int = quest.get("days_to_complete_max", 3)
-		var days_range: int = days_max - days_min + 1
-		var deadline_days: int = days_min + (randi() % days_range)
+		# Tính deadline: delivery quest theo thời gian trồng cây, quest khác 2-3 ngày.
+		var deadline_days: int = get_quest_deadline_days(quest)
 		quest["deadline_day"] = GameState.current_day + deadline_days
+		quest["deadline_days"] = deadline_days
 
 	# Thêm thông tin chung
 	quest["id"] = quest_id
@@ -677,7 +673,7 @@ func check_expired_quests() -> int:
 
 
 # =============================================================================
-# HÀM LẤY THÔNG TIN DEADLINE QUEST (get_quest_deadline)
+# HÀM LẤY DEADLINE CỦA QUEST (get_quest_deadline)
 # =============================================================================
 
 func get_quest_deadline(quest_id: String) -> Dictionary:
@@ -687,6 +683,65 @@ func get_quest_deadline(quest_id: String) -> Dictionary:
 			var days_left: int = maxi(deadline - GameState.current_day, 0)
 			return {"deadline": deadline, "days_left": days_left}
 	return {"deadline": 0, "days_left": 0}
+
+
+# =============================================================================
+# HÀM TÍNH SỐ NGÀY DEADLINE THEO THỜI GIAN TRỒNG CÂY
+# =============================================================================
+# Delivery quest yêu cầu giao nông sản → deadline phải đủ thời gian để player
+# trồng + thu hoạch cây tương ứng:
+#   - Cây trồng 4-5 ngày  → deadline 2-3 ngày
+#   - Cây trồng >= 6 ngày → deadline 4 ngày
+# Các quest khác (escort/investigation/social) giữ deadline ngẫu nhiên 2-3 ngày.
+
+# Lấy số ngày sinh trưởng của crop dựa trên required_item (harvest hoặc seed id).
+func get_crop_grow_days(item_id: String) -> int:
+	var crop_id: String = harvest_to_crop_type(item_id)
+	var crop_type: FarmEnums.CropType = FarmEnums.get_crop_type_from_seed("seed_" + crop_id)
+	if crop_type == FarmEnums.CropType.NONE:
+		crop_type = _crop_type_from_harvest_id(crop_id)
+	if crop_type == FarmEnums.CropType.NONE:
+		return 0
+	var profile: Dictionary = FarmEnums.get_water_profile(crop_type)
+	return int(profile.get("grow_days", 0))
+
+func _crop_type_from_harvest_id(harvest_id: String) -> FarmEnums.CropType:
+	match harvest_id:
+		"wheat": return FarmEnums.CropType.WHEAT
+		"corn": return FarmEnums.CropType.CORN
+		"tomato", "tomato_harvest": return FarmEnums.CropType.TOMATO
+		"potato", "potato_harvest": return FarmEnums.CropType.POTATO
+		"turnip", "turnip_harvest": return FarmEnums.CropType.TURNIP
+	return FarmEnums.CropType.NONE
+
+# Trả về số ngày deadline cho một quest. Deadline được tính MỘT LẦN và lưu vào
+# quest["deadline_days"] để bảng quest và accept_quest dùng chung giá trị — tránh
+# lỗi board hiển thị "3 ngày" nhưng nhận xong thành "2 ngày" (do re-roll random).
+func get_quest_deadline_days(quest: Dictionary) -> int:
+	# Nếu deadline đã được tính/lưu trước đó thì trả về giá trị đã lưu (deterministic).
+	if quest.has("deadline_days") and int(quest.get("deadline_days", 0)) > 0:
+		return int(quest.get("deadline_days", 0))
+	var days: int = 0
+	var qtype: String = str(quest.get("type", ""))
+	if qtype == "delivery":
+		var required_item: String = str(quest.get("required_item", ""))
+		var grow_days: int = get_crop_grow_days(required_item)
+		if grow_days <= 0:
+			days = 2 + (randi() % 2)  # fallback 2-3 ngày nếu không xác định được cây
+		elif grow_days <= 5:
+			days = 2 + (randi() % 2)  # 2-3 ngày cho cây 4-5 ngày
+		else:
+			days = 4  # 4 ngày cho cây >= 6 ngày
+	else:
+		# Quest phi delivery giữ logic cũ
+		var days_min: int = int(quest.get("days_to_complete_min", 2))
+		var days_max: int = int(quest.get("days_to_complete_max", 3))
+		if days_max < days_min:
+			days_max = days_min
+		days = days_min + (randi() % (days_max - days_min + 1))
+	# Lưu lại để các lần gọi sau (board display + accept) dùng chung 1 giá trị.
+	quest["deadline_days"] = days
+	return days
 
 
 # =============================================================================

@@ -119,6 +119,25 @@ var _drop_target_slot: int = -1
 var _bright_region: Control = null
 var _inventory_panel: Control = null
 
+# =============================================================================
+# TAB SYSTEM — Inventory / Quest tracking
+# =============================================================================
+# TitleBox "TÚI ĐỒ" và nút "NHIỆM VỤ" bên cạnh là 2 nút bấm để chuyển tab.
+# Cả 2 dùng chung style với TitleBox (nền nâu tối + viền vàng nâu, bo góc).
+# Nội dung panel bên dưới (GridBox) giữ nguyên kích thước:
+#   - Tab inventory: lưới 21 ô vật phẩm (như cũ).
+#   - Tab quest: danh sách quest đã nhận + deadline + NPC giao quest.
+const TAB_INVENTORY := 0
+const TAB_QUEST := 1
+## Chiều cao tab (tag). Tab active nhô lên 2px so với inactive.
+const TAB_HEIGHT := 18
+var _current_tab: int = TAB_INVENTORY
+var _title_button: Button = null        # nút bấm đè lên TitleBox "TÚI ĐỒ"
+var _quest_tab_button: Button = null    # nút "NHIỆM VỤ" bên cạnh
+var _quest_panel: PanelContainer = null # panel chứa list quest (con của GridBox)
+var _quest_list_box: VBoxContainer = null
+var _quest_empty_label: Label = null
+
 # Context menu hiện khi chuột phải vào 1 inventory slot có CONSUMABLE.
 # Hiển thị 1 nút "Dùng" cạnh slot. Bấm "Dùng" → consume; bấm chỗ khác
 # (ô khác, panel khác, phím khác) → ẩn menu.
@@ -170,6 +189,7 @@ func _ready() -> void:
 	if _bright_region != null:
 		_bright_region.visible = false
 	_build_context_menu()
+	_build_tabs()
 	print("[InvUI] _ready EXIT, _bright_region=", _bright_region, " _inventory_panel=", _inventory_panel, " _context_menu=", _context_menu)
 
 # Áp style bo góc nhẹ cho PanelContainer (TitleBox / GridBox).
@@ -481,6 +501,262 @@ func _apply_ctx_menu_font() -> void:
 # =============================================================================
 # OPEN / CLOSE
 # =============================================================================
+
+# =============================================================================
+# TAB SYSTEM — build & switch
+# =============================================================================
+# Dựng 2 nút tab (TitleBox "TÚI ĐỒ" + nút "NHIỆM VỤ" bên cạnh) cùng panel list
+# quest bên trong GridBox. Khi chuyển tab, chỉ đổi nội dung bên trong GridBox,
+# giữ nguyên kích thước/viền/style để 2 tab trông đồng nhất.
+
+func _build_tabs() -> void:
+	var panel: Control = get_node_or_null("Root/Panel") as Control
+	var titlebox: PanelContainer = get_node_or_null("Root/Panel/TitleBox") as PanelContainer
+	var gridbox: PanelContainer = get_node_or_null("Root/Panel/GridBox") as PanelContainer
+	var grid: GridContainer = get_node_or_null("Root/Panel/GridBox/GridContainer") as GridContainer
+	if panel == null or gridbox == null or grid == null:
+		return
+
+	# Nút tab thay thế TitleBox/Label cũ (tránh text chồng nhau). Nút tab được đặt
+	# SAU GridBox (z thấp hơn) nên mép dưới bị GridBox che → giống "tag" gắn trên
+	# panel. Vị trí/z_index được set trong _update_tab_visuals().
+	if titlebox != null:
+		titlebox.visible = false
+	var old_title_label: Label = get_node_or_null("Root/Panel/Title") as Label
+	if old_title_label != null:
+		old_title_label.visible = false
+
+	# --- Nút "TÚI ĐỒ" (tag) ---
+	_title_button = Button.new()
+	_title_button.name = "TitleTabButton"
+	_title_button.text = _tr("ui.inventory.title", "TÚI ĐỒ")
+	_title_button.flat = true
+	_title_button.focus_mode = Control.FOCUS_NONE
+	_title_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_title_button.pressed.connect(_switch_tab.bind(TAB_INVENTORY))
+	panel.add_child(_title_button)
+	_title_button.size = Vector2(float(title_width), float(TAB_HEIGHT))
+
+	# --- Nút "NHIỆM VỤ" (tag) ---
+	_quest_tab_button = Button.new()
+	_quest_tab_button.name = "QuestTabButton"
+	_quest_tab_button.text = _tr("ui.inventory.quest_tab", "NHIỆM VỤ")
+	_quest_tab_button.flat = true
+	_quest_tab_button.focus_mode = Control.FOCUS_NONE
+	_quest_tab_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_quest_tab_button.pressed.connect(_switch_tab.bind(TAB_QUEST))
+	panel.add_child(_quest_tab_button)
+	var quest_tab_w: int = title_width + 10
+	_quest_tab_button.size = Vector2(float(quest_tab_w), float(TAB_HEIGHT))
+
+	# --- Panel danh sách quest (con của GridBox, thay thế grid khi ở tab quest) ---
+	_quest_panel = PanelContainer.new()
+	_quest_panel.name = "QuestPanel"
+	_quest_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_quest_panel.offset_left = inner_padding
+	_quest_panel.offset_top = inner_padding
+	_quest_panel.offset_right = -inner_padding
+	_quest_panel.offset_bottom = -inner_padding
+	_quest_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_apply_quest_panel_style()
+	gridbox.add_child(_quest_panel)
+
+	var scroll := ScrollContainer.new()
+	scroll.name = "QuestScroll"
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_quest_panel.add_child(scroll)
+
+	_quest_list_box = VBoxContainer.new()
+	_quest_list_box.name = "QuestList"
+	_quest_list_box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_quest_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_quest_list_box.add_theme_constant_override("separation", 4)
+	scroll.add_child(_quest_list_box)
+
+	_quest_empty_label = Label.new()
+	_quest_empty_label.name = "QuestEmptyLabel"
+	_quest_empty_label.text = _tr("ui.inventory.no_quests", "Chưa nhận nhiệm vụ nào.")
+	_quest_empty_label.add_theme_font_size_override("font_size", 8)
+	_quest_empty_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.9))
+	_quest_empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_quest_empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_quest_empty_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_quest_panel.add_child(_quest_empty_label)
+
+	# Khởi tạo tab mặc định là inventory.
+	_switch_tab(TAB_INVENTORY)
+
+	# Tự refresh list quest khi quest thay đổi trạng thái.
+	# quest_accepted emit 2 tham số, quest_completed/quest_failed emit 1 tham số
+	# → phải dùng handler riêng cho từng signal.
+	if QuestSystem.quest_accepted.is_connected(_on_quest_accepted):
+		QuestSystem.quest_accepted.disconnect(_on_quest_accepted)
+	if QuestSystem.quest_completed.is_connected(_on_quest_resolved):
+		QuestSystem.quest_completed.disconnect(_on_quest_resolved)
+	if QuestSystem.quest_failed.is_connected(_on_quest_resolved):
+		QuestSystem.quest_failed.disconnect(_on_quest_resolved)
+	QuestSystem.quest_accepted.connect(_on_quest_accepted)
+	QuestSystem.quest_completed.connect(_on_quest_resolved)
+	QuestSystem.quest_failed.connect(_on_quest_resolved)
+
+func _apply_tab_button_style(btn: Button, active: bool) -> void:
+	var style := StyleBoxFlat.new()
+	# Nền + viền + bo góc giống bảng inventory (nâu tối + viền vàng nâu, radius 4).
+	# Tab active: viền sáng hơn, đáy không viền để nối liền với panel phía dưới.
+	style.bg_color = Color(0.06, 0.04, 0.1, 0.97) if active else Color(0.04, 0.03, 0.08, 0.97)
+	style.border_color = Color(0.95, 0.78, 0.42, 1.0) if active else Color(0.5, 0.4, 0.25, 0.9)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 0 if active else 2
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_right = 0
+	style.corner_radius_bottom_left = 0
+	style.content_margin_left = 6
+	style.content_margin_top = 1
+	style.content_margin_right = 6
+	style.content_margin_bottom = 1
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		btn.add_theme_stylebox_override(state, style)
+	btn.add_theme_font_size_override("font_size", 8)
+	btn.add_theme_color_override("font_color", Color(1, 0.88, 0.55, 1) if active else Color(0.72, 0.69, 0.62, 1))
+
+func _apply_quest_panel_style() -> void:
+	if _quest_panel == null:
+		return
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.04, 0.1, 0.0)
+	style.border_color = Color(0.5, 0.4, 0.25, 0.0)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_right = 4
+	style.corner_radius_bottom_left = 4
+	_quest_panel.add_theme_stylebox_override("panel", style)
+
+func _switch_tab(tab: int) -> void:
+	_current_tab = tab
+	var grid: GridContainer = get_node_or_null("Root/Panel/GridBox/GridContainer") as GridContainer
+	if grid != null:
+		grid.visible = (_current_tab == TAB_INVENTORY)
+	if _quest_panel != null:
+		_quest_panel.visible = (_current_tab == TAB_QUEST)
+	# Cập nhật vị trí/z-index/viền cho 2 tab (tag active nhô lên + sáng hơn).
+	_update_tab_visuals()
+	# Khi sang tab quest, hủy drag đang chờ (không còn ô vật phẩm để thả).
+	if _current_tab == TAB_QUEST:
+		_cancel_drag()
+		_hide_context_menu()
+		_hide_tooltip()
+		_refresh_quest_list()
+
+# Đặt vị trí + z_index + style cho 2 tab (tag gắn trên panel). Tab đang chọn:
+#   - nhô lên 2px (y nhỏ hơn),
+#   - z_index cao hơn → nằm TRÊN GridBox (mép dưới nối liền với panel),
+#   - viền sáng hơn (set trong _apply_tab_button_style).
+# Tab không chọn nằm SAU GridBox (z thấp) → mép dưới bị che, chỉ thấy phần trên.
+func _update_tab_visuals() -> void:
+	var gridbox: Control = get_node_or_null("Root/Panel/GridBox") as Control
+	var grid_top: float = gridbox.position.y if gridbox != null else float(title_height) - 4.0
+	var title_active: bool = _current_tab == TAB_INVENTORY
+	if _title_button != null:
+		_apply_tab_button_style(_title_button, title_active)
+		_title_button.position = Vector2(2.0, _tab_y(title_active, grid_top))
+		_title_button.z_index = 1 if title_active else -1
+	if _quest_tab_button != null:
+		_apply_tab_button_style(_quest_tab_button, not title_active)
+		_quest_tab_button.position = Vector2(float(title_width) + 4.0, _tab_y(not title_active, grid_top))
+		_quest_tab_button.z_index = 1 if not title_active else -1
+
+# Y của tab theo trạng thái. Tab active chạm mép trên GridBox (bottom = grid_top);
+# inactive thấp hơn 2px (bottom = grid_top + 2) và bị GridBox che phần thừa.
+func _tab_y(active: bool, grid_top: float) -> float:
+	if active:
+		return grid_top - float(TAB_HEIGHT)
+	return grid_top - float(TAB_HEIGHT) + 2.0
+
+func _on_quest_accepted(_quest_id: String, _context: Dictionary) -> void:
+	if _current_tab == TAB_QUEST:
+		_refresh_quest_list()
+
+func _on_quest_resolved(_quest_id: String) -> void:
+	if _current_tab == TAB_QUEST:
+		_refresh_quest_list()
+
+func _refresh_quest_list() -> void:
+	if _quest_list_box == null:
+		return
+	for child in _quest_list_box.get_children():
+		child.queue_free()
+	var quests: Array = QuestSystem.get_active_quests()
+	if quests.is_empty():
+		if _quest_empty_label != null:
+			_quest_empty_label.visible = true
+		return
+	if _quest_empty_label != null:
+		_quest_empty_label.visible = false
+	for q in quests:
+		if q is Dictionary:
+			_quest_list_box.add_child(_create_quest_list_item(q))
+
+func _create_quest_list_item(quest: Dictionary) -> Control:
+	var item := PanelContainer.new()
+	# Box fit với text: không set chiều cao cố định — PanelContainer tự co giãn
+	# theo nội dung. Chiều ngang lấp đầy list (SIZE_EXPAND_FILL).
+	item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.04, 0.02, 0.07, 0.97)
+	style.border_color = Color(0.5, 0.4, 0.25, 1.0)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 3
+	style.corner_radius_top_right = 3
+	style.corner_radius_bottom_right = 3
+	style.corner_radius_bottom_left = 3
+	style.content_margin_left = 6
+	style.content_margin_top = 3
+	style.content_margin_right = 6
+	style.content_margin_bottom = 3
+	item.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 1)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	item.add_child(vbox)
+
+	# Tên quest
+	var title := Label.new()
+	title.text = str(quest.get("name", quest.get("title", "?")))
+	title.add_theme_font_size_override("font_size", 8)
+	title.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(title)
+
+	# Dòng thông tin: NPC giao quest + deadline
+	var info := Label.new()
+	var giver_id: String = str(quest.get("giver", ""))
+	var giver_name: String = QuestSystem.NPC_DISPLAY_NAMES.get(giver_id, giver_id.capitalize())
+	var days_left: int = 0
+	if int(quest.get("deadline_day", 0)) > 0:
+		days_left = maxi(int(quest.get("deadline_day", 0)) - GameState.current_day, 0)
+	else:
+		days_left = QuestSystem.get_quest_deadline_days(quest)
+	info.text = "%s: %s  |  %s %d %s" % [
+		_tr("ui.inventory.quest_giver", "Từ"),
+		giver_name,
+		_tr("ui.quest.deadline", "Hạn chót:"),
+		days_left,
+		_tr("ui.quest.day", "ngày"),
+	]
+	info.add_theme_font_size_override("font_size", 7)
+	info.add_theme_color_override("font_color", Color(1.0, 0.6, 0.5, 1.0))
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(info)
+
+	return item
 
 func _input(event: InputEvent) -> void:
 	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:

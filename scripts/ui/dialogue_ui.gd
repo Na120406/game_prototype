@@ -29,7 +29,7 @@ signal dialogue_choice(index: int)
 
 ## Background panel size
 @export_group("Panel Size")
-@export var panel_min_height: int = 80:
+@export var panel_min_height: int = 24:
 	set(value):
 		panel_min_height = value
 		if _panel != null:
@@ -217,6 +217,8 @@ func show_text(speaker: String, text: String, choices: Array = [], is_last: bool
 	_choice_btns.clear()
 
 	visible = true
+	# Fit panel theo chiều cao nội dung cuối (đo full text, không theo text đang type).
+	_fit_panel_to_content()
 	if _type_timer != null:
 		var safe_text_speed: float = maxf(text_speed, 0.01)
 		_type_timer.start(1.0 / safe_text_speed)
@@ -242,6 +244,32 @@ func _on_type_timer_timeout() -> void:
 func _on_text_done() -> void:
 	if _choices.size() > 0:
 		_show_choices()
+	# Sau khi type xong + hiện choices, fit lại panel theo nội dung đầy đủ.
+	_fit_panel_to_content()
+
+# Đo chiều cao nội dung (tên + full text + margin + choices) và set chiều cao
+# panel cho khớp — làm cho box hội thoại "fit với text". Tạm dừng timer type để
+# đo chính xác full text (tránh bị text đang type ghi đè), sau đó khôi phục.
+func _fit_panel_to_content() -> void:
+	if _panel == null or _text_lbl == null:
+		return
+	var timer_was_running: bool = _type_timer != null and not _type_timer.is_stopped()
+	if _type_timer != null:
+		_type_timer.stop()
+	_text_lbl.text = _full_text
+	await get_tree().process_frame
+	if _panel == null or not is_instance_valid(_panel):
+		return
+	var desired: float = _panel.get_minimum_size().y
+	desired = maxf(desired, float(panel_min_height))
+	_panel.offset_top = -desired + panel_height_offset
+	# Khôi phục trạng thái text đang type.
+	if _is_typing:
+		_text_lbl.text = _full_text.substr(0, _current_char)
+		if timer_was_running and _type_timer != null:
+			_type_timer.start()
+	elif not _is_typing:
+		_text_lbl.text = _full_text
 
 func _show_choices() -> void:
 	if _choices_box == null:

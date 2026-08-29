@@ -113,7 +113,7 @@ extends CanvasLayer
 
 @export_group("Quest Item")
 ## Chiều cao mỗi quest item
-@export_range(30, 120, 1) var quest_item_height: int = 56 :
+@export_range(30, 120, 1) var quest_item_height: int = 72 :
 	set(v): quest_item_height = v; _apply_item_style_if_ready(); _save_config()
 ## Màu nền item
 @export var item_bg_color: Color = Color(0.04, 0.02, 0.07, 0.97) :
@@ -502,6 +502,16 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
+	# Deadline label — hiển thị số ngày còn lại để hoàn thành quest.
+	# Đối với quest đã nhận (có deadline_day) thì tính days_left; quest chưa
+	# nhận thì hiển thị số ngày deadline dự kiến theo thời gian trồng cây.
+	var deadline_label := Label.new()
+	var days_left := _get_quest_days_left(quest_data)
+	deadline_label.text = "%s %d %s" % [_tr("ui.quest.deadline", "Hạn chót:"), days_left, _tr("ui.quest.day", "ngày")]
+	deadline_label.add_theme_font_size_override("font_size", 7)
+	deadline_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.5, 1.0))
+	vbox.add_child(deadline_label)
+
 	# Bottom row: reward + Accept button
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 4)
@@ -550,6 +560,15 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 
 func _on_item_hover(item: PanelContainer, is_hovered: bool) -> void:
 	_apply_single_item_style(item, is_hovered)
+
+func _get_quest_days_left(quest_data: Dictionary) -> int:
+	# Quest đã nhận → tính days_left từ deadline_day thực tế.
+	var quest_id: String = str(quest_data.get("id", ""))
+	if QuestSystem.is_quest_active(quest_id):
+		var info: Dictionary = QuestSystem.get_quest_deadline(quest_id)
+		return int(info.get("days_left", 0))
+	# Quest chưa nhận → ước lượng deadline theo loại quest (cây trồng/normal).
+	return QuestSystem.get_quest_deadline_days(quest_data)
 
 func _on_accept_pressed(quest_id: String, quest_data: Dictionary) -> void:
 	var ok: bool = QuestSystem.accept_quest(quest_id, quest_data)

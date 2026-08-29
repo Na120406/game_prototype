@@ -213,8 +213,10 @@ func _capture_current_player_position() -> void:
 # Sau khi đen hoàn toàn -> load scene mới
 
 func _start_fade_to_black(scene_path: String) -> void:
-	# Tránh gọi nhiều lần cùng lúc
-	if _transition_tween != null and _transition_tween.is_valid():
+	# Tránh gọi nhiều lần cùng lúc: chỉ block khi tween fade ĐANG CHẠY.
+	# KHÔNG dùng is_valid() — tween đã finish vẫn trả valid → block mọi lần
+	# chuyển scene tiếp theo (player bị kẹt ở scene cũ). Dùng is_running().
+	if _transition_tween != null and _transition_tween.is_running():
 		return
 
 	# =================================================================
@@ -301,6 +303,9 @@ func _cleanup_transition() -> void:
 		_transition_canvas.queue_free()  # Xóa sau khi animation kết thúc
 		_transition_canvas = null
 	_transition_overlay = null
+	# Quan trọng: null _transition_tween để guard ở _start_fade_to_black
+	# không block các lần chuyển scene tiếp theo.
+	_transition_tween = null
 
 
 # =============================================================================

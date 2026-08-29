@@ -15,7 +15,7 @@ grow_vertical = 2
 script = ExtResource("1_dui")
 name_font_size = 11
 text_font_size = 8
-panel_min_height = 73
+panel_min_height = 24
 panel_height_offset = 4.0
 
 [node name="ClickCatcher" type="Control" parent="DialogueUI"]
@@ -28,13 +28,12 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="Panel" type="PanelContainer" parent="DialogueUI"]
-custom_minimum_size = Vector2(0, 80)
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -80.0
+offset_top = -24.0
 grow_horizontal = 2
 grow_vertical = 0
 
@@ -68,7 +67,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 
 [node name="Text" type="RichTextLabel" parent="DialogueUI/Panel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
 theme_override_colors/default_color = Color(0.95, 0.92, 0.85, 1)
 theme_override_font_sizes/normal_font_size = 9
