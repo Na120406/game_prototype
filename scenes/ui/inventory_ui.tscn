@@ -16,7 +16,7 @@ corner_radius_bottom_left = 0
 content_margin_left = 6.0
 content_margin_top = 1.0
 content_margin_right = 6.0
-content_margin_bottom = 1.0
+content_margin_bottom = 5.0
 
 [sub_resource type="StyleBoxFlat" id="SB_tab_active"]
 bg_color = Color(0.06, 0.04, 0.1, 0.97)
@@ -32,7 +32,7 @@ corner_radius_bottom_left = 0
 content_margin_left = 6.0
 content_margin_top = 1.0
 content_margin_right = 6.0
-content_margin_bottom = 1.0
+content_margin_bottom = 5.0
 
 [node name="InventoryUI" type="CanvasLayer"]
 layer = 100

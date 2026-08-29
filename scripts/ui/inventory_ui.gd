@@ -623,11 +623,12 @@ func _apply_tab_button_style(btn: Button, active: bool) -> void:
 		style.content_margin_left = 6
 		style.content_margin_top = 1
 		style.content_margin_right = 6
-		style.content_margin_bottom = 1
+		style.content_margin_bottom = 5
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		btn.add_theme_stylebox_override(state, style)
 	btn.add_theme_font_size_override("font_size", 8)
-	btn.add_theme_color_override("font_color", Color(1, 0.88, 0.55, 1) if active else Color(0.72, 0.69, 0.62, 1))
+	# Text active sáng vàng; inactive nhạt như viền của ô không được chọn.
+	btn.add_theme_color_override("font_color", Color(1, 0.88, 0.55, 1) if active else Color(0.62, 0.48, 0.28, 1))
 
 func _apply_quest_panel_style() -> void:
 	if _quest_panel == null:
@@ -657,11 +658,11 @@ func _switch_tab(tab: int) -> void:
 		_hide_tooltip()
 		_refresh_quest_list()
 
-# Đặt vị trí + z_index + style cho 2 tab (tag gắn trên panel). Tab đang chọn:
-#   - nhô lên 2px (y nhỏ hơn),
-#   - z_index cao hơn → nằm TRÊN GridBox (mép dưới nối liền với panel),
-#   - viền sáng hơn (set trong _apply_tab_button_style).
-# Tab không chọn nằm SAU GridBox (z thấp) → mép dưới bị che, chỉ thấy phần trên.
+# Đặt vị trí + z_index + style cho 2 tab (tag gắn trên panel). Cả 2 tab LUÔN nằm
+# SAU GridBox (z_index cố định, không đổi layer) — chỉ khác nhau ở vị trí Y:
+#   - Tab đang chọn nhô lên 2px (y nhỏ hơn) → phần nhô ra cao hơn,
+#   - viền + text sáng hơn (set trong _apply_tab_button_style).
+# Tab không chọn thấp hơn, viền + text nhạt hơn.
 func _update_tab_visuals() -> void:
 	var gridbox: Control = get_node_or_null("Root/Panel/GridBox") as Control
 	var grid_top: float = gridbox.position.y if gridbox != null else float(title_height) - 4.0
@@ -669,14 +670,14 @@ func _update_tab_visuals() -> void:
 	if _title_button != null:
 		_apply_tab_button_style(_title_button, title_active)
 		_title_button.position = Vector2(2.0, _tab_y(title_active, grid_top))
-		_title_button.z_index = 1 if title_active else -1
+		_title_button.z_index = -1  # luôn sau GridBox
 	if _quest_tab_button != null:
 		_apply_tab_button_style(_quest_tab_button, not title_active)
 		_quest_tab_button.position = Vector2(float(title_width) + 4.0, _tab_y(not title_active, grid_top))
-		_quest_tab_button.z_index = 1 if not title_active else -1
+		_quest_tab_button.z_index = -1  # luôn sau GridBox
 
-# Y của tab theo trạng thái. Tab active chạm mép trên GridBox (bottom = grid_top);
-# inactive thấp hơn 2px (bottom = grid_top + 2) và bị GridBox che phần thừa.
+# Y của tab theo trạng thái. Tab active nhô lên 2px so với inactive; mép dưới cả
+# 2 bị GridBox che (nằm sau) nên chỉ phần nhô lên trên là thấy được.
 func _tab_y(active: bool, grid_top: float) -> float:
 	if active:
 		return grid_top - float(TAB_HEIGHT)
