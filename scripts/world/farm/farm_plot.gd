@@ -416,9 +416,9 @@ func _show_growth_info(cell: Vector2i) -> void:
 	var streak: int = data.get("unwatered_streak", 0)
 	var need: int = data.get("water_need", 1)
 	var info_color: Color = Color(0.5, 0.8, 0.4)
-	var w_text := " (đã tưới hôm nay)" if watered else " (%d/%d ngày chưa tưới)" % [streak, need]
+	var w_text := " (đã tưới hôm nay)" if watered else " — cây chưa được tưới (%d/%d)" % [streak, need]
 	if not watered and streak >= need - 1:
-		w_text = " (%d/%d ngày chưa tưới — ngày mai sẽ héo!)" % [streak, need]
+		w_text = " — cây chưa được tưới (%d/%d) — ngày mai sẽ héo!" % [streak, need]
 		info_color = Color(0.85, 0.35, 0.25)
 	_play_feedback(cell, "Đang lớn: %.0f%%%s" % [progress, w_text], info_color)
 
