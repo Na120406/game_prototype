@@ -3,12 +3,13 @@ class_name FarmPlot
 # =============================================================================
 # FARM PLOT - TileMapLayer quản lý farm grid và tương tác
 # =============================================================================
-# v3: Sử dụng FarmEnums cho tất cả crop state và type.
-# Soil visuals dùng Sprite2D + AtlasTexture từ FieldsTileset.
+# v4: Sử dụng FarmEnums cho tất cả crop state và type.
+# Soil visuals dùng ColorRect nâu đơn sắc — KHÔNG dùng AtlasTexture từ
+# FieldsTileset vì atlas không có tile "đất tưới" riêng (region [2,2] là cỏ
+# xanh, [1,2] có vệt cỏ) → vẽ sprite sẽ khiến ô đất hóa bãi cỏ khi trồng/tưới.
 # =============================================================================
 
 const CELL_SIZE: Vector2 = Vector2(16, 16)
-const GROUND_TEX_PATH := "res://Tile Maps/1 Tiles/FieldsTileset.png"
 
 const FARM_ZONE := Rect2(24, 274, 592, 302)
 
@@ -19,12 +20,6 @@ var _current_hotbar_item: String = ""
 var _current_hotbar_data: ItemData = null
 var _is_hovering: bool = false
 var _soil_visuals: Dictionary = {}
-var _ground_atlas: Texture2D = null
-
-# Atlas regions from FieldsTileset.png (16x16 grid)
-const _SOIL_REGION_DRY    := [0, 2]
-const _SOIL_REGION_PLOWED := [1, 2]
-const _SOIL_REGION_WATER  := [2, 2]
 
 # Sử dụng FarmEnums (load trực tiếp để tránh phụ thuộc autoload)
 const FarmEnumsRef = preload("res://scripts/autoload/farm_enums.gd")
@@ -39,10 +34,6 @@ func _ready() -> void:
 		_farm_manager = get_tree().get_first_node_in_group("farm_manager")
 		if _farm_manager == null:
 			push_error("[FarmPlot] FarmManager not found after retry!")
-
-	_ground_atlas = load(GROUND_TEX_PATH) as Texture2D
-	if _ground_atlas == null:
-		push_error("[FarmPlot] Cannot load ground atlas: %s" % GROUND_TEX_PATH)
 
 	if _farm_manager != null:
 		if _farm_manager.has_signal("crop_planted"):
@@ -92,7 +83,7 @@ func _on_watered_changed(cell: Vector2i) -> void:
 	if _farm_manager == null:
 		return
 	var data: Dictionary = _farm_manager.get_cell_data(cell)
-	_update_soil_visual_texture(_cell_key(cell), data)
+	_update_soil_visual_color(_cell_key(cell), data)
 
 func _on_day_changed(_new_day: int) -> void:
 	refresh_soil_visuals()
@@ -306,7 +297,7 @@ func _try_farm_action(cell: Vector2i) -> void:
 					return
 				if _farm_manager.water_cell(cell):
 					var data: Dictionary = _farm_manager.get_cell_data(cell)
-					_update_soil_visual_texture(_cell_key(cell), data)
+					_update_soil_visual_color(_cell_key(cell), data)
 					_play_feedback(cell, "Đã tưới nước!", Color(0.3, 0.6, 0.9))
 			elif item_type == "seed":
 				_try_plant_seed(cell)
@@ -454,117 +445,22 @@ func _play_feedback(cell: Vector2i, text: String, color: Color) -> void:
 	tw.tween_callback(label.queue_free)
 
 # =============================================================================
-# SOIL VISUALS (Sprite2D + AtlasTexture)
+# SOIL VISUALS (ColorRect nâu đơn sắc)
 # =============================================================================
+# Toàn bộ trạng thái ô đất (PLOWED → WILTED) vẽ bằng ColorRect nâu đơn sắc.
+# KHÔNG dùng AtlasTexture từ FieldsTileset vì atlas không có tile "đất tưới"
+# riêng — region [2,2] là cỏ xanh, [1,2] có vệt cỏ → vẽ sprite sẽ khiến ô đất
+# hóa bãi cỏ khi trồng hạt / tưới nước (fix v4).
 
 func _show_soil_visual(cell: Vector2i, data: Dictionary = {}) -> void:
 	var cell_key := _cell_key(cell)
-
-	# PLOWED (đất đào, chưa trồng cây) → vẽ ColorRect nâu ĐƠN SẮC (không dùng
-	# atlas). Atlas FieldsTileset chứa sẵn 3 chấm xanh trong mọi tile đất —
-	# nếu vẽ sẽ trông như đã gieo hạt. ColorRect nâu sạch báo "đã đào".
-	# Khi đã tưới nước (watered=true) → tô màu tối hơn.
-	if data.get("state", CropState.PLOWED) == CropState.PLOWED:
-		if _soil_visuals.has(cell_key):
-			var existing = _soil_visuals[cell_key]
-			if is_instance_valid(existing):
-				existing.queue_free()
-			_soil_visuals.erase(cell_key)
-		var rect := ColorRect.new()
-		rect.name = "Soil_" + cell_key
-		rect.color = _get_plowed_color(bool(data.get("watered", false)))
-		rect.position = _cell_to_world(cell)
-		rect.size = CELL_SIZE
-		rect.z_index = 2
-		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(rect)
-		_soil_visuals[cell_key] = rect
-		return
-
+	# Đã có visual → chỉ cần cập nhật màu (khô/tưới đổi màu).
 	if _soil_visuals.has(cell_key):
-		_update_soil_visual_texture(cell_key, data)
-		return
-
-	if _ground_atlas == null:
-		_show_soil_color_fallback(cell, data)
-		return
-
-	var world_pos := _cell_to_world(cell)
-	var sprite := Sprite2D.new()
-	sprite.name = "Soil_" + cell_key
-	sprite.centered = false
-	sprite.position = world_pos
-	sprite.z_index = 2
-	sprite.texture = _make_soil_texture(data)
-	add_child(sprite)
-	_soil_visuals[cell_key] = sprite
-
-func _update_soil_visual_texture(cell_key: String, data: Dictionary) -> void:
-	var state: CropState = data.get("state", CropState.PLOWED)
-	# PLOWED: phải là ColorRect nâu đơn sắc (không có chấm xanh). Nếu sprite
-	# hiện tại là Sprite2D (do trước đó là cây thật) → xóa và vẽ lại ColorRect.
-	if state == CropState.PLOWED:
-		if _soil_visuals.has(cell_key):
-			var existing = _soil_visuals[cell_key]
-			if is_instance_valid(existing):
-				existing.queue_free()
-			_soil_visuals.erase(cell_key)
-		# Tạo ColorRect nâu trực tiếp từ cell_key (parse lại Vector2i).
-		# Khi đã tưới nước → tô màu tối hơn để phân biệt với đất khô.
-		var parts: PackedStringArray = cell_key.split(",")
-		if parts.size() == 2:
-			var cell := Vector2i(int(parts[0]), int(parts[1]))
-			var rect := ColorRect.new()
-			rect.name = "Soil_" + cell_key
-			rect.color = _get_plowed_color(bool(data.get("watered", false)))
-			rect.position = _cell_to_world(cell)
-			rect.size = CELL_SIZE
-			rect.z_index = 2
-			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			add_child(rect)
-			_soil_visuals[cell_key] = rect
-		return
-	if not _soil_visuals.has(cell_key):
-		return
-	var n = _soil_visuals[cell_key]
-	if not is_instance_valid(n):
-		return
-	if n is Sprite2D and _ground_atlas != null:
-		(n as Sprite2D).texture = _make_soil_texture(data)
-	elif n is ColorRect:
-		(n as ColorRect).color = _get_soil_color_fallback(data)
-
-func _make_soil_texture(data: Dictionary) -> AtlasTexture:
-	# PLOWED không bao giờ được gọi đến đây — _show_soil_visual /
-	# _show_soil_color_fallback / _update_soil_visual_texture đều skip PLOWED
-	# để tránh hiển thị chấm xanh từ atlas. Đoạn dưới chỉ xử lý cây thật.
-	var region: Array
-	var state: CropState = data.get("state", CropState.PLOWED)
-	if data.get("watered", false):
-		region = _SOIL_REGION_WATER
-	else:
-		if state >= CropState.PLOWED:
-			region = _SOIL_REGION_PLOWED
-		else:
-			region = _SOIL_REGION_DRY
-	var at := AtlasTexture.new()
-	at.atlas = _ground_atlas
-	at.region = Rect2(region[0] * 16, region[1] * 16, 16, 16)
-	return at
-
-func _show_soil_color_fallback(cell: Vector2i, data: Dictionary) -> void:
-	var cell_key := _cell_key(cell)
-	# PLOWED: không vẽ ColorRect fallback — để lớp Ground bên dưới hiện ra.
-	if data.get("state", CropState.PLOWED) == CropState.PLOWED:
-		if _soil_visuals.has(cell_key):
-			var n = _soil_visuals[cell_key]
-			if is_instance_valid(n):
-				n.queue_free()
-			_soil_visuals.erase(cell_key)
+		_update_soil_visual_color(cell_key, data)
 		return
 	var rect := ColorRect.new()
 	rect.name = "Soil_" + cell_key
-	rect.color = _get_soil_color_fallback(data)
+	rect.color = _get_soil_color(data)
 	rect.position = _cell_to_world(cell)
 	rect.size = CELL_SIZE
 	rect.z_index = 2
@@ -572,18 +468,26 @@ func _show_soil_color_fallback(cell: Vector2i, data: Dictionary) -> void:
 	add_child(rect)
 	_soil_visuals[cell_key] = rect
 
-func _get_soil_color_fallback(data: Dictionary) -> Color:
-	# PLOWED không bao giờ chạm tới hàm này (đã bị skip ở _show_soil_visual /
-	# _show_soil_color_fallback / _update_soil_visual_texture). Chỉ xử lý
-	# cây thật (SEEDED → MATURE / WILTED).
-	if data.get("watered", false):
-		return Color(0.35, 0.22, 0.08, 0.85)
-	return Color(0.55, 0.42, 0.25, 0.65)
+func _update_soil_visual_color(cell_key: String, data: Dictionary) -> void:
+	if not _soil_visuals.has(cell_key):
+		return
+	var n = _soil_visuals[cell_key]
+	if not is_instance_valid(n):
+		return
+	# Sprite2D cũ (từ bản v3 dùng atlas) → thay bằng ColorRect.
+	if n is Sprite2D:
+		n.queue_free()
+		_soil_visuals.erase(cell_key)
+		var parts: PackedStringArray = cell_key.split(",")
+		if parts.size() == 2:
+			_show_soil_visual(Vector2i(int(parts[0]), int(parts[1])), data)
+		return
+	if n is ColorRect:
+		(n as ColorRect).color = _get_soil_color(data)
 
-# Màu cho ô đất PLOWED: khô = nâu sáng, đã tưới = nâu tối hơn để phân biệt
-# trạng thái đã tưới nước dù chưa có hạt giống.
-func _get_plowed_color(watered: bool) -> Color:
-	if watered:
+# Màu ô đất: khô = nâu sáng, đã tưới = nâu tối hơn (phân biệt trạng thái tưới).
+func _get_soil_color(data: Dictionary) -> Color:
+	if data.get("watered", false):
 		return Color(0.30, 0.20, 0.10, 1.0)
 	return Color(0.55, 0.42, 0.25, 1.0)
 
