@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://dgy10g2koldw6"]
+[gd_scene load_steps=14 format=3 uid="uid://dgy10g2koldw6"]
 
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="3_trans"]
@@ -8,7 +8,8 @@
 [ext_resource type="Script" uid="uid://csfm82tpxbelg" path="res://scripts/world/farm/farm_manager.gd" id="9_fmgr"]
 [ext_resource type="PackedScene" path="res://scenes/world/farm/crop_visual_manager.tscn" id="10_cropvis"]
 [ext_resource type="PackedScene" path="res://scenes/world/tree_blocker.tscn" id="11_blocker"]
-[ext_resource type="Script" uid="uid://csb0usahe6ut0" path="res://scripts/world/scene_root.gd" id="12_sceneroot"]
+[ext_resource type="PackedScene" path="res://scenes/world/water_source.tscn" id="12_water_source"]
+[ext_resource type="Script" uid="uid://csb0usahe6ut0" path="res://scripts/world/scene_root.gd" id="13_sceneroot"]
 
 [sub_resource type="RectangleShape2D" id="RS_wall_h"]
 size = Vector2(800, 4)
@@ -120,6 +121,9 @@ offset_left = -8.0
 offset_top = -8.0
 offset_right = 68.0
 color = Color(0.4, 0.3, 0.2, 1)
+
+[node name="WaterSourceWell" parent="." instance=ExtResource("12_water_source")]
+position = Vector2(536, 113)
 
 [node name="FarmBlockers" type="Node2D" parent="."]
 
@@ -292,7 +296,7 @@ limit_right = 800
 limit_bottom = 600
 
 [node name="SceneRoot" type="Node" parent="."]
-script = ExtResource("12_sceneroot")
+script = ExtResource("13_sceneroot")
 
 [node name="PlayerSpawn" type="Marker2D" parent="."]
 position = Vector2(393, 174)

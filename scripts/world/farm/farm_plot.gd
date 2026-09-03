@@ -114,6 +114,23 @@ func get_player_facing_cell(player_node: Node) -> Vector2i:
 	var world_pos: Vector2 = player_node.global_position + facing_dir * 16.0
 	return _world_to_cell(world_pos)
 
+# =============================================================================
+# PHASE 5: FARM BLOCKER CHECK
+# =============================================================================
+
+func _is_cell_blocked_by_tree(cell: Vector2i) -> bool:
+	var world_pos: Vector2 = _cell_to_world(cell)
+	var tolerance: float = 12.0  # Half cell size tolerance
+	var blockers: Array = get_tree().get_nodes_in_group("tree_blocker")
+	for blocker in blockers:
+		if blocker is Node2D and blocker.has_method("is_cleared"):
+			if blocker.call("is_cleared"):
+				continue
+			var blocker_pos: Vector2 = (blocker as Node2D).global_position
+			if world_pos.distance_to(blocker_pos) < tolerance:
+				return true
+	return false
+
 func _input(event: InputEvent) -> void:
 	# Không cho farm input hoạt động trong intro/dialogue cutscene.
 	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
@@ -264,6 +281,11 @@ func _try_farm_action(cell: Vector2i) -> void:
 	if _farm_manager == null:
 		_play_feedback(cell, "Không tìm thấy hệ thống nông trại!", Color(0.8, 0.3, 0.3))
 		return
+	
+	# Phase 5: Kiểm tra cell có bị TreeBlocker chặn không
+	if _is_cell_blocked_by_tree(cell):
+		_play_feedback(cell, "Có gốc cây chắn đường! Cần Rìu để dọn.", Color(0.6, 0.3, 0.1))
+		return
 
 	var state: CropState = _get_cell_state(cell)
 	var cell_data: Dictionary = _farm_manager.get_cell_data(cell)
@@ -293,21 +315,35 @@ func _try_farm_action(cell: Vector2i) -> void:
 			if _is_tool_id("hoe"):
 				_play_feedback(cell, "Ô đất đã được cày!", Color(0.8, 0.6, 0.3))
 			elif _is_tool_id("water_can"):
+				# Phase 6: Kiểm tra water capacity trước khi tưới
+				var water_level: int = GameState.get_watering_can_level()
+				if water_level <= 0:
+					_play_feedback(cell, "Bình nước hết! Cần đổ nước vào bình.", Color(0.8, 0.3, 0.3))
+					return
 				if not _consume_action_energy(cell):
 					return
 				if _farm_manager.water_cell(cell):
+					GameState.consume_watering_can_use(1)
 					var data: Dictionary = _farm_manager.get_cell_data(cell)
 					_update_soil_visual_color(_cell_key(cell), data)
-					_play_feedback(cell, "Đã tưới nước!", Color(0.3, 0.6, 0.9))
+					var remaining: int = GameState.get_watering_can_level()
+					_play_feedback(cell, "Đã tưới nước! (Còn: %d)" % remaining, Color(0.3, 0.6, 0.9))
 			elif item_type == "seed":
 				_try_plant_seed(cell)
 
 		CropState.SEEDED, CropState.SPROUTED, CropState.GROWING:
 			if _is_tool_id("water_can"):
+				# Phase 6: Kiểm tra water capacity
+				var water_level: int = GameState.get_watering_can_level()
+				if water_level <= 0:
+					_play_feedback(cell, "Bình nước hết! Cần đổ nước vào bình.", Color(0.8, 0.3, 0.3))
+					return
 				if not _consume_action_energy(cell):
 					return
 				if _farm_manager.water_cell(cell):
-					_play_feedback(cell, "Đã tưới nước!", Color(0.3, 0.6, 0.9))
+					GameState.consume_watering_can_use(1)
+					var remaining: int = GameState.get_watering_can_level()
+					_play_feedback(cell, "Đã tưới nước! (Còn: %d)" % remaining, Color(0.3, 0.6, 0.9))
 			elif item_type == "seed":
 				_play_feedback(cell, "Cây đã được trồng!", Color(0.8, 0.6, 0.3))
 			else:
