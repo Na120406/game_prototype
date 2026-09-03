@@ -735,6 +735,140 @@ func get_flag(flag: String, default: Variant = false) -> Variant:
 
 
 # =============================================================================
+# VOSS MOUNTAIN EVENT — STATE KEYS & HELPERS
+# =============================================================================
+# State keys chuẩn cho chuỗi sự kiện Voss lên núi. Toàn bộ trạng thái bền vững
+# nằm trong world_flags (lưu qua CatchUpSystem), KHÔNG tạo biến global rời.
+# Naming: voss_mountain_*, voss_*, shop_price_*.
+
+const VOSS_EVENT_DAY_KEY: String = "voss_mountain_event_day"
+const VOSS_PHASE_KEY: String = "voss_mountain_phase"
+const VOSS_OUTCOME_KEY: String = "voss_outcome"
+const VOSS_ALIVE_KEY: String = "voss_alive"
+const VOSS_INJURY_STATE_KEY: String = "voss_injury_state"
+const VOSS_DIALOGUE_SEEN_PREFIX: String = "voss_dialogue_seen_"
+const SHOP_PRICE_MODIFIER_KEY: String = "shop_price_modifier"
+const SHOP_PRICE_CYCLE_DAY_KEY: String = "shop_price_cycle_day"
+
+func set_voss_event_day(day: int) -> void:
+	set_flag(VOSS_EVENT_DAY_KEY, day)
+
+func get_voss_event_day() -> int:
+	return int(get_flag(VOSS_EVENT_DAY_KEY, -1))
+
+func set_voss_phase(phase_name: String) -> void:
+	set_flag(VOSS_PHASE_KEY, phase_name)
+
+func get_voss_phase() -> String:
+	return str(get_flag(VOSS_PHASE_KEY, "SCHEDULED"))
+
+func set_voss_outcome(outcome_name: String) -> void:
+	set_flag(VOSS_OUTCOME_KEY, outcome_name)
+
+func get_voss_outcome() -> String:
+	return str(get_flag(VOSS_OUTCOME_KEY, ""))
+
+func set_voss_alive(alive: bool) -> void:
+	set_flag(VOSS_ALIVE_KEY, alive)
+
+func is_voss_alive() -> bool:
+	return bool(get_flag(VOSS_ALIVE_KEY, true))
+
+func set_voss_injury_state(state_name: String) -> void:
+	set_flag(VOSS_INJURY_STATE_KEY, state_name)
+
+func get_voss_injury_state() -> String:
+	return str(get_flag(VOSS_INJURY_STATE_KEY, "none"))
+
+func is_voss_dialogue_seen(dialogue_key: String) -> bool:
+	return bool(get_flag(VOSS_DIALOGUE_SEEN_PREFIX + dialogue_key, false))
+
+func mark_voss_dialogue_seen(dialogue_key: String) -> void:
+	set_flag(VOSS_DIALOGUE_SEEN_PREFIX + dialogue_key, true)
+
+func get_shop_price_modifier() -> float:
+	return float(get_flag(SHOP_PRICE_MODIFIER_KEY, 0.0))
+
+func set_shop_price_modifier(value: float) -> void:
+	set_flag(SHOP_PRICE_MODIFIER_KEY, value)
+
+func get_shop_price_cycle_day() -> int:
+	return int(get_flag(SHOP_PRICE_CYCLE_DAY_KEY, 0))
+
+func set_shop_price_cycle_day(day: int) -> void:
+	set_flag(SHOP_PRICE_CYCLE_DAY_KEY, day)
+
+
+# =============================================================================
+# LEVEL DESIGN / SPATIAL SYSTEM — STATE KEYS & HELPERS
+# =============================================================================
+# State bền vững cho hệ thống Forest/Axe/Farm expansion/Watering Can. Toàn bộ
+# nằm trong world_flags (lưu qua CatchUpSystem), KHÔNG tạo global state riêng.
+# Xem .hermes/plans/*-level-design-spatial-phases.md (Phase 1).
+
+const FOREST_SHORTCUT_CLEARED_KEY: String = "spatial_forest_shortcut_cleared"
+const FARM_BLOCKER_CLEARED_PREFIX: String = "spatial_farm_blocker_"
+const FARM_BLOCKER_CLEARED_SUFFIX: String = "_cleared"
+const GATHERING_COLLECTED_PREFIX: String = "spatial_gathering_"
+const GATHERING_COLLECTED_SUFFIX: String = "_collected"
+const WATERING_CAN_LEVEL_KEY: String = "spatial_watering_can_level"
+
+## Forest shortcut — bị chặn bởi TreeBlocker cho tới khi player dùng Axe.
+func is_forest_shortcut_cleared() -> bool:
+	return bool(get_flag(FOREST_SHORTCUT_CLEARED_KEY, false))
+
+func clear_forest_shortcut() -> void:
+	set_flag(FOREST_SHORTCUT_CLEARED_KEY, true)
+
+## Farm blocker — mỗi blocker có id riêng, độc lập với các blocker khác.
+func is_farm_blocker_cleared(blocker_id: String) -> bool:
+	return bool(get_flag(FARM_BLOCKER_CLEARED_PREFIX + blocker_id + FARM_BLOCKER_CLEARED_SUFFIX, false))
+
+func clear_farm_blocker(blocker_id: String) -> void:
+	set_flag(FARM_BLOCKER_CLEARED_PREFIX + blocker_id + FARM_BLOCKER_CLEARED_SUFFIX, true)
+
+## Gathering point — đánh dấu đã thu thập để không cho nhặt trùng.
+func is_gathering_collected(gathering_id: String) -> bool:
+	return bool(get_flag(GATHERING_COLLECTED_PREFIX + gathering_id + GATHERING_COLLECTED_SUFFIX, false))
+
+func mark_gathering_collected(gathering_id: String) -> void:
+	set_flag(GATHERING_COLLECTED_PREFIX + gathering_id + GATHERING_COLLECTED_SUFFIX, true)
+
+## Watering Can — capacity giới hạn, chỉ refill tại water source trên Farm.
+## Level KHÔNG tự refill qua ngày — chỉ water_source.gd gọi refill_watering_can().
+func get_watering_can_max_capacity() -> int:
+	var cm := _get_config_manager()
+	return int(cm.call("get_watering_can_capacity")) if cm != null and cm.has_method("get_watering_can_capacity") else 5
+
+func get_watering_can_level() -> int:
+	return int(get_flag(WATERING_CAN_LEVEL_KEY, get_watering_can_max_capacity()))
+
+func set_watering_can_level(value: int) -> void:
+	set_flag(WATERING_CAN_LEVEL_KEY, clampi(value, 0, get_watering_can_max_capacity()))
+
+func refill_watering_can() -> void:
+	set_watering_can_level(get_watering_can_max_capacity())
+
+## Trừ 1 (hoặc `amount`) đơn vị nước; trả về false và KHÔNG trừ nếu không đủ.
+func consume_watering_can_use(amount: int = 1) -> bool:
+	var current: int = get_watering_can_level()
+	if current < amount:
+		return false
+	set_watering_can_level(current - amount)
+	return true
+
+## Axe — chỉ mua được từ Shop, không tự cấp; is_axe_purchasable() chỉ đổi
+## theo current_day, KHÔNG tự mở shortcut/blocker (xem TreeBlocker ở Phase 3).
+func has_axe() -> bool:
+	return has_item("axe")
+
+func is_axe_purchasable() -> bool:
+	var cm := _get_config_manager()
+	var available_day: int = int(cm.call("get_axe_available_day")) if cm != null and cm.has_method("get_axe_available_day") else 3
+	return current_day >= available_day
+
+
+# =============================================================================
 # HÀM KHÁM PHÁ KHU VỰC (discover_area)
 # =============================================================================
 # Đánh dấu một khu vực đã được khám phá

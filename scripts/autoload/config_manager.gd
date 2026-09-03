@@ -20,6 +20,7 @@ var _ui_text_config: Dictionary = {}
 var _quest_text_config: Dictionary = {}
 var _money_config: Dictionary = {}
 var _localization: Dictionary = {}
+var _voss_event_config: Dictionary = {}
 var _loaded: bool = false
 const LOCALIZATION_PATH := "res://resources/localization/vi.json"
 
@@ -34,6 +35,7 @@ func load_all_configs() -> void:
 	load_ui_text_config()
 	load_quest_text_config()
 	load_money_config()
+	load_voss_event_config()
 	load_localization()
 	_loaded = true
 
@@ -99,6 +101,18 @@ func load_money_config() -> bool:
 	push_error("[ConfigManager] Failed to load money_config.json")
 	return false
 
+func load_voss_event_config() -> bool:
+	var result := _load_json(CONFIG_PATH + "voss_mountain_event_config.json")
+	if result.size() > 0:
+		_voss_event_config = result
+		print("[ConfigManager] Loaded voss_mountain_event_config.json")
+		return true
+	push_error("[ConfigManager] Failed to load voss_mountain_event_config.json")
+	return false
+
+func get_voss_event_config() -> Dictionary:
+	return _voss_event_config.duplicate(true)
+
 func load_quest_text_config() -> bool:
 	var path := CONFIG_PATH + "quest_text_config.json"
 	var result := _load_json(path)
@@ -151,7 +165,8 @@ func get_value(path: String, default: Variant = null) -> Variant:
 	# inventory/cinematic_intro nằm TOP-LEVEL (không nằm trong "game"). Các getter
 	# gọi "scene.transition_duration", "player.move_speed", ... phải map về _game_config.
 	if keys[0] == "game" or keys[0] == "scene" or keys[0] == "player" \
-			or keys[0] == "quest" or keys[0] == "inventory" or keys[0] == "cinematic_intro":
+			or keys[0] == "quest" or keys[0] == "inventory" or keys[0] == "cinematic_intro" \
+			or keys[0] == "level_design":
 		current = _game_config
 	elif keys[0] == "npc" or keys[0] == "scenes":
 		current = _npc_config
@@ -238,6 +253,34 @@ func get_cinematic_player_offset() -> Vector2:
 	var x := float(get_value("cinematic_intro.player_offset_from_npc.x", -50))
 	var y := float(get_value("cinematic_intro.player_offset_from_npc.y", 0))
 	return Vector2(x, y)
+
+# =============================================================================
+# LEVEL DESIGN / SPATIAL SYSTEM CONFIG HELPERS (Old Town spatial expansion)
+# =============================================================================
+# Toàn bộ giá trị balancing của hệ thống Forest/Axe/Watering Can nằm trong
+# resources/config/game_config.json (mục "level_design") — KHÔNG hardcode
+# giá trị này ở nơi khác. Xem .hermes/plans/*-level-design-spatial-phases.md.
+
+func get_axe_available_day() -> int:
+	return int(get_value("level_design.axe_available_day", 3))
+
+func get_axe_price() -> int:
+	return int(get_value("level_design.axe_price", 120))
+
+func get_watering_can_capacity() -> int:
+	return int(get_value("level_design.watering_can_capacity", 5))
+
+func get_forest_long_route_time() -> float:
+	return float(get_value("level_design.forest_long_route_time", 1.5))
+
+func get_forest_shortcut_time() -> float:
+	return float(get_value("level_design.forest_shortcut_time", 0.5))
+
+func get_gathering_quantity() -> int:
+	return int(get_value("level_design.gathering_quantity", 1))
+
+func get_gathering_value() -> int:
+	return int(get_value("level_design.gathering_value", 5))
 
 # =============================================================================
 # NPC CONFIG HELPERS

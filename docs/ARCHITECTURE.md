@@ -272,6 +272,17 @@ cần (VD: `ConfigManager` trước `GameState`).
 - Hàm cốt lõi: `advance_day(reset_to_hour)`, `advance_time(hours)`,
   `add_item`/`remove_item`/`has_item`, `set_flag`/`get_flag`/`has_flag`,
   `modify_relationship`.
+- **Spatial system (Forest/Axe/Farm expansion/Watering Can — xem
+  `.hermes/plans/*-level-design-spatial-phases.md`):** state nằm trong
+  `world_flags` qua các helper `is_forest_shortcut_cleared()`/
+  `clear_forest_shortcut()`, `is_farm_blocker_cleared(id)`/
+  `clear_farm_blocker(id)`, `is_gathering_collected(id)`/
+  `mark_gathering_collected(id)`, `get_watering_can_level()`/
+  `set_watering_can_level()`/`refill_watering_can()`/
+  `consume_watering_can_use()`, `has_axe()`/`is_axe_purchasable()`. Balancing
+  values (giá Axe, ngày mở bán, capacity Watering Can, thời gian route...)
+  nằm trong `resources/config/game_config.json` mục `level_design`, đọc qua
+  `ConfigManager.get_axe_price()` v.v. — KHÔNG hardcode ở nơi khác.
 
 > **Nguyên tắc:** chỉ `GameState` được phép giữ dữ liệu toàn cục. Hệ thống khác
 > đọc/ghi thông qua nó, KHÔNG tự tạo biến global riêng.
