@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="3_uimgr"]
 [ext_resource type="Script" uid="uid://csb0usahe6ut0" path="res://scripts/world/scene_root.gd" id="4_sceneroot"]
 [ext_resource type="PackedScene" path="res://scenes/world/tree_blocker.tscn" id="5_blocker"]
+[ext_resource type="PackedScene" path="res://scenes/world/gathering_point.tscn" id="6_gather"]
 
 [sub_resource type="RectangleShape2D" id="RS_trans"]
 size = Vector2(20, 40)
@@ -148,6 +149,26 @@ horizontal_alignment = 1
 [node name="ShortcutBlocker" parent="." instance=ExtResource("5_blocker")]
 position = Vector2(460, 240)
 blocker_id = "forest_shortcut_tree"
+
+[node name="GatheringPoints" type="Node2D" parent="."]
+
+[node name="Gather1" parent="GatheringPoints" instance=ExtResource("6_gather")]
+position = Vector2(180, 200)
+gathering_id = "forest_gather_apple_1"
+item_id = "apple"
+quantity = 2
+
+[node name="Gather2" parent="GatheringPoints" instance=ExtResource("6_gather")]
+position = Vector2(80, 350)
+gathering_id = "forest_gather_apple_2"
+item_id = "apple"
+quantity = 2
+
+[node name="Gather3" parent="GatheringPoints" instance=ExtResource("6_gather")]
+position = Vector2(260, 150)
+gathering_id = "forest_gather_apple_3"
+item_id = "apple"
+quantity = 1
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 z_index = 10

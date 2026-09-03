@@ -1,0 +1,29 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/gathering_point.gd" id="1_script"]
+
+[sub_resource type="CircleShape2D" id="CS_gather"]
+radius = 40.0
+
+[node name="GatheringPoint" type="Area2D"]
+script = ExtResource("1_script")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CS_gather")
+
+[node name="Visual" type="ColorRect" parent="."]
+z_index = 2
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 8.0
+offset_bottom = 8.0
+color = Color(0.9, 0.7, 0.2, 1)
+
+[node name="Prompt" type="Label" parent="."]
+offset_left = -16.0
+offset_top = -32.0
+offset_right = 16.0
+offset_bottom = -24.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
