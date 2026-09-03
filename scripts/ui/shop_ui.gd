@@ -138,7 +138,10 @@ func _create_tooltip() -> void:
 	_tooltip_panel.size = Vector2(140, 50)
 	_tooltip_panel.visible = false
 
-	get_tree().root.add_child(_tooltip_layer)
+	# _create_tooltip() chạy trong _ready(); nếu ShopUI được spawn từ _ready()
+	# của node khác thì root vẫn đang setup children → add_child() FAIL im lặng
+	# và tooltip không bao giờ hiển thị. Deferred đảm bảo luôn gắn được.
+	get_tree().root.add_child.call_deferred(_tooltip_layer)
 
 
 # =============================================================================
@@ -536,8 +539,18 @@ func _refresh_buy_list() -> void:
 		return
 	var buyable_items: Array = db.get_buyable_items()
 	for item_data: ItemData in buyable_items:
+		if not _is_item_available_for_purchase(item_data):
+			continue
 		items_list.add_child(_make_buy_row(item_data))
 		_row_item_cache.append(item_data)
+
+# Axe (và các item level-design tương tự sau này) chỉ hiện trong Shop từ
+# ngày cấu hình (level_design.axe_available_day). Day 3 CHỈ đổi availability,
+# KHÔNG tự cấp Axe hay tự mở blocker — xem GameState.is_axe_purchasable().
+func _is_item_available_for_purchase(item_data: ItemData) -> bool:
+	if item_data.item_id == "axe":
+		return GameState.is_axe_purchasable()
+	return true
 
 
 # =============================================================================

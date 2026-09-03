@@ -5,6 +5,7 @@ extends Node
 # trên itch.io.
 const ITEM_RESOURCES: Array[ItemData] = [
 	preload("res://resources/items/definitions/apple.tres"),
+	preload("res://resources/items/definitions/axe.tres"),
 	preload("res://resources/items/definitions/health_potion.tres"),
 	preload("res://resources/items/definitions/lore_fragment.tres"),
 	preload("res://resources/items/definitions/old_key.tres"),
@@ -57,7 +58,19 @@ func _load_all_items() -> void:
 						print("[ItemDB] Loaded: %s" % item.item_id)
 			file_name = dir.get_next()
 		dir.list_dir_end()
+	_apply_level_design_prices()
 	print("[ItemDB] Total items loaded: %d" % _db.size())
+
+# Axe.buy_price phải khớp resources/config/game_config.json (level_design.axe_price)
+# để giá là data-driven duy nhất — không hardcode song song trong .tres.
+# Đọc trực tiếp từ ConfigManager (autoload đứng trước ItemDB trong project.godot).
+func _apply_level_design_prices() -> void:
+	var cm: Node = get_node_or_null("/root/ConfigManager")
+	if cm == null or not cm.has_method("get_axe_price"):
+		return
+	var axe: ItemData = _db.get("axe", null)
+	if axe != null:
+		axe.buy_price = int(cm.call("get_axe_price"))
 
 func get_item(item_id: String) -> ItemData:
 	return _db.get(item_id, null)
