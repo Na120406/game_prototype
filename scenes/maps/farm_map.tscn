@@ -193,16 +193,16 @@ offset_right = 250.0
 offset_bottom = 305.0
 color = Color(0.55, 0.55, 0.55, 1)
 
-[node name="ToTown" type="Area2D" parent="."]
+[node name="ToForest" type="Area2D" parent="."]
 position = Vector2(790, 300)
 script = ExtResource("3_trans")
-portal_id = "portal_town"
-target_scene = "res://scenes/maps/town_map.tscn"
+portal_id = "portal_farm_to_forest"
+target_scene = "res://scenes/maps/forest_map.tscn"
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="ToTown"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ToForest"]
 shape = SubResource("RS_trans")
 
-[node name="Prompt" type="Label" parent="ToTown"]
+[node name="Prompt" type="Label" parent="ToForest"]
 offset_left = -10.0
 offset_top = -10.0
 offset_right = 10.0

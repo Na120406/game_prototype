@@ -1,0 +1,169 @@
+[gd_scene load_steps=7 format=3 uid="uid://c8f7m3n4p5q6r7"]
+
+[ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="1_player"]
+[ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="2_trans"]
+[ext_resource type="Script" uid="uid://clt6858203i7x" path="res://scripts/world/world_ui_manager.gd" id="3_uimgr"]
+[ext_resource type="Script" uid="uid://csb0usahe6ut0" path="res://scripts/world/scene_root.gd" id="4_sceneroot"]
+[ext_resource type="PackedScene" path="res://scenes/world/tree_blocker.tscn" id="5_blocker"]
+
+[sub_resource type="RectangleShape2D" id="RS_trans"]
+size = Vector2(20, 40)
+
+[node name="ForestMap" type="Node2D"]
+
+[node name="Ground" type="ColorRect" parent="."]
+z_index = 0
+offset_right = 640.0
+offset_bottom = 480.0
+color = Color(0.2, 0.3, 0.15, 1)
+
+[node name="LongRoutePath" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 40.0
+offset_top = 440.0
+offset_right = 100.0
+offset_bottom = 480.0
+color = Color(0.45, 0.4, 0.3, 1)
+
+[node name="LongRoutePath2" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 40.0
+offset_top = 240.0
+offset_right = 100.0
+offset_bottom = 440.0
+color = Color(0.45, 0.4, 0.3, 1)
+
+[node name="LongRoutePath3" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 40.0
+offset_top = 240.0
+offset_right = 280.0
+offset_bottom = 280.0
+color = Color(0.45, 0.4, 0.3, 1)
+
+[node name="LongRoutePath4" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 240.0
+offset_top = 40.0
+offset_right = 280.0
+offset_bottom = 280.0
+color = Color(0.45, 0.4, 0.3, 1)
+
+[node name="LongRoutePath5" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 240.0
+offset_top = 40.0
+offset_right = 400.0
+offset_bottom = 80.0
+color = Color(0.45, 0.4, 0.3, 1)
+
+[node name="ShortcutPath" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 440.0
+offset_top = 40.0
+offset_right = 480.0
+offset_bottom = 480.0
+color = Color(0.5, 0.45, 0.35, 1)
+
+[node name="TreeDecorations" type="Node2D" parent="."]
+
+[node name="Tree1" type="ColorRect" parent="TreeDecorations"]
+z_index = 2
+offset_left = 140.0
+offset_top = 120.0
+offset_right = 200.0
+offset_bottom = 180.0
+color = Color(0.25, 0.4, 0.2, 1)
+
+[node name="Tree2" type="ColorRect" parent="TreeDecorations"]
+z_index = 2
+offset_left = 320.0
+offset_top = 150.0
+offset_right = 380.0
+offset_bottom = 210.0
+color = Color(0.25, 0.4, 0.2, 1)
+
+[node name="Tree3" type="ColorRect" parent="TreeDecorations"]
+z_index = 2
+offset_left = 120.0
+offset_top = 320.0
+offset_right = 180.0
+offset_bottom = 380.0
+color = Color(0.25, 0.4, 0.2, 1)
+
+[node name="ToFarm" type="Area2D" parent="."]
+position = Vector2(70, 470)
+script = ExtResource("2_trans")
+portal_id = "portal_forest_to_farm"
+target_scene = "res://scenes/maps/farm_map.tscn"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ToFarm"]
+shape = SubResource("RS_trans")
+
+[node name="Prompt" type="Label" parent="ToFarm"]
+offset_left = -12.0
+offset_top = -32.0
+offset_right = 12.0
+offset_bottom = -24.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
+[node name="ToTownLong" type="Area2D" parent="."]
+position = Vector2(320, 60)
+script = ExtResource("2_trans")
+portal_id = "portal_forest_long_to_town"
+target_scene = "res://scenes/maps/town_map.tscn"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ToTownLong"]
+shape = SubResource("RS_trans")
+
+[node name="Prompt" type="Label" parent="ToTownLong"]
+offset_left = -12.0
+offset_top = -32.0
+offset_right = 12.0
+offset_bottom = -24.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
+[node name="ToTownShort" type="Area2D" parent="."]
+position = Vector2(460, 60)
+script = ExtResource("2_trans")
+portal_id = "portal_forest_short_to_town"
+target_scene = "res://scenes/maps/town_map.tscn"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ToTownShort"]
+shape = SubResource("RS_trans")
+
+[node name="Prompt" type="Label" parent="ToTownShort"]
+offset_left = -12.0
+offset_top = -32.0
+offset_right = 12.0
+offset_bottom = -24.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
+[node name="ShortcutBlocker" parent="." instance=ExtResource("5_blocker")]
+position = Vector2(460, 240)
+blocker_id = "forest_shortcut_tree"
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+z_index = 10
+position = Vector2(320, 240)
+
+[node name="Camera2D" type="Camera2D" parent="Player"]
+limit_left = 0
+limit_top = 0
+limit_right = 640
+limit_bottom = 480
+
+[node name="SceneRoot" type="Node" parent="."]
+script = ExtResource("4_sceneroot")
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(320, 240)
+
+[node name="UI" type="CanvasLayer" parent="."]
+script = ExtResource("3_uimgr")

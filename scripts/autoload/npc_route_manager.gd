@@ -9,16 +9,20 @@ const ROUTES: Dictionary = {
 		{"scene": "res://scenes/maps/town_map.tscn", "point": "shop_exit", "position": Vector2(95, 105), "portal_id": "portal_town_to_shop"}
 	],
 	"town_to_farm": [
-		{"scene": "res://scenes/maps/town_map.tscn", "point": "farm_exit", "position": Vector2(20, 135), "portal_id": "portal_town"},
-		{"scene": "res://scenes/maps/farm_map.tscn", "point": "farm_entry", "position": Vector2(20, 135), "portal_id": "portal_town"}
+		{"scene": "res://scenes/maps/town_map.tscn", "point": "forest_exit_long", "position": Vector2(20, 135), "portal_id": "portal_town_to_forest_long"},
+		{"scene": "res://scenes/maps/forest_map.tscn", "point": "town_entry_long", "position": Vector2(320, 60), "portal_id": "portal_forest_long_to_town"},
+		{"scene": "res://scenes/maps/forest_map.tscn", "point": "farm_exit", "position": Vector2(70, 470), "portal_id": "portal_forest_to_farm"},
+		{"scene": "res://scenes/maps/farm_map.tscn", "point": "forest_entry", "position": Vector2(790, 300), "portal_id": "portal_farm_to_forest"}
 	],
 	"town_to_marcus_farm": [
 		{"scene": "res://scenes/maps/town_map.tscn", "point": "marcus_farm_exit", "position": Vector2(460, 135), "portal_id": "portal_marcus_farm_from_town"},
 		{"scene": "res://scenes/maps/marcus_farm_map.tscn", "point": "town_entry", "position": Vector2(20, 135), "portal_id": "portal_marcus_farm_from_town"}
 	],
 	"farm_to_town": [
-		{"scene": "res://scenes/maps/farm_map.tscn", "point": "town_exit", "position": Vector2(790, 300), "portal_id": "portal_town"},
-		{"scene": "res://scenes/maps/town_map.tscn", "point": "farm_entry", "position": Vector2(20, 135), "portal_id": "portal_town"}
+		{"scene": "res://scenes/maps/farm_map.tscn", "point": "forest_exit", "position": Vector2(790, 300), "portal_id": "portal_farm_to_forest"},
+		{"scene": "res://scenes/maps/forest_map.tscn", "point": "farm_entry", "position": Vector2(70, 470), "portal_id": "portal_forest_to_farm"},
+		{"scene": "res://scenes/maps/forest_map.tscn", "point": "town_exit_long", "position": Vector2(320, 60), "portal_id": "portal_forest_long_to_town"},
+		{"scene": "res://scenes/maps/town_map.tscn", "point": "forest_entry_long", "position": Vector2(20, 135), "portal_id": "portal_town_to_forest_long"}
 	],
 	"marcus_farm_to_house": [
 		{"scene": "res://scenes/maps/marcus_farm_map.tscn", "point": "house_exit", "position": Vector2(375, 135), "portal_id": "portal_marcus_farm_from_house"},
@@ -31,6 +35,14 @@ const ROUTES: Dictionary = {
 	"town_to_shop": [
 		{"scene": "res://scenes/maps/town_map.tscn", "point": "shop_exit", "position": Vector2(95, 105), "portal_id": "portal_town_to_shop"},
 		{"scene": "res://scenes/maps/inside_shop_map.tscn", "point": "shop_entry", "position": Vector2(20, 135), "portal_id": "portal_shop_to_town"}
+	],
+	"town_to_mountain": [
+		{"scene": "res://scenes/maps/town_map.tscn", "point": "mountain_exit", "position": Vector2(240, 10), "portal_id": "portal_town_to_mountain"},
+		{"scene": "res://scenes/maps/mountain_map.tscn", "point": "mountain_entry", "position": Vector2(160, 460), "portal_id": "portal_mountain_to_town"}
+	],
+	"mountain_to_town": [
+		{"scene": "res://scenes/maps/mountain_map.tscn", "point": "town_exit", "position": Vector2(160, 460), "portal_id": "portal_mountain_to_town"},
+		{"scene": "res://scenes/maps/town_map.tscn", "point": "town_entry", "position": Vector2(240, 10), "portal_id": "portal_town_to_mountain"}
 	],
 	"marcus_house_to_farm": [
 		{"scene": "res://scenes/maps/marcus_house_map.tscn", "point": "farm_exit", "position": Vector2(420, 146), "portal_id": "portal_marcus_farm_from_house"},

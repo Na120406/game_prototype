@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://de5kc56thmwpd"]
+[gd_scene load_steps=14 format=3 uid="uid://de5kc56thmwpd"]
 
 [ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_ground"]
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="2_player"]
@@ -15,17 +15,23 @@ texture = ExtResource("1_ground")
 [sub_resource type="TileSet" id="TS_town"]
 sources/0 = SubResource("TSA_town")
 
+[sub_resource type="RectangleShape2D" id="RS_wall_h_left"]
+size = Vector2(256, 4)
+
+[sub_resource type="RectangleShape2D" id="RS_wall_h_right"]
+size = Vector2(225, 4)
+
 [sub_resource type="RectangleShape2D" id="RS_wall_h"]
 size = Vector2(480, 4)
 
 [sub_resource type="RectangleShape2D" id="RS_wall_v"]
 size = Vector2(4, 270)
 
-[sub_resource type="RectangleShape2D" id="RS_door"]
-size = Vector2(30, 25)
-
 [sub_resource type="RectangleShape2D" id="RS_trans"]
 size = Vector2(20, 40)
+
+[sub_resource type="RectangleShape2D" id="RS_door"]
+size = Vector2(30, 25)
 
 [node name="TownMap" type="Node2D"]
 
@@ -34,11 +40,18 @@ tile_set = SubResource("TS_town")
 
 [node name="Walls" type="Node2D" parent="."]
 
-[node name="WallTop" type="StaticBody2D" parent="Walls"]
-position = Vector2(240, 2)
+[node name="WallTopLeft" type="StaticBody2D" parent="Walls"]
+position = Vector2(112.5, 2)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallTop"]
-shape = SubResource("RS_wall_h")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallTopLeft"]
+position = Vector2(15.5, 0)
+shape = SubResource("RS_wall_h_left")
+
+[node name="WallTopRight" type="StaticBody2D" parent="Walls"]
+position = Vector2(367.5, 2)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallTopRight"]
+shape = SubResource("RS_wall_h_right")
 
 [node name="WallBottom" type="StaticBody2D" parent="Walls"]
 position = Vector2(240, 268)
@@ -58,11 +71,59 @@ position = Vector2(478, 135)
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallRight"]
 shape = SubResource("RS_wall_v")
 
+[node name="ToMountain" type="Area2D" parent="."]
+position = Vector2(240, 2)
+script = ExtResource("3_trans")
+portal_id = "portal_town_to_mountain"
+target_scene = "res://scenes/maps/mountain_map.tscn"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ToMountain"]
+shape = SubResource("RS_trans")
+
+[node name="DoorSprite" type="Sprite2D" parent="ToMountain"]
+modulate = Color(0.3, 0.2, 0.12, 1)
+scale = Vector2(30, 25)
+
+[node name="Prompt" type="Label" parent="ToMountain"]
+offset_left = -10.0
+offset_top = 5.0
+offset_right = 10.0
+offset_bottom = 14.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
+[node name="FromForestShort" type="Area2D" parent="."]
+position = Vector2(455, 60)
+script = ExtResource("3_trans")
+portal_id = "portal_town_to_forest_short"
+target_scene = "res://scenes/maps/forest_map.tscn"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="FromForestShort"]
+shape = SubResource("RS_trans")
+
+[node name="Prompt" type="Label" parent="FromForestShort"]
+offset_left = -10.0
+offset_top = -10.0
+offset_right = 10.0
+offset_bottom = -2.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
 [node name="Road" type="ColorRect" parent="."]
 z_index = 1
 offset_top = 121.0
 offset_right = 63.0
 offset_bottom = 148.0
+color = Color(0.55, 0.5, 0.4, 1)
+
+[node name="RoadShortcut" type="ColorRect" parent="."]
+z_index = 1
+offset_left = 406.0
+offset_top = 50.0
+offset_right = 480.0
+offset_bottom = 70.0
 color = Color(0.55, 0.5, 0.4, 1)
 
 [node name="Road" type="ColorRect" parent="Road"]
@@ -153,16 +214,16 @@ offset_right = 460.0
 offset_bottom = 240.0
 color = Color(0.3, 0.5, 0.2, 1)
 
-[node name="FromFarm" type="Area2D" parent="."]
+[node name="FromForestLong" type="Area2D" parent="."]
 position = Vector2(20, 135)
 script = ExtResource("3_trans")
-portal_id = "portal_town"
-target_scene = "res://scenes/maps/farm_map.tscn"
+portal_id = "portal_town_to_forest_long"
+target_scene = "res://scenes/maps/forest_map.tscn"
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="FromFarm"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="FromForestLong"]
 shape = SubResource("RS_trans")
 
-[node name="Prompt" type="Label" parent="FromFarm"]
+[node name="Prompt" type="Label" parent="FromForestLong"]
 offset_left = -10.0
 offset_top = -10.0
 offset_right = 10.0

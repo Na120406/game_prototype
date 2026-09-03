@@ -839,6 +839,22 @@ func _find_paired_destination_portal(scene: Node, scene_path: String, source_por
 		paired_id = "portal_shop_to_town"
 	elif scene_path == "res://scenes/maps/town_map.tscn" and source_portal_id == "portal_shop_to_town":
 		paired_id = "portal_town_to_shop"
+	elif scene_path == "res://scenes/maps/mountain_map.tscn" and source_portal_id == "portal_town_to_mountain":
+		paired_id = "portal_mountain_to_town"
+	elif scene_path == "res://scenes/maps/town_map.tscn" and source_portal_id == "portal_mountain_to_town":
+		paired_id = "portal_town_to_mountain"
+	elif scene_path == "res://scenes/maps/forest_map.tscn" and source_portal_id == "portal_farm_to_forest":
+		paired_id = "portal_forest_to_farm"
+	elif scene_path == "res://scenes/maps/farm_map.tscn" and source_portal_id == "portal_forest_to_farm":
+		paired_id = "portal_farm_to_forest"
+	elif scene_path == "res://scenes/maps/forest_map.tscn" and source_portal_id == "portal_town_to_forest_long":
+		paired_id = "portal_forest_long_to_town"
+	elif scene_path == "res://scenes/maps/town_map.tscn" and source_portal_id == "portal_forest_long_to_town":
+		paired_id = "portal_town_to_forest_long"
+	elif scene_path == "res://scenes/maps/forest_map.tscn" and source_portal_id == "portal_town_to_forest_short":
+		paired_id = "portal_forest_short_to_town"
+	elif scene_path == "res://scenes/maps/town_map.tscn" and source_portal_id == "portal_forest_short_to_town":
+		paired_id = "portal_town_to_forest_short"
 	if paired_id == "":
 		return null
 	return _find_portal_in_scene(scene, paired_id)

@@ -110,7 +110,13 @@ func _spawn_dialogue_ui(target: Node = null) -> Node:
 	# LUÔN nằm trên các UI phụ (hotbar/energy/day info ở UI canvas layer=1).
 	if target == null:
 		target = _ui_layer if _ui_layer != null else get_tree().root
-	target.add_child(_dialogue_ui)
+	# _spawn_dialogue_ui() có thể được gọi từ _ready() — lúc đó node cha vẫn
+	# đang setup children nên add_child() trực tiếp sẽ FAIL im lặng.
+	# Dùng call_deferred để gắn sau khi tree hoàn tất khởi tạo.
+	if target.is_node_ready():
+		target.add_child(_dialogue_ui)
+	else:
+		target.add_child.call_deferred(_dialogue_ui)
 	return _dialogue_ui
 
 # Tìm DialogueUI đã được spawn bởi WorldUIManager (hoặc bất kỳ code path nào).
@@ -321,6 +327,10 @@ func _set_map_name_from_scene() -> void:
 		_map_label.text = _tr("ui.map.village_town", "THỊ TRẤN")
 	elif _scene_path.contains("inside_shop"):
 		_map_label.text = _tr("ui.map.shop", "CỬA HÀNG")
+	elif _scene_path.contains("mountain_map"):
+		_map_label.text = _tr("ui.map.mountain", "NÚI")
+	elif _scene_path.contains("forest_map"):
+		_map_label.text = _tr("ui.map.forest", "RỪNG")
 	elif _scene_path.contains("farm_map"):
 		_map_label.text = _tr("ui.map.farm_home", "NÔNG TRẠI")
 	elif _scene_path.contains("inside_house"):
