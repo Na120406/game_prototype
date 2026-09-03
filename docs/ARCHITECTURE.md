@@ -88,6 +88,10 @@ game-demo/
 | Bạn cần sửa/tìm hiểu gì? | Mở file nào? |
 |---|---|
 | Trạng thái game (vàng, máu, năng lượng, inventory, cờ sự kiện) | `scripts/autoload/game_state.gd` |
+| **Spatial system (Axe, Forest, Farm expansion, Watering Can)** | `scripts/autoload/game_state.gd` (state helpers) + `scripts/autoload/config_manager.gd` (balance) |
+| **TreeBlocker (cây chặn đường, cần Axe để phá)** | `scripts/world/tree_blocker.gd` + `scenes/world/tree_blocker.tscn` |
+| **WaterSource (giếng nước refill Watering Can)** | `scripts/world/water_source.gd` + `scenes/world/water_source.tscn` |
+| **GatheringPoint (điểm thu thập vật phẩm trên bản đồ)** | `scripts/world/gathering_point.gd` + `scenes/world/gathering_point.tscn` |
 | Enum crop state/type, map seed→crop, thông số nước | `scripts/autoload/farm_enums.gd` |
 | Load config JSON | `scripts/autoload/config_manager.gd` |
 | Đồng hồ, ngày/đêm, tốc độ thời gian | `scripts/autoload/time_manager.gd` |
@@ -272,17 +276,21 @@ cần (VD: `ConfigManager` trước `GameState`).
 - Hàm cốt lõi: `advance_day(reset_to_hour)`, `advance_time(hours)`,
   `add_item`/`remove_item`/`has_item`, `set_flag`/`get_flag`/`has_flag`,
   `modify_relationship`.
-- **Spatial system (Forest/Axe/Farm expansion/Watering Can — xem
-  `.hermes/plans/*-level-design-spatial-phases.md`):** state nằm trong
-  `world_flags` qua các helper `is_forest_shortcut_cleared()`/
-  `clear_forest_shortcut()`, `is_farm_blocker_cleared(id)`/
-  `clear_farm_blocker(id)`, `is_gathering_collected(id)`/
-  `mark_gathering_collected(id)`, `get_watering_can_level()`/
-  `set_watering_can_level()`/`refill_watering_can()`/
-  `consume_watering_can_use()`, `has_axe()`/`is_axe_purchasable()`. Balancing
-  values (giá Axe, ngày mở bán, capacity Watering Can, thời gian route...)
-  nằm trong `resources/config/game_config.json` mục `level_design`, đọc qua
-  `ConfigManager.get_axe_price()` v.v. — KHÔNG hardcode ở nơi khác.
+- **Spatial system (Phase 1-7, 2026-09):** Forest expansion + Axe progression +
+  Farm tile expansion + Watering Can capacity + Gathering. State keys nằm trong
+  `world_flags`: `spatial_forest_shortcut_cleared`, `spatial_farm_blocker_<id>_cleared`,
+  `spatial_gathering_<id>_collected`, `spatial_watering_can_level`. Config values
+  (axe_price, axe_available_day, watering_can_capacity, route times, gathering
+  values) nằm trong `game_config.json` mục `level_design`, đọc qua
+  `ConfigManager.get_axe_price()` / `get_watering_can_capacity()` / etc. Helpers:
+  `is_forest_shortcut_cleared()` / `clear_forest_shortcut()`,
+  `is_farm_blocker_cleared(id)` / `clear_farm_blocker(id)`,
+  `is_gathering_collected(id)` / `mark_gathering_collected(id)`,
+  `get_watering_can_level()` / `set_watering_can_level()` / `refill_watering_can()` /
+  `consume_watering_can_use()`, `has_axe()` / `is_axe_purchasable()`. Components:
+  TreeBlocker (`scripts/world/tree_blocker.gd`), WaterSource
+  (`scripts/world/water_source.gd`), GatheringPoint (`scripts/world/gathering_point.gd`).
+  Scenes: `forest_map.tscn` (long route + shortcut), farm/town portal topology updated.
 
 > **Nguyên tắc:** chỉ `GameState` được phép giữ dữ liệu toàn cục. Hệ thống khác
 > đọc/ghi thông qua nó, KHÔNG tự tạo biến global riêng.
@@ -400,6 +408,7 @@ cần (VD: `ConfigManager` trước `GameState`).
 | `maps/farm_map_v2.tscn` | Nông trại bản v2 (build bằng `tools/build_farm_v2.gd`) |
 | `maps/Farm_.tscn` | Biến thể farm (thử nghiệm) |
 | `maps/town_map.tscn` | Thị trấn |
+| `maps/forest_map.tscn` | Khu rừng (long route + shortcut blocked by TreeBlocker) |
 | `maps/inside_shop_map.tscn` | Bên trong cửa hàng |
 | `maps/marcus_farm_map.tscn` | Nông trại Marcus (hàng xóm) |
 | `maps/marcus_house_map.tscn` | Nhà Marcus |
@@ -408,6 +417,7 @@ cần (VD: `ConfigManager` trước `GameState`).
 | `npc/shopkeeper.tscn` | NPC chủ shop |
 | `ui/dialogue_ui.tscn`, `ui/hotbar.tscn`, `ui/inventory_ui.tscn`, `ui/shop_ui.tscn`, `ui/energy_bar.tscn`, `ui/clock_display.tscn`, `ui/tooltip_panel.tscn` | Các UI |
 | `world/bed.tscn`, `world/counter_zone.tscn`, `world/farm/farm_plot.tscn`, `world/farm/crop_visual_manager.tscn`, `world/items/apple.tscn`, `world/quest_board.tscn`, `world/quest_board_ui.tscn` | Vật thể world |
+| `world/tree_blocker.tscn`, `world/water_source.tscn`, `world/gathering_point.tscn` | Spatial system components (TreeBlocker, WaterSource, GatheringPoint) |
 | `tools/atlas_boot.tscn` | Scene chạy script build TileSet |
 
 ---
