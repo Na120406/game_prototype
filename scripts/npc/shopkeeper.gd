@@ -4,6 +4,7 @@ extends "res://scripts/npc/npc.gd"
 
 const SHOP_SCENE: String = "res://scenes/maps/inside_shop_map.tscn"
 const SHOP_POSITION: Vector2 = Vector2(360, 68)
+const NEW_STOCK_DIALOGUE_ID: String = "shopkeeper_new_stock_day3"
 
 func _build_default_schedule() -> void:
 	schedule = [
@@ -64,12 +65,32 @@ func interact(_player: Node) -> void:
 	_hide_prompt()
 	print("[Shopkeeper] Interact called (talk #%d)." % talk_count)
 
-	# Chọn dialogue: lần đầu dùng dialogue_first_id, từ lần 2 dùng dialogue_id
+	# Từ ngày 3, lần đầu chạm vào Vos hoặc shop sẽ thông báo lô hàng mới.
+	# Cờ nằm trong GameState nên không bị chạy lại khi NPC được spawn lại sau
+	# đổi scene.
+	if _try_start_new_stock_dialogue():
+		return
+
+	# Sau khi thoại lô hàng mới đã chạy, không quay lại lời giới thiệu ban đầu;
+	# các lần nói chuyện tiếp theo dùng thoại daily như bình thường.
 	var selected_dialogue: String = dialogue_id
-	if talk_count == 1 and dialogue_first_id != "":
+	if talk_count == 1 and dialogue_first_id != "" and not GameState.is_voss_dialogue_seen(GameState.VOSS_NEW_STOCK_DIALOGUE_KEY):
 		selected_dialogue = dialogue_first_id
 
 	DialogueManager.start_dialogue(selected_dialogue, npc_name, npc_id)
+
+
+func _try_start_new_stock_dialogue() -> bool:
+	if not GameState.is_voss_new_stock_dialogue_due():
+		return false
+	# Không chen thoại mới vào giữa một hội thoại khác.
+	if DialogueManager.is_active:
+		return false
+	DialogueManager.start_dialogue(NEW_STOCK_DIALOGUE_ID, npc_name, npc_id)
+	if not DialogueManager.is_active:
+		return false
+	GameState.mark_voss_new_stock_dialogue_seen()
+	return true
 
 
 func is_player_nearby() -> bool:

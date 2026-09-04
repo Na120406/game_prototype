@@ -11,9 +11,12 @@ class_name WaterSource
 @export var interaction_priority: int = 10
 @export var prompt_offset_y: float = -40.0
 
+const REFILL_ENERGY_COST: float = 3.0
+
 var prompt: Label = null
 var _player: Node = null
 var _player_nearby: bool = false
+var _selected_water_can: bool = false
 
 signal water_refilled()
 
@@ -24,6 +27,17 @@ func _ready() -> void:
 	_player = get_tree().get_first_node_in_group("player")
 	if _player == null:
 		_player = _find_player_in_tree()
+	if not GameState.inventory_changed.is_connected(_on_inventory_changed):
+		GameState.inventory_changed.connect(_on_inventory_changed)
+	if not GameState.toolbar_changed.is_connected(_on_inventory_changed):
+		GameState.toolbar_changed.connect(_on_inventory_changed)
+	refresh_interaction_state()
+
+func _exit_tree() -> void:
+	if GameState.inventory_changed.is_connected(_on_inventory_changed):
+		GameState.inventory_changed.disconnect(_on_inventory_changed)
+	if GameState.toolbar_changed.is_connected(_on_inventory_changed):
+		GameState.toolbar_changed.disconnect(_on_inventory_changed)
 
 func _ensure_prompt_label() -> void:
 	if has_node("Prompt"):
@@ -79,20 +93,29 @@ func _process(_delta: float) -> void:
 		return
 	
 	var nearby := is_player_nearby()
-	if nearby != _player_nearby:
+	var selected_water_can := _is_selected_water_can()
+	if nearby != _player_nearby or selected_water_can != _selected_water_can:
 		_player_nearby = nearby
-		# Chỉ hiện prompt nếu player có water_can
-		var has_water_can: bool = GameState.has_item("water_can", 1)
-		prompt.visible = nearby and has_water_can
-		_register_with_manager(nearby and has_water_can)
+		_selected_water_can = selected_water_can
+		refresh_interaction_state()
+
+func _on_inventory_changed() -> void:
+	refresh_interaction_state()
+
+## Đồng bộ prompt và target tương tác khi inventory thay đổi trong vùng.
+func refresh_interaction_state() -> void:
+	var can_interact: bool = _player_nearby and _is_selected_water_can()
+	if prompt != null:
+		prompt.visible = can_interact
+	_register_with_manager(can_interact)
 
 ## Gọi bởi InteractionPromptManager hoặc portal system khi player bấm [E]
 func interact(_player_ref: Node) -> void:
 	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
 		return
 	
-	if not GameState.has_item("water_can", 1):
-		_show_feedback("Cần có Bình Tưới Nước!")
+	if not _is_selected_water_can():
+		_show_feedback("Hãy chọn Bình Tưới Nước trên hotbar!")
 		return
 	
 	var current_level: int = GameState.get_watering_can_level()
@@ -101,10 +124,17 @@ func interact(_player_ref: Node) -> void:
 	if current_level >= max_capacity:
 		_show_feedback("Bình nước đã đầy!")
 		return
+	var energy_manager: Node = get_tree().root.get_node_or_null("EnergyManager") if get_tree() != null else null
+	if energy_manager != null and energy_manager.has_method("spend_energy"):
+		if not energy_manager.call("spend_energy", REFILL_ENERGY_COST):
+			return
 	
 	GameState.refill_watering_can()
 	_show_feedback("Đã đổ đầy bình nước! (%d/%d)" % [max_capacity, max_capacity])
 	water_refilled.emit()
+
+func _is_selected_water_can() -> bool:
+	return GameState.check_selected_hotbar_item("water_can", 1)
 
 func _show_feedback(text: String) -> void:
 	var warning: Node = get_node_or_null("/root/FloatingWarning")

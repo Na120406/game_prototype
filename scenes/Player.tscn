@@ -1,9 +1,10 @@
 [gd_scene load_steps=5 format=3 uid="uid://6qa4ukueo81u"]
 
-[ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_p0vlq"]
+[ext_resource type="Texture2D" path="res://assets/characters/player.png" id="1_player_texture"]
 [ext_resource type="Script" uid="uid://do2md5kpenixu" path="res://scripts/player/player.gd" id="1_v6fml"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_v6fml"]
+size = Vector2(16.5240625, 16.5240625)
 
 [sub_resource type="Animation" id="Animation_idle"]
 resource_name = "idle"
@@ -23,15 +24,16 @@ tracks/0/keys = {
 }
 
 [node name="Player" type="CharacterBody2D"]
+safe_margin = 0.0
 script = ExtResource("1_v6fml")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(2.3841858e-07, 1.0000005)
-scale = Vector2(0.15625, 0.15625)
-texture = ExtResource("1_p0vlq")
+scale = Vector2(0.217421875, 0.217421875)
+texture = ExtResource("1_player_texture")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, 1)
+position = Vector2(0, -1.0655078125)
 shape = SubResource("RectangleShape2D_v6fml")
 
 [node name="InteractionRay" type="RayCast2D" parent="."]

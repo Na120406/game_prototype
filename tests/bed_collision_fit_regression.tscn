@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/bed_collision_fit_regression.gd" id="1_bed_fit"]
+
+[node name="BedCollisionFitRegression" type="Node"]
+script = ExtResource("1_bed_fit")

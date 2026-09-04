@@ -139,6 +139,8 @@ func _ready() -> void:
 	call_deferred("_register_with_dialogue_manager")
 
 func _register_with_dialogue_manager() -> void:
+	if Engine.is_editor_hint() or not is_inside_tree():
+		return
 	var manager: Node = get_node_or_null("/root/DialogueManager")
 	if manager != null and manager.has_method("register_dialogue_ui"):
 		manager.call("register_dialogue_ui", self)

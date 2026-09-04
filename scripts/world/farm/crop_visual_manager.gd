@@ -9,7 +9,8 @@ extends Node2D
 signal crop_visual_changed(cell: Vector2i)
 
 const CELL_SIZE: Vector2 = Vector2(16, 16)
-const FARM_ZONE := Rect2(24, 274, 592, 302)
+# Đồng bộ với FarmPlot: 20 cột × 10 hàng, giữ nguyên origin của save cũ.
+const FARM_ZONE := Rect2(24, 274, 320, 160)
 
 var _sprites: Dictionary = {}
 var _farm_manager: Node = null
@@ -76,6 +77,9 @@ func _process(delta: float) -> void:
 # =============================================================================
 
 func _spawn_sprite(cell: Vector2i, data: Dictionary) -> void:
+	if not _is_cell_inside_farm_zone(cell):
+		_remove_sprite(cell)
+		return
 	var cell_key := _cell_key(cell)
 	var state: CropState = data.get("state", CropState.EMPTY)
 	# PLOWED (đất đào, chưa trồng) → KHÔNG spawn crop sprite. Mặc định
@@ -100,6 +104,9 @@ func _spawn_sprite(cell: Vector2i, data: Dictionary) -> void:
 	_update_sprite_body(cell_key, cell, data)
 
 func _update_sprite(cell: Vector2i, data: Dictionary) -> void:
+	if not _is_cell_inside_farm_zone(cell):
+		_remove_sprite(cell)
+		return
 	var cell_key := _cell_key(cell)
 	var state: CropState = data.get("state", CropState.EMPTY)
 	# PLOWED/EMPTY → đảm bảo sprite cũ bị ẩn/xóa (không có chấm xanh).
@@ -216,3 +223,11 @@ func rebuild_all() -> void:
 
 func _cell_key(cell: Vector2i) -> String:
 	return "%d,%d" % [cell.x, cell.y]
+
+
+func _is_cell_inside_farm_zone(cell: Vector2i) -> bool:
+	var dimensions := Vector2i(
+		int(FARM_ZONE.size.x / CELL_SIZE.x),
+		int(FARM_ZONE.size.y / CELL_SIZE.y)
+	)
+	return cell.x >= 0 and cell.y >= 0 and cell.x < dimensions.x and cell.y < dimensions.y

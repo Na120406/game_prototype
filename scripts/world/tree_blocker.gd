@@ -7,8 +7,8 @@ class_name TreeBlocker
 ## Mỗi blocker có `blocker_id` riêng — persistent qua GameState.world_flags
 ## (xem game_state.gd: is_farm_blocker_cleared/clear_farm_blocker).
 ##
-## KHÔNG có health/durability/animation/drop/wood economy — chỉ 1 lần
-## interact() với Axe equipped sẽ xóa vĩnh viễn blocker này.
+## Mỗi blocker cần 3 hit với Axe selected; số hit còn lại được lưu theo
+## blocker_id để không reset khi đổi scene giữa các nhát chặt.
 ## Xem .hermes/plans/*-level-design-spatial-phases.md (Phase 3).
 ## =============================================================================
 
@@ -21,6 +21,8 @@ class_name TreeBlocker
 
 const REQUIRED_TOOL_ID: String = "axe"
 const INTERACT_DISTANCE: float = 50.0
+const REQUIRED_HITS: int = 3
+const HITS_FLAG_PREFIX: String = "spatial_tree_hits_"
 
 signal blocker_cleared(blocker_id: String)
 
@@ -31,6 +33,7 @@ var collision: CollisionShape2D = null
 var _player: Node = null
 var _player_nearby: bool = false
 var _cleared: bool = false
+var _hits_remaining: int = REQUIRED_HITS
 
 
 func _ready() -> void:
@@ -48,8 +51,11 @@ func _ready() -> void:
 
 	# Áp dụng trạng thái đã lưu ngay khi scene load lại — KHÔNG hồi sinh
 	# blocker đã bị clear ở lần chơi trước.
-	if blocker_id != "" and GameState.is_farm_blocker_cleared(blocker_id):
+	if _is_persisted_cleared():
 		_apply_cleared_visuals(false)
+	else:
+		_hits_remaining = _load_hits_remaining()
+		_update_prompt_text()
 
 
 func _ensure_prompt_label() -> void:
@@ -69,7 +75,7 @@ func _ensure_prompt_label() -> void:
 	prompt.offset_right = 12.0
 	prompt.offset_bottom = prompt_offset_y + 8.0
 
-	prompt.text = "[E]"
+	prompt.text = "[E] Chặt (3)"
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	prompt.add_theme_font_size_override("font_size", 6)
@@ -116,6 +122,7 @@ func _process(_delta: float) -> void:
 	if nearby != _player_nearby:
 		_player_nearby = nearby
 		prompt.visible = nearby
+		_update_prompt_text()
 		_register_with_manager(nearby)
 
 
@@ -128,21 +135,65 @@ func interact(_player_ref: Node) -> void:
 	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
 		return
 
-	var tool_handler: Node = get_node_or_null("/root/ToolHandler")
-	var has_axe_equipped: bool = tool_handler != null and tool_handler.has_method("is_equipped") and tool_handler.call("is_equipped", REQUIRED_TOOL_ID)
-
-	if not has_axe_equipped:
-		_show_feedback("Cần có Rìu để chặt gốc cây này!")
+	# Contract gameplay: Axe phải nằm trong slot đang selected và player phải
+	# sở hữu Axe; không phụ thuộc trạng thái equip cũ của ToolHandler.
+	if not GameState.check_selected_hotbar_item(REQUIRED_TOOL_ID, 1) or not GameState.has_axe():
+		_show_feedback("Cần vật gì đó để xử lý.")
 		return
 
-	_clear_blocker()
+	var energy_manager: Node = get_tree().root.get_node_or_null("EnergyManager") if get_tree() != null else null
+	if energy_manager != null and energy_manager.has_method("spend_energy"):
+		if not energy_manager.call("spend_energy", 1):
+			return
+	_hits_remaining = maxi(0, _hits_remaining - 1)
+	_save_hits_remaining()
+	if _hits_remaining <= 0:
+		_clear_blocker()
+	else:
+		_update_prompt_text()
+		_show_feedback("Đã chặt! Còn %d lần." % _hits_remaining)
 
 
 func _clear_blocker() -> void:
-	if blocker_id != "":
+	_hits_remaining = 0
+	_save_hits_remaining()
+	if _is_forest_shortcut():
+		GameState.clear_forest_shortcut()
+	elif blocker_id != "":
 		GameState.clear_farm_blocker(blocker_id)
 	_apply_cleared_visuals(true)
 	blocker_cleared.emit(blocker_id)
+
+
+func _is_forest_shortcut() -> bool:
+	return blocker_id == "forest_shortcut" or blocker_id == "forest_shortcut_tree"
+
+
+func _is_persisted_cleared() -> bool:
+	if _is_forest_shortcut():
+		return GameState.is_forest_shortcut_cleared()
+	if blocker_id == "":
+		return false
+	return GameState.is_farm_blocker_cleared(blocker_id)
+
+func _hits_flag_key() -> String:
+	return HITS_FLAG_PREFIX + blocker_id
+
+func _load_hits_remaining() -> int:
+	if blocker_id == "":
+		return REQUIRED_HITS
+	return clampi(int(GameState.get_flag(_hits_flag_key(), REQUIRED_HITS)), 0, REQUIRED_HITS)
+
+func _save_hits_remaining() -> void:
+	if blocker_id != "":
+		GameState.set_flag(_hits_flag_key(), _hits_remaining)
+
+func get_chops_remaining() -> int:
+	return _hits_remaining
+
+func _update_prompt_text() -> void:
+	if prompt != null and not _cleared:
+		prompt.text = "[E] Chặt (%d)" % _hits_remaining
 
 
 ## show_persisted_feedback: true khi vừa được clear NGAY (hiện feedback);
@@ -155,6 +206,7 @@ func _apply_cleared_visuals(show_persisted_feedback: bool) -> void:
 		visual.visible = false
 	if prompt != null:
 		prompt.visible = false
+	_update_prompt_text()
 	_register_with_manager(false)
 	if show_persisted_feedback:
 		_show_feedback("Đã chặt gốc cây!")

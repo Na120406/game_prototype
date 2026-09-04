@@ -5,8 +5,8 @@ extends SceneTree
 #
 # Run: godot --headless --path . --script scripts/tools/build_farm_v2.gd
 
-const GROUND_TEX := "res://Tile Maps/1 Tiles/FieldsTileset.png"
-const DECOR_TEX  := "res://Tile Maps/Plants/Plants.png"
+const GROUND_TEX := "res://tilesets/Ground/FieldsTileset.png"
+const DECOR_TEX  := "res://tilesets/Plants/Plants.png"
 
 func _init() -> void:
 	_build()
@@ -24,8 +24,8 @@ func _build() -> void:
 	scene += "[ext_resource type=\"Script\" uid=\"uid://csfm82tpxbelg\" path=\"res://scripts/world/farm/farm_manager.gd\" id=\"5_fmgr\"]\n"
 	scene += "[ext_resource type=\"PackedScene\" path=\"res://scenes/world/farm/crop_visual_manager.tscn\" id=\"6_cropvis\"]\n"
 	scene += "[ext_resource type=\"PackedScene\" path=\"res://scenes/ui/inventory_ui.tscn\" id=\"7_inv\"]\n"
-	scene += "[ext_resource type=\"Texture2D\" uid=\"uid://dsp2nmi2lwybi\" path=\"res://Tile Maps/1 Tiles/FieldsTileset.png\" id=\"8_ground_tex\"]\n"
-	scene += "[ext_resource type=\"Texture2D\" uid=\"uid://dts3t86iptmjl\" path=\"res://Tile Maps/Plants/Plants.png\" id=\"9_decor_tex\"]\n\n"
+	scene += "[ext_resource type=\"Texture2D\" uid=\"uid://o0gkjytys4i4\" path=\"res://tilesets/Ground/FieldsTileset.png\" id=\"8_ground_tex\"]\n"
+	scene += "[ext_resource type=\"Texture2D\" uid=\"uid://dm4yxqb4flasm\" path=\"res://tilesets/Plants/Plants.png\" id=\"9_decor_tex\"]\n\n"
 
 	# Inline ground TileSet
 	scene += "[sub_resource type=\"TileSetAtlasSource\" id=\"TSA_ground\"]\n"

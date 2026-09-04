@@ -65,6 +65,13 @@ theme_override_styles/panel = SubResource("SB_backdrop")
 [node name="Win" type="PanelContainer" parent="."]
 layout_mode = 1
 anchors_preset = 8
+offset_left = -110.0
+offset_top = -88.0
+offset_right = 110.0
+offset_bottom = 88.0
+grow_horizontal = 2
+grow_vertical = 2
+custom_minimum_size = Vector2(220, 176)
 theme_override_styles/panel = SubResource("SB_win")
 
 [node name="Col" type="VBoxContainer" parent="Win"]

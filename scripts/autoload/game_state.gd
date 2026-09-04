@@ -27,6 +27,7 @@ signal day_changed(new_day: int)
 signal farm_day_changed(new_day: int)
 signal energy_changed(new_value: float)
 signal toolbar_changed
+signal watering_can_changed(level: int)
 
 # =============================================================================
 # CÁC BIẾN NGƯỜI CHƠI (PLAYER VARIABLES)
@@ -747,6 +748,7 @@ const VOSS_OUTCOME_KEY: String = "voss_outcome"
 const VOSS_ALIVE_KEY: String = "voss_alive"
 const VOSS_INJURY_STATE_KEY: String = "voss_injury_state"
 const VOSS_DIALOGUE_SEEN_PREFIX: String = "voss_dialogue_seen_"
+const VOSS_NEW_STOCK_DIALOGUE_KEY: String = "new_stock_day3"
 const SHOP_PRICE_MODIFIER_KEY: String = "shop_price_modifier"
 const SHOP_PRICE_CYCLE_DAY_KEY: String = "shop_price_cycle_day"
 
@@ -786,6 +788,13 @@ func is_voss_dialogue_seen(dialogue_key: String) -> bool:
 func mark_voss_dialogue_seen(dialogue_key: String) -> void:
 	set_flag(VOSS_DIALOGUE_SEEN_PREFIX + dialogue_key, true)
 
+## Thoại thông báo lô hàng mới mở từ ngày 3 và chỉ chạy một lần trong save.
+func is_voss_new_stock_dialogue_due() -> bool:
+	return current_day >= 3 and not is_voss_dialogue_seen(VOSS_NEW_STOCK_DIALOGUE_KEY)
+
+func mark_voss_new_stock_dialogue_seen() -> void:
+	mark_voss_dialogue_seen(VOSS_NEW_STOCK_DIALOGUE_KEY)
+
 func get_shop_price_modifier() -> float:
 	return float(get_flag(SHOP_PRICE_MODIFIER_KEY, 0.0))
 
@@ -811,6 +820,9 @@ const FARM_BLOCKER_CLEARED_PREFIX: String = "spatial_farm_blocker_"
 const FARM_BLOCKER_CLEARED_SUFFIX: String = "_cleared"
 const GATHERING_COLLECTED_PREFIX: String = "spatial_gathering_"
 const GATHERING_COLLECTED_SUFFIX: String = "_collected"
+const DAILY_GATHERING_SPAWN_DAY_PREFIX: String = "spatial_daily_gathering_spawn_day_"
+const DAILY_GATHERING_SPAWNED_PREFIX: String = "spatial_daily_gathering_spawned_"
+const DAILY_GATHERING_COLLECTED_DAY_PREFIX: String = "spatial_daily_gathering_collected_day_"
 const WATERING_CAN_LEVEL_KEY: String = "spatial_watering_can_level"
 
 ## Forest shortcut — bị chặn bởi TreeBlocker cho tới khi player dùng Axe.
@@ -834,6 +846,27 @@ func is_gathering_collected(gathering_id: String) -> bool:
 func mark_gathering_collected(gathering_id: String) -> void:
 	set_flag(GATHERING_COLLECTED_PREFIX + gathering_id + GATHERING_COLLECTED_SUFFIX, true)
 
+## Daily gathering — roll một lần cho mỗi điểm ở mỗi ngày và giữ kết quả ổn
+## định khi đổi scene. Marker ngày bị ghi đè ở ngày mới nên không cộng dồn.
+func roll_daily_gathering_spawn(gathering_id: String, day: int, chance: float) -> bool:
+	if gathering_id == "":
+		return false
+	var day_key := DAILY_GATHERING_SPAWN_DAY_PREFIX + gathering_id
+	var spawned_key := DAILY_GATHERING_SPAWNED_PREFIX + gathering_id
+	if int(get_flag(day_key, -1)) != day:
+		set_flag(day_key, day)
+		set_flag(spawned_key, randf() < clampf(chance, 0.0, 1.0))
+	return bool(get_flag(spawned_key, false))
+
+func is_daily_gathering_collected(gathering_id: String, day: int) -> bool:
+	if gathering_id == "":
+		return false
+	return int(get_flag(DAILY_GATHERING_COLLECTED_DAY_PREFIX + gathering_id, -1)) == day
+
+func mark_daily_gathering_collected(gathering_id: String, day: int) -> void:
+	if gathering_id != "":
+		set_flag(DAILY_GATHERING_COLLECTED_DAY_PREFIX + gathering_id, day)
+
 ## Watering Can — capacity giới hạn, chỉ refill tại water source trên Farm.
 ## Level KHÔNG tự refill qua ngày — chỉ water_source.gd gọi refill_watering_can().
 func get_watering_can_max_capacity() -> int:
@@ -844,7 +877,9 @@ func get_watering_can_level() -> int:
 	return int(get_flag(WATERING_CAN_LEVEL_KEY, get_watering_can_max_capacity()))
 
 func set_watering_can_level(value: int) -> void:
-	set_flag(WATERING_CAN_LEVEL_KEY, clampi(value, 0, get_watering_can_max_capacity()))
+	var next_level: int = clampi(value, 0, get_watering_can_max_capacity())
+	set_flag(WATERING_CAN_LEVEL_KEY, next_level)
+	watering_can_changed.emit(next_level)
 
 func refill_watering_can() -> void:
 	set_watering_can_level(get_watering_can_max_capacity())
@@ -860,7 +895,8 @@ func consume_watering_can_use(amount: int = 1) -> bool:
 ## Axe — chỉ mua được từ Shop, không tự cấp; is_axe_purchasable() chỉ đổi
 ## theo current_day, KHÔNG tự mở shortcut/blocker (xem TreeBlocker ở Phase 3).
 func has_axe() -> bool:
-	return has_item("axe")
+	# Tool có thể được kéo sang toolbar; ownership phải tính cả hai vùng chứa.
+	return get_item_count("axe") > 0
 
 func is_axe_purchasable() -> bool:
 	var cm := _get_config_manager()

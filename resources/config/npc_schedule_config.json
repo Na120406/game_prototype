@@ -167,7 +167,7 @@
 		  "state": "walking",
 		  "action": "leave_player_farm",
 		  "scene": "res://scenes/maps/farm_map.tscn",
-		  "pos": { "x": 790, "y": 300 },
+		  "pos": { "x": 630, "y": 300 },
 		  "route_id": "farm_to_town"
 		},
 		{

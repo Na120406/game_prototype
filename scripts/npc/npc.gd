@@ -1,5 +1,7 @@
 extends CharacterBody2D
 
+const RoadPathfinder = preload("res://scripts/npc/npc_road_pathfinder.gd")
+
 signal npc_state_changed(new_state: String)
 signal npc_dialogue_started()
 signal npc_dialogue_finished()
@@ -40,6 +42,7 @@ var _target_pos: Vector2 = Vector2.ZERO
 @export var avoid_strength: float = 1.4
 @export var waypoint_reach_distance: float = 5.0
 @export var reroute_cooldown: float = 0.35
+@export var road_point_reach_distance: float = 7.0
 
 # Khoảng cách lệch NPC ra khỏi vị trí cửa/cổng ngay sau khi handoff (px), để
 # NPC không chiếm chỗ ngay trước cửa và Player không bị chặn lối đi.
@@ -59,6 +62,10 @@ var active_route_id: String = ""
 var active_route_index: int = -1
 var active_route: Array[Dictionary] = []
 var route_progress: Dictionary = {}
+var _road_path: PackedVector2Array = PackedVector2Array()
+var _road_path_index: int = 0
+var _road_path_target: Vector2 = Vector2(INF, INF)
+var _road_path_host_id: int = 0
 
 @export var prompt_offset_y: float = -32.0
 
@@ -170,7 +177,8 @@ func _move_along_schedule(delta: float) -> void:
 			_change_state(NPCState.IDLE)
 		move_and_slide()
 		return
-	var to_target := global_position.direction_to(_target_pos)
+	var movement_target: Vector2 = _get_road_movement_target()
+	var to_target := global_position.direction_to(movement_target)
 	# Không cho steering né Player làm lệch toàn bộ hướng lịch trình khi
 	# Marcus vừa ra khỏi cutscene và Player đang đứng gần portal.
 	var steering: Vector2 = _get_player_avoidance()
@@ -179,6 +187,30 @@ func _move_along_schedule(delta: float) -> void:
 	var desired: Vector2 = (to_target + steering * avoid_strength).normalized() * move_speed
 	velocity = velocity.move_toward(desired, acceleration * delta)
 	move_and_slide()
+
+
+## Trả về điểm kế tiếp trên đường. Nếu map không có ColorRect đường thì helper
+## trả path rỗng và NPC tiếp tục đi thẳng tới target như trước đây.
+func _get_road_movement_target() -> Vector2:
+	var host_root: Node = _get_host_scene_root()
+	var host_id: int = host_root.get_instance_id() if host_root != null else 0
+	if host_id != _road_path_host_id or not _road_path_target.is_equal_approx(_target_pos):
+		_road_path_host_id = host_id
+		_road_path_target = _target_pos
+		_road_path_index = 0
+		_road_path = RoadPathfinder.build_path(host_root, global_position, _target_pos) if host_root != null else PackedVector2Array()
+	while _road_path_index < _road_path.size() and global_position.distance_to(_road_path[_road_path_index]) <= road_point_reach_distance:
+		_road_path_index += 1
+	if _road_path_index < _road_path.size():
+		return _road_path[_road_path_index]
+	return _target_pos
+
+
+func _invalidate_road_path() -> void:
+	_road_path.clear()
+	_road_path_index = 0
+	_road_path_target = Vector2(INF, INF)
+	_road_path_host_id = 0
 
 func _advance_route_if_reached() -> bool:
 	if active_route_index < 0 or active_route_index >= active_route.size():
@@ -206,11 +238,22 @@ func _advance_route_if_reached() -> bool:
 		set_meta("route_arrival_portal_id", target_portal_id)
 		print("[NPC %s] Requesting handoff to %s with portal_id='%s' at waypoint pos %s" % [npc_id, next_scene, target_portal_id, target_position])
 		var scene_manager := get_node_or_null("/root/SceneManager")
+		# handoff_persistent_npc() hoàn tất đồng bộ và gọi on_route_arrived()
+		# ngay bên trong call. Cập nhật index trước để callback biết đây là waypoint
+		# trung gian (Forest), thay vì hiểu nhầm mọi portal là đích cuối route.
+		var source_index: int = active_route_index
+		active_route_index = next_index
+		route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
 		if scene_manager != null and scene_manager.has_method("handoff_persistent_npc"):
 			if scene_manager.call("handoff_persistent_npc", self, next_scene, target_portal_id):
-				active_route_index = next_index
-				route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
 				return true
+		# Handoff thất bại: giữ NPC tại portal nguồn để lần physics sau thử lại,
+		# tuyệt đối không nhảy waypoint sang scene chưa được attach.
+		active_route_index = source_index
+		route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
+		_target_pos = waypoint_pos
+		velocity = Vector2.ZERO
+		return true
 	active_route_index = next_index
 	if active_route_index >= active_route.size():
 		_completed_route_id = active_route_id
@@ -245,21 +288,41 @@ func set_route(route_id: String, waypoints: Array[Dictionary], start_index: int 
 	if active_route_index >= 0:
 		var raw_position: Variant = active_route[active_route_index].get("position", global_position)
 		_target_pos = raw_position as Vector2 if raw_position is Vector2 else global_position
+	_invalidate_road_path()
 
 func clear_route() -> void:
 	active_route_id = ""
 	active_route_index = -1
 	active_route.clear()
 	route_progress.clear()
+	_invalidate_road_path()
 
-# Called after a route crosses into a new map. The route is a transit plan,
-# not the NPC's next movement target. Once the destination is reached, select
-# the first schedule step belonging to that map and stop driving toward the
-# previous map's position.
+# Called after a route crosses into a new map. Multi-scene routes keep running
+# through intermediate maps (Farm -> Forest -> Town). Only the final waypoint
+# completes the route and hands control back to the daily schedule.
 func on_route_arrived(arrived_scene_path: String) -> void:
-	# Crossing a portal completes the transit route. Never leave its source
-	# waypoint active: doing so makes the NPC repeatedly steer back toward the
-	# previous portal (the observed endless leftward movement in Town).
+	var arrived_index: int = active_route_index
+	var arrived_index_valid: bool = arrived_index >= 0 and arrived_index < active_route.size()
+	if not arrived_index_valid or str(active_route[arrived_index].get("scene", "")) != arrived_scene_path:
+		arrived_index = -1
+		var search_from: int = maxi(0, active_route_index + 1)
+		for index: int in range(search_from, active_route.size()):
+			if str(active_route[index].get("scene", "")) == arrived_scene_path:
+				arrived_index = index
+				break
+	# Forest (hoặc map trung gian khác) còn waypoint phía sau: giữ nguyên route.
+	# Physics tick kế tiếp sẽ consume waypoint arrival rồi đi tới portal tiếp theo.
+	if arrived_index >= 0 and arrived_index < active_route.size() - 1:
+		active_route_index = arrived_index
+		route_progress = {"route_id": active_route_id, "waypoint_index": active_route_index}
+		var raw_arrival_position: Variant = active_route[active_route_index].get("position", global_position)
+		_target_pos = raw_arrival_position as Vector2 if raw_arrival_position is Vector2 else global_position
+		velocity = Vector2.ZERO
+		_change_state(NPCState.WALKING)
+		return
+
+	# Đã tới waypoint cuối: xóa route cũ để không kéo NPC quay lại portal,
+	# sau đó chọn bước lịch trình phù hợp trong scene đích.
 	_arrived_schedule_scene = ""
 	_arrived_schedule_time = -1.0
 	_arrived_route_id = active_route_id
@@ -345,6 +408,17 @@ func _get_host_scene_path() -> String:
 		return str(get_meta("world_scene_path"))
 	return ""
 
+
+func _get_host_scene_root() -> Node:
+	var current: Node = get_parent()
+	while current != null:
+		if current.has_meta("world_scene_path"):
+			return current
+		if current.scene_file_path != "" and not current.name.begins_with("NPCWorld_"):
+			return current
+		current = current.get_parent()
+	return get_parent()
+
 func get_route_progress() -> Dictionary:
 	return {"route_id": active_route_id, "waypoint_index": active_route_index, "scene": _get_host_scene_path(), "position": {"x": global_position.x, "y": global_position.y}}
 
@@ -378,6 +452,7 @@ func restore_runtime_state(state: Dictionary) -> void:
 	current_schedule_step = int(state.get("schedule_step", current_schedule_step))
 	_last_schedule_day = int(state.get("day", GameState.current_day))
 	_last_schedule_time = float(state.get("time", GameState.current_time))
+	_invalidate_road_path()
 
 func _get_player_avoidance() -> Vector2:
 	var player := get_tree().get_first_node_in_group("player") as Node2D
@@ -491,6 +566,7 @@ func get_relationship() -> int:
 # + velocity reset ở Milestone 1 khi bạn duyệt plan movement.
 func stop_walking() -> void:
 	velocity = Vector2.ZERO
+	_invalidate_road_path()
 	if navigation_agent != null:
 		navigation_agent.target_position = global_position
 	if current_state == NPCState.WALKING:
@@ -600,6 +676,7 @@ func tick_schedule(current_time: float) -> void:
 func _on_attached_to_scene() -> void:
 	velocity = Vector2.ZERO
 	_avoid_timer = 0.0
+	_invalidate_road_path()
 	# Ép đồng bộ lịch khi vừa được rehome; tránh guard của tick_schedule giữ
 	# trạng thái idle cũ sau khi đổi scene.
 	_arrived_schedule_scene = ""

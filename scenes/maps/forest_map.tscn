@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://c8f7m3n4p5q6r7"]
+[gd_scene load_steps=10 format=3 uid="uid://xl0q676hif3c"]
 
 [ext_resource type="PackedScene" uid="uid://6qa4ukueo81u" path="res://scenes/Player.tscn" id="1_player"]
 [ext_resource type="Script" uid="uid://c7lrwu5b7a0n" path="res://scripts/world/world_transition.gd" id="2_trans"]
@@ -7,93 +7,210 @@
 [ext_resource type="PackedScene" path="res://scenes/world/tree_blocker.tscn" id="5_blocker"]
 [ext_resource type="PackedScene" path="res://scenes/world/gathering_point.tscn" id="6_gather"]
 
+[sub_resource type="RectangleShape2D" id="RS_wall_h"]
+size = Vector2(640, 4)
+
+[sub_resource type="RectangleShape2D" id="RS_wall_v"]
+size = Vector2(4, 516.5)
+
 [sub_resource type="RectangleShape2D" id="RS_trans"]
 size = Vector2(20, 40)
 
 [node name="ForestMap" type="Node2D"]
 
 [node name="Ground" type="ColorRect" parent="."]
-z_index = 0
+offset_top = -28.0
 offset_right = 640.0
 offset_bottom = 480.0
-color = Color(0.2, 0.3, 0.15, 1)
+color = Color(0.08, 0.32, 0.1, 1)
 
-[node name="LongRoutePath" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 40.0
-offset_top = 440.0
-offset_right = 100.0
-offset_bottom = 480.0
-color = Color(0.45, 0.4, 0.3, 1)
+[node name="Tree3" type="ColorRect" parent="Ground"]
+z_index = 3
+layout_mode = 0
+offset_left = 415.0
+offset_top = 170.0
+offset_right = 475.0
+offset_bottom = 223.0
+color = Color(0.04, 0.22, 0.08, 1)
 
-[node name="LongRoutePath2" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 40.0
-offset_top = 240.0
-offset_right = 100.0
-offset_bottom = 440.0
-color = Color(0.45, 0.4, 0.3, 1)
+[node name="Trunk" type="ColorRect" parent="Ground/Tree3"]
+layout_mode = 0
+offset_left = 26.0
+offset_top = 45.0
+offset_right = 34.0
+offset_bottom = 68.0
+color = Color(0.28, 0.17, 0.08, 1)
 
-[node name="LongRoutePath3" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 40.0
-offset_top = 240.0
-offset_right = 280.0
-offset_bottom = 280.0
-color = Color(0.45, 0.4, 0.3, 1)
+[node name="Tree7" type="ColorRect" parent="Ground"]
+z_index = 3
+layout_mode = 0
+offset_left = 107.0
+offset_top = 397.0
+offset_right = 167.0
+offset_bottom = 450.0
+color = Color(0.05, 0.25, 0.09, 1)
 
-[node name="LongRoutePath4" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 240.0
+[node name="RoadSurface" type="Polygon2D" parent="."]
+z_index = 2
+color = Color(0.72, 0.62, 0.4, 1)
+polygon = PackedVector2Array(0, 40, 640, 40, 640, 80, 242, 80, 242, 344, 242, 381, 306, 381, 640, 381, 640, 420, 308, 420, 270, 420, 202, 420, 202, 80, 0, 80)
+
+[node name="NPCRoadGuides" type="Node2D" parent="."]
+
+[node name="TopRoad" type="ColorRect" parent="NPCRoadGuides" groups=["npc_road"]]
 offset_top = 40.0
-offset_right = 280.0
-offset_bottom = 280.0
-color = Color(0.45, 0.4, 0.3, 1)
-
-[node name="LongRoutePath5" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 240.0
-offset_top = 40.0
-offset_right = 400.0
+offset_right = 640.0
 offset_bottom = 80.0
-color = Color(0.45, 0.4, 0.3, 1)
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
 
-[node name="ShortcutPath" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 440.0
-offset_top = 40.0
-offset_right = 480.0
-offset_bottom = 480.0
-color = Color(0.5, 0.45, 0.35, 1)
+[node name="ConnectorRoad" type="ColorRect" parent="NPCRoadGuides" groups=["npc_road"]]
+offset_left = 202.0
+offset_top = 60.0
+offset_right = 242.0
+offset_bottom = 420.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
+
+[node name="LongRoad" type="ColorRect" parent="NPCRoadGuides" groups=["npc_road"]]
+offset_left = 202.0
+offset_top = 381.0
+offset_right = 640.0
+offset_bottom = 420.0
+mouse_filter = 2
+color = Color(0, 0, 0, 0)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="WallTop" type="StaticBody2D" parent="Walls"]
+position = Vector2(320, 2)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallTop"]
+position = Vector2(0, -29)
+shape = SubResource("RS_wall_h")
+
+[node name="WallBottom" type="StaticBody2D" parent="Walls"]
+position = Vector2(320, 478)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallBottom"]
+shape = SubResource("RS_wall_h")
+
+[node name="WallLeft" type="StaticBody2D" parent="Walls"]
+position = Vector2(2, 240)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallLeft"]
+position = Vector2(0, -7.5)
+shape = SubResource("RS_wall_v")
+
+[node name="WallRight" type="StaticBody2D" parent="Walls"]
+position = Vector2(638, 240)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallRight"]
+position = Vector2(0, -10.75)
+shape = SubResource("RS_wall_v")
 
 [node name="TreeDecorations" type="Node2D" parent="."]
 
 [node name="Tree1" type="ColorRect" parent="TreeDecorations"]
-z_index = 2
-offset_left = 140.0
-offset_top = 120.0
-offset_right = 200.0
-offset_bottom = 180.0
-color = Color(0.25, 0.4, 0.2, 1)
+z_index = 3
+offset_left = 93.0
+offset_top = 118.0
+offset_right = 153.0
+offset_bottom = 173.0
+color = Color(0.04, 0.23, 0.08, 1)
+
+[node name="Trunk" type="ColorRect" parent="TreeDecorations/Tree1"]
+layout_mode = 0
+offset_left = 26.0
+offset_top = 45.0
+offset_right = 34.0
+offset_bottom = 68.0
+color = Color(0.28, 0.17, 0.08, 1)
 
 [node name="Tree2" type="ColorRect" parent="TreeDecorations"]
-z_index = 2
-offset_left = 320.0
-offset_top = 150.0
-offset_right = 380.0
-offset_bottom = 210.0
-color = Color(0.25, 0.4, 0.2, 1)
+z_index = 3
+offset_left = 292.0
+offset_top = 96.0
+offset_right = 352.0
+offset_bottom = 151.0
+color = Color(0.05, 0.25, 0.09, 1)
+
+[node name="Trunk" type="ColorRect" parent="TreeDecorations/Tree2"]
+layout_mode = 0
+offset_left = 26.0
+offset_top = 45.0
+offset_right = 34.0
+offset_bottom = 68.0
+color = Color(0.28, 0.17, 0.08, 1)
 
 [node name="Tree3" type="ColorRect" parent="TreeDecorations"]
-z_index = 2
-offset_left = 120.0
-offset_top = 320.0
-offset_right = 180.0
-offset_bottom = 380.0
-color = Color(0.25, 0.4, 0.2, 1)
+z_index = 3
+offset_left = 514.0
+offset_top = 99.0
+offset_right = 574.0
+offset_bottom = 152.0
+color = Color(0.04, 0.22, 0.08, 1)
+
+[node name="Trunk" type="ColorRect" parent="TreeDecorations/Tree3"]
+layout_mode = 0
+offset_left = 26.0
+offset_top = 45.0
+offset_right = 34.0
+offset_bottom = 68.0
+color = Color(0.28, 0.17, 0.08, 1)
+
+[node name="Tree4" type="ColorRect" parent="TreeDecorations"]
+z_index = 3
+offset_left = 68.0
+offset_top = 300.0
+offset_right = 128.0
+offset_bottom = 355.0
+color = Color(0.04, 0.24, 0.08, 1)
+
+[node name="Trunk" type="ColorRect" parent="TreeDecorations/Tree4"]
+layout_mode = 0
+offset_left = 26.0
+offset_top = 45.0
+offset_right = 34.0
+offset_bottom = 68.0
+color = Color(0.28, 0.17, 0.08, 1)
+
+[node name="Tree5" type="ColorRect" parent="TreeDecorations"]
+z_index = 3
+offset_left = 293.0
+offset_top = 244.0
+offset_right = 353.0
+offset_bottom = 299.0
+color = Color(0.05, 0.26, 0.09, 1)
+
+[node name="Tree6" type="ColorRect" parent="TreeDecorations"]
+z_index = 3
+offset_left = 446.0
+offset_top = 296.0
+offset_right = 506.0
+offset_bottom = 351.0
+color = Color(0.04, 0.23, 0.08, 1)
+
+[node name="Tree7" type="ColorRect" parent="TreeDecorations"]
+z_index = 3
+offset_left = 489.0
+offset_top = 430.0
+offset_right = 552.0
+offset_bottom = 476.0
+color = Color(0.05, 0.25, 0.09, 1)
+
+[node name="Tree8" type="ColorRect" parent="TreeDecorations"]
+z_index = 3
+offset_left = 317.0
+offset_top = 427.0
+offset_right = 370.0
+offset_bottom = 468.0
+color = Color(0.04, 0.22, 0.08, 1)
+
+[node name="PortalMarkers" type="Node2D" parent="."]
 
 [node name="ToFarm" type="Area2D" parent="."]
-position = Vector2(70, 470)
+position = Vector2(18, 60)
 script = ExtResource("2_trans")
 portal_id = "portal_forest_to_farm"
 target_scene = "res://scenes/maps/farm_map.tscn"
@@ -110,26 +227,8 @@ theme_override_font_sizes/font_size = 6
 text = "[E]"
 horizontal_alignment = 1
 
-[node name="ToTownLong" type="Area2D" parent="."]
-position = Vector2(320, 60)
-script = ExtResource("2_trans")
-portal_id = "portal_forest_long_to_town"
-target_scene = "res://scenes/maps/town_map.tscn"
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="ToTownLong"]
-shape = SubResource("RS_trans")
-
-[node name="Prompt" type="Label" parent="ToTownLong"]
-offset_left = -12.0
-offset_top = -32.0
-offset_right = 12.0
-offset_bottom = -24.0
-theme_override_font_sizes/font_size = 6
-text = "[E]"
-horizontal_alignment = 1
-
 [node name="ToTownShort" type="Area2D" parent="."]
-position = Vector2(460, 60)
+position = Vector2(622, 60)
 script = ExtResource("2_trans")
 portal_id = "portal_forest_short_to_town"
 target_scene = "res://scenes/maps/town_map.tscn"
@@ -146,37 +245,59 @@ theme_override_font_sizes/font_size = 6
 text = "[E]"
 horizontal_alignment = 1
 
+[node name="ToTownLong" type="Area2D" parent="."]
+position = Vector2(622, 400)
+script = ExtResource("2_trans")
+portal_id = "portal_forest_long_to_town"
+target_scene = "res://scenes/maps/town_map.tscn"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ToTownLong"]
+shape = SubResource("RS_trans")
+
+[node name="Prompt" type="Label" parent="ToTownLong"]
+offset_left = -12.0
+offset_top = -32.0
+offset_right = 12.0
+offset_bottom = -24.0
+theme_override_font_sizes/font_size = 6
+text = "[E]"
+horizontal_alignment = 1
+
 [node name="ShortcutBlocker" parent="." instance=ExtResource("5_blocker")]
-position = Vector2(460, 240)
+z_index = 5
+position = Vector2(605, 60)
 blocker_id = "forest_shortcut_tree"
 
 [node name="GatheringPoints" type="Node2D" parent="."]
 
 [node name="Gather1" parent="GatheringPoints" instance=ExtResource("6_gather")]
-position = Vector2(180, 200)
+z_index = 4
+position = Vector2(168, 250)
 gathering_id = "forest_gather_apple_1"
-item_id = "apple"
-quantity = 2
+daily_spawn_chance = 0.25
+respawn_daily = true
 
 [node name="Gather2" parent="GatheringPoints" instance=ExtResource("6_gather")]
-position = Vector2(80, 350)
+z_index = 4
+position = Vector2(386, 354)
 gathering_id = "forest_gather_apple_2"
-item_id = "apple"
-quantity = 2
+daily_spawn_chance = 0.25
+respawn_daily = true
 
 [node name="Gather3" parent="GatheringPoints" instance=ExtResource("6_gather")]
-position = Vector2(260, 150)
+z_index = 4
+position = Vector2(530, 250)
 gathering_id = "forest_gather_apple_3"
-item_id = "apple"
-quantity = 1
+daily_spawn_chance = 0.25
+respawn_daily = true
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 z_index = 10
-position = Vector2(320, 240)
+position = Vector2(80, 60)
 
 [node name="Camera2D" type="Camera2D" parent="Player"]
 limit_left = 0
-limit_top = 0
+limit_top = -29
 limit_right = 640
 limit_bottom = 480
 
@@ -184,7 +305,7 @@ limit_bottom = 480
 script = ExtResource("4_sceneroot")
 
 [node name="PlayerSpawn" type="Marker2D" parent="."]
-position = Vector2(320, 240)
+position = Vector2(80, 60)
 
 [node name="UI" type="CanvasLayer" parent="."]
 script = ExtResource("3_uimgr")

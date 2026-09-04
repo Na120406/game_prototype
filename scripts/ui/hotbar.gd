@@ -62,6 +62,8 @@ var _slot_panels: Array[PanelContainer] = []
 var _slot_labels: Array[RichTextLabel] = []  # count labels
 var _slot_icons: Array[Label] = []
 var _slot_numbers: Array[Label] = []  # number labels "1"..."5"
+var _water_bar_fills: Array[ColorRect] = []
+var _water_bar_backgrounds: Array[ColorRect] = []
 
 # Vị trí đang "active" (mặc định = 0) - slot mà player vừa chọn/dùng.
 # Track để biết khi GameState.remove_item() nên trừ từ inventory hay toolbar.
@@ -76,21 +78,38 @@ func _ready() -> void:
 	_apply_selection_style(active_slot)
 	# Sync với GameState
 	GameState.selected_toolbar_slot = active_slot
-	GameState.toolbar_changed.connect(_on_toolbar_changed)
+	if not GameState.toolbar_changed.is_connected(_on_toolbar_changed):
+		GameState.toolbar_changed.connect(_on_toolbar_changed)
+	if not GameState.watering_can_changed.is_connected(_on_watering_can_changed):
+		GameState.watering_can_changed.connect(_on_watering_can_changed)
 	# Force refresh khi scene chuyển xong: lúc này GameState.toolbar đã được
 	# _ready của Hotbar đọc 1 lần, nhưng nếu scene B khác với scene A về layout
 	# (anchor, position) → offsets của NumLabel đã set ở scene A có thể không
 	# khớp slot panel của scene B. Đợi 2 frame rồi refresh lại.
-	SceneManager.scene_changed.connect(_on_scene_changed_refresh)
+	if not SceneManager.scene_changed.is_connected(_on_scene_changed_refresh):
+		SceneManager.scene_changed.connect(_on_scene_changed_refresh)
 	mouse_exited.connect(_on_hotbar_leave)
+
+
+func _exit_tree() -> void:
+	# SceneManager tháo scene cũ khỏi tree trước khi queue_free. Ngắt signal ngay
+	# tại lifecycle boundary để autoload không gọi lại Hotbar đã detach.
+	if SceneManager.scene_changed.is_connected(_on_scene_changed_refresh):
+		SceneManager.scene_changed.disconnect(_on_scene_changed_refresh)
+	if GameState.toolbar_changed.is_connected(_on_toolbar_changed):
+		GameState.toolbar_changed.disconnect(_on_toolbar_changed)
+	if GameState.watering_can_changed.is_connected(_on_watering_can_changed):
+		GameState.watering_can_changed.disconnect(_on_watering_can_changed)
 
 func _on_scene_changed_refresh(_scene_path: String) -> void:
 	# Đợi 1 frame để WorldUIManager ở scene mới spawn xong layout, sau đó
 	# tính lại vị trí NumLabel và refresh data từ GameState.toolbar.
 	# Lưu ý: ở scene mới, Hotbar MỚI sẽ _ready riêng — handler này gắn vào
 	# Hotbar CŨ (đang bị free). Khi scene_changed emit, Hotbar cũ đã hoặc đang
-	# bị queue_free — guard is_instance_valid để tránh chạy trên node đã free.
-	if not is_instance_valid(self):
+	# bị queue_free hoặc đã bị tháo khỏi SceneTree. is_instance_valid() vẫn có
+	# thể true với node đã detach, nên phải kiểm tra is_inside_tree() trước khi
+	# gọi get_tree() để tránh lỗi `Parameter data.tree is null`.
+	if not is_instance_valid(self) or not is_inside_tree() or is_queued_for_deletion():
 		return
 	# Tính lại vị trí NumLabel theo panel slot hiện tại (chỉ thực sự cần nếu
 	# cùng instance qua scene change, nhưng an toàn khi gọi).
@@ -98,9 +117,10 @@ func _on_scene_changed_refresh(_scene_path: String) -> void:
 	if tree == null:
 		return
 	await tree.process_frame
-	if not is_instance_valid(self):
+	if not is_instance_valid(self) or not is_inside_tree() or is_queued_for_deletion():
 		return
 	_recompute_number_positions()
+	_recompute_water_bar_positions()
 	_refresh()
 	_apply_selection_style(active_slot)
 
@@ -248,15 +268,56 @@ func _setup_slots() -> void:
 			count_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_slot_labels.append(count_lbl)
 
+		var water_bar := ColorRect.new()
+		water_bar.name = "WaterLevelBar"
+		water_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		water_bar.anchor_top = 1.0
+		water_bar.anchor_bottom = 1.0
+		water_bar.offset_left = 3.0
+		water_bar.offset_top = -5.0
+		water_bar.offset_right = -3.0
+		water_bar.offset_bottom = -2.0
+		water_bar.color = Color(0.15, 0.10, 0.07, 0.85)
+		water_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		water_bar.z_index = 2
+		# PanelContainer ép mọi Control con theo content rect; đặt overlay ở
+		# Hotbar root để giữ đúng chiều cao 3px và không che icon/count.
+		add_child(water_bar)
+		var water_fill := ColorRect.new()
+		water_fill.name = "WaterLevelFill"
+		water_fill.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+		water_fill.anchor_top = 0.0
+		water_fill.anchor_bottom = 1.0
+		water_fill.anchor_right = 1.0
+		water_fill.color = Color(0.2, 0.65, 0.95, 1.0)
+		water_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		water_bar.add_child(water_fill)
+		_water_bar_backgrounds.append(water_bar)
+		_water_bar_fills.append(water_fill)
+
 	# PanelContainer đã layout xong ở process frame tiếp theo → tính vị trí
 	# NumLabel (reparent ra ngoài PanelContainer để container không ép resize).
 	var tree := get_tree()
 	if tree == null:
 		return
 	await tree.process_frame
-	if not is_instance_valid(self):
+	if not is_instance_valid(self) or not is_inside_tree() or is_queued_for_deletion():
 		return
 	_recompute_number_positions()
+	_recompute_water_bar_positions()
+
+func _recompute_water_bar_positions() -> void:
+	var root_rect: Rect2 = get_global_rect()
+	for i: int in range(_water_bar_backgrounds.size()):
+		if i >= _slot_panels.size():
+			continue
+		var panel: PanelContainer = _slot_panels[i]
+		var bar: ColorRect = _water_bar_backgrounds[i]
+		if panel == null or bar == null:
+			continue
+		var slot_rect: Rect2 = panel.get_global_rect()
+		bar.position = slot_rect.position - root_rect.position + Vector2(3.0, slot_rect.size.y - 5.0)
+		bar.size = Vector2(maxf(0.0, slot_rect.size.x - 6.0), 3.0)
 
 func _input(event: InputEvent) -> void:
 	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
@@ -374,6 +435,9 @@ func _on_toolbar_changed() -> void:
 	_apply_selection_style(active_slot)
 	_emit_selected_changed()
 
+func _on_watering_can_changed(_level: int) -> void:
+	_refresh()
+
 func _refresh() -> void:
 	for i: int in range(NUM_SLOTS):
 		_update_slot(i)
@@ -390,6 +454,7 @@ func _update_slot(slot_index: int) -> void:
 	var entry: Dictionary = GameState.toolbar[slot_index]
 	var item_id: String = entry.get("id", "")
 	var amount: int = int(entry.get("amount", 0))
+	_update_watering_bar(slot_index, item_id)
 
 	if item_id == "" or amount <= 0:
 		icon_lbl.text = ""
@@ -424,6 +489,27 @@ func _update_slot(slot_index: int) -> void:
 	var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
 	if style != null:
 		style.border_color = item_border_color
+
+func _update_watering_bar(slot_index: int, item_id: String) -> void:
+	if slot_index < 0 or slot_index >= _water_bar_fills.size():
+		return
+	var fill: ColorRect = _water_bar_fills[slot_index]
+	var visible_bar: bool = item_id == "water_can"
+	fill.get_parent().visible = visible_bar
+	if not visible_bar:
+		return
+	var max_capacity: int = maxi(1, GameState.get_watering_can_max_capacity())
+	fill.anchor_right = clampf(float(GameState.get_watering_can_level()) / float(max_capacity), 0.0, 1.0)
+
+func get_watering_bar_ratio(slot_index: int) -> float:
+	if slot_index < 0 or slot_index >= _water_bar_fills.size():
+		return -1.0
+	return _water_bar_fills[slot_index].anchor_right
+
+func get_watering_bar_height(slot_index: int) -> float:
+	if slot_index < 0 or slot_index >= _water_bar_backgrounds.size():
+		return -1.0
+	return _water_bar_backgrounds[slot_index].size.y
 
 # Highlight hotbar slot khi inventory đang drag — đã tắt theo yêu cầu
 # (drag preview di chuyển theo chuột là đủ tín hiệu). Hàm giữ lại để reset

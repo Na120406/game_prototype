@@ -71,6 +71,7 @@ func apply_save_data(data: Dictionary) -> void:
 	GameState.npc_relationships = saved_state.get("npc_relationships", GameState.npc_relationships).duplicate(true)
 	GameState.farm_cells_data = data.get("farm_cells", {}).duplicate(true)
 	GameState.world_flags = saved_state.get("world_flags", data.get("world_flags", {})).duplicate(true)
+	_migrate_spatial_flags()
 	GameState.discovered_areas = saved_state.get("discovered_areas", data.get("discovered_areas", [])).duplicate()
 	GameState.lore_fragments_found = int(saved_state.get("lore_fragments_found", data.get("lore_fragments", 0)))
 	GameState.weather_type = saved_state.get("weather_type", data.get("weather", "clear"))
@@ -103,13 +104,29 @@ func _migrate_save_data(_data: Dictionary, _from_version: int) -> void:
 	print("[CatchUpSystem] Migrating save data from v%d to v%d" % [_from_version, _save_data_version])
 
 func _get_farm_cells_data() -> Dictionary:
-	var farm: Node = get_tree().get_first_node_in_group("farm_manager")
-	if farm != null and farm.has_method("serialize"):
-		return farm.serialize()
+	# FarmTickManager là source-of-truth và tồn tại ở mọi scene. Không đọc qua
+	# FarmManager scene-side vì save tại Forest/Town sẽ làm mất toàn bộ cells.
+	var farm_tick: Node = get_node_or_null("/root/FarmTickManager")
+	if farm_tick != null and farm_tick.has_method("export_save_data"):
+		return farm_tick.call("export_save_data")
 	return {}
 
 func _apply_farm_cells_data(data: Dictionary) -> void:
-	var farm: Node = get_tree().get_first_node_in_group("farm_manager")
-	if farm != null and farm.has_method("deserialize"):
-		farm.deserialize(data)
+	var farm_tick: Node = get_node_or_null("/root/FarmTickManager")
+	if farm_tick != null and farm_tick.has_method("import_save_data"):
+		farm_tick.call("import_save_data", data)
 		print("[CatchUpSystem] Farm cells restored.")
+
+
+func _migrate_spatial_flags() -> void:
+	# Bản Spatial thử nghiệm từng lưu Forest shortcut bằng farm-blocker key.
+	# Chuyển một lần sang canonical key để blocker không hồi sinh ở save cũ.
+	if GameState.is_forest_shortcut_cleared():
+		return
+	for legacy_key: String in [
+		"spatial_farm_blocker_forest_shortcut_cleared",
+		"spatial_farm_blocker_forest_shortcut_tree_cleared",
+	]:
+		if bool(GameState.get_flag(legacy_key, false)):
+			GameState.clear_forest_shortcut()
+			return

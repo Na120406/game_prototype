@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/world/tree_blocker.gd" id="1_blocker"]
 
 [sub_resource type="RectangleShape2D" id="RS_blocker"]
-size = Vector2(24, 24)
+size = Vector2(48, 48)
 
 [node name="TreeBlocker" type="StaticBody2D"]
 collision_layer = 1
@@ -13,10 +13,10 @@ blocker_id = ""
 
 [node name="Visual" type="ColorRect" parent="."]
 z_index = 2
-offset_left = -12.0
-offset_top = -20.0
-offset_right = 12.0
-offset_bottom = 12.0
+offset_left = -24.0
+offset_top = -24.0
+offset_right = 24.0
+offset_bottom = 24.0
 color = Color(0.28, 0.18, 0.08, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

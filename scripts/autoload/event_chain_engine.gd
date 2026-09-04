@@ -51,8 +51,68 @@ enum Outcome {
 	INJURED,  # Bị thương
 	DEAD,     # Chết
 	MISSED,   # Bỏ lỡ
-	DELAYED   # Bị trì hoãn
+	DELAYED,  # Bị trì hoãn
+	SEVERELY_INJURED,  # Bị thương nặng (feature Voss mountain)
 }
+
+# =============================================================================
+# ENUM - CÁCH PLAYER PHÁT HIỆN EVENT (DiscoveryMode)
+# =============================================================================
+# UNSEEN            - Player không biết gì, event tự chạy (Branch A)
+# INVITED           - Player được Vos rủ đi cùng tại shop (Branch B)
+# MOUNTAIN_ENCOUNTER- Player tình cờ/ cố ý lên núi đúng ngày (Branch C)
+
+enum DiscoveryMode {
+	UNSEEN,
+	INVITED,
+	MOUNTAIN_ENCOUNTER
+}
+
+# =============================================================================
+# ENUM - PHA CỦA VOSS MOUNTAIN EVENT (VossPhase)
+# =============================================================================
+# SCHEDULED     -> Đã lên lịch, chưa xảy ra
+# ON_MOUNTAIN   -> Vos đang trên núi (sau 11:00)
+# FALLING       -> Vos ngã (16:00)
+# RESCUE_WINDOW -> Cửa sổ cứu hộ (player can thiệp)
+# RESOLVED      -> Event kết thúc, outcome đã chốt
+
+enum VossPhase {
+	SCHEDULED,
+	ON_MOUNTAIN,
+	FALLING,
+	RESCUE_WINDOW,
+	RESOLVED
+}
+
+# Bảng transition hợp lệ giữa các phase
+const VOSS_TRANSITIONS: Dictionary = {
+	"SCHEDULED": ["ON_MOUNTAIN"],
+	"ON_MOUNTAIN": ["FALLING"],
+	"FALLING": ["RESCUE_WINDOW", "RESOLVED"],
+	"RESCUE_WINDOW": ["RESOLVED"],
+	"RESOLVED": [],
+}
+
+# Các key bắt buộc trong context khi trigger chain
+const VOSS_CONTEXT_REQUIRED_KEYS: Array[String] = [
+	"event_day",
+	"departure_time",
+	"fall_time",
+	"npc_id",
+	"family_id",
+	"discovery_mode",
+]
+
+# Bốn outcome hợp lệ riêng của chuỗi Voss. Outcome legacy khác vẫn được giữ
+# trong enum tổng để không phá các chain prototype hiện có, nhưng không được dùng
+# trong shopkeeper_mountain.
+const VOSS_OUTCOME_NAMES: Array[String] = [
+	"SAFE",
+	"INJURED",
+	"SEVERELY_INJURED",
+	"DEAD",
+]
 
 
 # =============================================================================
@@ -287,6 +347,28 @@ func trigger_chain(chain_id: String, context: Dictionary = {}) -> bool:
 		return false
 
 	if active_chains.has(chain_id):
+		return false
+
+	# Chuẩn hóa và kiểm tra context riêng cho chain Voss trước khi tạo state.
+	# Các chain cũ khác vẫn giữ contract Dictionary hiện tại.
+	if chain_id == "shopkeeper_mountain":
+		if not context.has("npc_id") or not context.has("family_id"):
+			push_warning("[EventChainEngine] Context Voss thiếu npc_id hoặc family_id — không trigger.")
+			return false
+		context = _normalize_voss_context(context)
+		if not validate_voss_context(context):
+			push_warning("[EventChainEngine] Context Voss không hợp lệ — không trigger.")
+			return false
+
+	# Voss mountain event chỉ chạy MỘT lần trong save: sau khi RESOLVED không
+	# được re-trigger dù context có được đưa lại từ branch khác.
+	if chain_id == "shopkeeper_mountain" and is_voss_event_resolved():
+		push_warning("[EventChainEngine] Chain '%s' đã resolved — không re-trigger." % chain_id)
+		return false
+
+	# Chỉ chain Voss là one-shot. Các chain world khác có thể lặp theo lịch
+	# (ví dụ festival/blight) và không được dùng completed_chains để chặn chung.
+	if chain_id == "shopkeeper_mountain" and chain_id in completed_chains:
 		return false
 
 	var def: Dictionary = chain_definitions[chain_id]
@@ -687,3 +769,110 @@ func get_completed_chains() -> Array:
 
 func get_chain_definition(chain_id: String) -> Dictionary:
 	return chain_definitions.get(chain_id, {})
+
+
+# =============================================================================
+# VOSS MOUNTAIN EVENT — DOMAIN VALIDATION
+# =============================================================================
+# Các hàm này là contract cho toàn bộ 3 branch (UNSEEN/INVITED/MOUNTAIN_ENCOUNTER).
+# Mọi trigger chain phải đưa context hợp lệ; mọi phase transition phải đi qua
+# bảng VOSS_TRANSITIONS.
+
+func validate_voss_context(context: Dictionary) -> bool:
+	for key: String in VOSS_CONTEXT_REQUIRED_KEYS:
+		if not context.has(key):
+			push_warning("[EventChainEngine] validate_voss_context: thiếu key '%s'" % key)
+			return false
+	if int(context.get("event_day", -1)) < 1:
+		return false
+	if float(context.get("departure_time", -1.0)) < 0.0 or float(context.get("departure_time", -1.0)) >= 24.0:
+		return false
+	if float(context.get("fall_time", -1.0)) < 0.0 or float(context.get("fall_time", -1.0)) >= 24.0:
+		return false
+	if float(context.get("end_time", 17.0)) < 0.0 or float(context.get("end_time", 17.0)) >= 24.0:
+		return false
+	if float(context.get("departure_time", 0.0)) >= float(context.get("fall_time", 0.0)):
+		return false
+	if float(context.get("fall_time", 0.0)) >= float(context.get("end_time", 17.0)):
+		return false
+	if str(context.get("npc_id", "")) != "Vos":
+		return false
+	if str(context.get("family_id", "")) != "shopkeeper_family":
+		return false
+	var discovery: Variant = context.get("discovery_mode", "")
+	if discovery is String:
+		if not DiscoveryMode.has(discovery):
+			push_warning("[EventChainEngine] validate_voss_context: discovery_mode không hợp lệ '%s'" % str(discovery))
+			return false
+	elif discovery is int:
+		if discovery < 0 or discovery >= DiscoveryMode.size():
+			push_warning("[EventChainEngine] validate_voss_context: discovery_mode int ngoài phạm vi '%d'" % int(discovery))
+			return false
+	else:
+		push_warning("[EventChainEngine] validate_voss_context: discovery_mode phải là String hoặc int")
+		return false
+	return true
+
+
+func _normalize_voss_context(context: Dictionary) -> Dictionary:
+	var normalized: Dictionary = context.duplicate(true)
+	var config: Dictionary = ConfigManager.get_voss_event_config() if ConfigManager.has_method("get_voss_event_config") else {}
+	var schedule: Dictionary = config.get("schedule", {})
+	normalized["event_day"] = int(normalized.get("event_day", schedule.get("event_day", 5)))
+	normalized["departure_time"] = float(normalized.get("departure_time", schedule.get("departure_time", 11.0)))
+	normalized["fall_time"] = float(normalized.get("fall_time", schedule.get("fall_time", 16.0)))
+	normalized["end_time"] = float(normalized.get("end_time", schedule.get("end_time", 17.0)))
+	normalized["npc_id"] = FamilyRegistry.resolve_canonical_npc_id(str(normalized.get("npc_id", "Vos")))
+	normalized["family_id"] = str(normalized.get("family_id", "shopkeeper_family"))
+	var discovery: Variant = normalized.get("discovery_mode", "UNSEEN")
+	if discovery is int:
+		normalized["discovery_mode"] = DiscoveryMode.keys()[int(discovery)] if int(discovery) >= 0 and int(discovery) < DiscoveryMode.size() else ""
+	return normalized
+
+
+func is_valid_voss_transition(from_phase: String, to_phase: String) -> bool:
+	if not VossPhase.has(from_phase) or not VossPhase.has(to_phase):
+		return false
+	var allowed: Array = VOSS_TRANSITIONS.get(from_phase, [])
+	return allowed.has(to_phase)
+
+
+func get_voss_phase() -> int:
+	var phase_str: String = str(GameState.get_flag("voss_mountain_phase", "SCHEDULED"))
+	return VossPhase.get(phase_str, VossPhase.SCHEDULED)
+
+
+func get_voss_phase_name() -> String:
+	var phase_index: int = get_voss_phase()
+	return VossPhase.keys()[phase_index]
+
+
+func set_voss_phase(phase: Variant) -> bool:
+	var to_name: String = ""
+	if phase is String:
+		to_name = str(phase)
+	elif phase is int:
+		var phase_index: int = int(phase)
+		if phase_index < 0 or phase_index >= VossPhase.size():
+			push_warning("[EventChainEngine] set_voss_phase: phase ngoài phạm vi '%d'" % phase_index)
+			return false
+		to_name = VossPhase.keys()[phase_index]
+	else:
+		push_warning("[EventChainEngine] set_voss_phase: phase phải là String hoặc int")
+		return false
+	if not VossPhase.has(to_name):
+		push_warning("[EventChainEngine] set_voss_phase: phase không hợp lệ '%s'" % to_name)
+		return false
+	var from_name: String = get_voss_phase_name()
+	if from_name == to_name:
+		return true
+	if not is_valid_voss_transition(from_name, to_name):
+		push_warning("[EventChainEngine] set_voss_phase: transition không hợp lệ %s -> %s" % [from_name, to_name])
+		return false
+	GameState.set_flag("voss_mountain_phase", to_name)
+	print("[EventChainEngine] Voss phase: %s -> %s" % [from_name, to_name])
+	return true
+
+
+func is_voss_event_resolved() -> bool:
+	return get_voss_phase_name() == "RESOLVED"

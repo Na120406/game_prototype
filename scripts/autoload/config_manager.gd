@@ -333,6 +333,12 @@ func get_ui_text(path: String, default: String = "") -> String:
 func get_ui_text_value(path: String, default: Variant = null) -> Variant:
 	return _get_nested_value(_ui_text_config, path, default)
 
+## Thời gian hover dùng chung cho mọi tooltip vật phẩm và tooltip năng lượng.
+## Inventory là chuẩn UX; các UI khác phải đọc cùng getter này thay vì tự
+## hardcode một delay riêng.
+func get_tooltip_hover_delay() -> float:
+	return maxf(0.0, float(get_ui_text_value("ui.tooltips.hover_delay_seconds", 0.3)))
+
 func _get_nested_value(dict: Dictionary, dot_path: String, default: Variant = null) -> Variant:
 	var keys: Array = dot_path.split(".")
 	var current: Variant = dict

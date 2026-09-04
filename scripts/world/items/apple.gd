@@ -1,6 +1,7 @@
 extends StaticBody2D
 
-const INTERACT_DISTANCE: float = 30.0
+# Táo có kích thước 12×12 px; chỉ cho nhặt khi player đứng sát vật thể.
+const INTERACT_DISTANCE: float = 18.0
 
 @export var prompt_offset_y: float = -28.0
 @export var interaction_priority: int = 0
@@ -81,12 +82,21 @@ func interact(_player_ref: Node) -> void:
 
 
 func _collect() -> void:
+	if not ItemManager.on_item_pickup("apple"):
+		_show_feedback("Túi đồ đã đầy!")
+		return
 	_collected = true
 	_set_prompt_visible(false)
 	_register_with_manager(false)
-	if ItemManager.on_item_pickup("apple"):
-		GameState.set_flag("apple_collected_day", GameState.current_day)
-		queue_free()
+	GameState.set_flag("apple_collected_day", GameState.current_day)
+	_show_feedback("Đã nhặt Táo x1!")
+	queue_free()
+
+
+func _show_feedback(text: String) -> void:
+	var warning: Node = get_node_or_null("/root/FloatingWarning")
+	if warning != null and warning.has_method("show_text_plain"):
+		warning.call("show_text_plain", text)
 
 
 func _register_with_manager(nearby: bool) -> void:

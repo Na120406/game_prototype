@@ -75,6 +75,7 @@ game-demo/
 ├── tilesets/                # Texture tileset + asset môi trường (PNG)
 ├── docs/                    # Tài liệu: characters, templates, farm_v2, ARCHITECTURE.md
 ├── design/gdd/              # Game Design Document
+├── tests/                   # Harness regression được version-control (SceneTree/autoload thật)
 └── tools/                   # playtest_harness.gd, smoke_test.gd (test/QA)
 ```
 
@@ -97,7 +98,7 @@ game-demo/
 | Đồng hồ, ngày/đêm, tốc độ thời gian | `scripts/autoload/time_manager.gd` |
 | Chuyển scene + fade + vị trí spawn/portal | `scripts/autoload/scene_manager.gd` |
 | Lịch & di chuyển NPC, spawn/despawn theo scene | `scripts/autoload/npc_manager.gd` |
-| Base NPC (state, schedule, pathfinding) | `scripts/npc/npc.gd` |
+| Base NPC (state, schedule, pathfinding) | `scripts/npc/npc.gd` + `scripts/npc/npc_road_pathfinder.gd` |
 | NPC hàng xóm Marcus (lịch day1 intro, quest) | `scripts/npc/neighbor.gd` |
 | NPC chủ shop (Voss) | `scripts/npc/shopkeeper.gd` |
 | Hội thoại (đọc JSON, chạy dòng, action) | `scripts/autoload/dialogue_manager.gd` + `scripts/ui/dialogue_ui.gd` |
@@ -138,6 +139,7 @@ game-demo/
 | Vật thể tương tác được (examine/pickup) | `scripts/world/interactable.gd` + `scripts/world/world_interactable_object.gd` |
 | Quầy shop | `scripts/world/counter.gd` + `scripts/world/counter_zone.gd` |
 | Test/QA (smoke test, playtest) | `tools/playtest_harness.gd` + `tools/smoke_test.gd` |
+| Spatial acceptance/regression | `tests/spatial_phase8_acceptance.gd` + `tests/portal_cost_once_regression.gd` |
 
 ---
 
@@ -212,6 +214,8 @@ game-demo/
 - **Lưu:** `SaveManager.save_game()` → gọi `CatchUpSystem.prepare_save_data()`
   (gom mọi trạng thái từ `GameState`, `FamilyRegistry`, `WeatherSystem`,
   `FarmTickManager`, NPC runtime) → ghi JSON ra `user://save_game_{slot}.dat`.
+  Farm cells được serialize **trực tiếp từ `FarmTickManager`**, không qua
+  `FarmManager` scene-side, nên lưu tại Forest/Town vẫn giữ đầy đủ cây trồng.
 - **Load:** `SaveManager.load_game()` → `CatchUpSystem.apply_save_data()` →
   `SceneManager.change_scene()` về scene đã lưu.
 
@@ -276,18 +280,23 @@ cần (VD: `ConfigManager` trước `GameState`).
 - Hàm cốt lõi: `advance_day(reset_to_hour)`, `advance_time(hours)`,
   `add_item`/`remove_item`/`has_item`, `set_flag`/`get_flag`/`has_flag`,
   `modify_relationship`.
-- **Spatial system (Phase 1-7, 2026-09):** Forest expansion + Axe progression +
+- **Spatial system (Phase 1-8, 2026-09):** Forest expansion + Axe progression +
   Farm tile expansion + Watering Can capacity + Gathering. State keys nằm trong
   `world_flags`: `spatial_forest_shortcut_cleared`, `spatial_farm_blocker_<id>_cleared`,
-  `spatial_gathering_<id>_collected`, `spatial_watering_can_level`. Config values
+  `spatial_gathering_<id>_collected`, `spatial_daily_gathering_spawn_day_<id>`,
+  `spatial_daily_gathering_spawned_<id>`, `spatial_daily_gathering_collected_day_<id>`,
+  `spatial_watering_can_level`. Config values
   (axe_price, axe_available_day, watering_can_capacity, route times, gathering
   values) nằm trong `game_config.json` mục `level_design`, đọc qua
   `ConfigManager.get_axe_price()` / `get_watering_can_capacity()` / etc. Helpers:
   `is_forest_shortcut_cleared()` / `clear_forest_shortcut()`,
   `is_farm_blocker_cleared(id)` / `clear_farm_blocker(id)`,
   `is_gathering_collected(id)` / `mark_gathering_collected(id)`,
+  `roll_daily_gathering_spawn(id, day, chance)` /
+  `is_daily_gathering_collected(id, day)` / `mark_daily_gathering_collected(id, day)`,
   `get_watering_can_level()` / `set_watering_can_level()` / `refill_watering_can()` /
-  `consume_watering_can_use()`, `has_axe()` / `is_axe_purchasable()`. Components:
+  `consume_watering_can_use()`, `has_axe()` / `is_axe_purchasable()`. WaterSource
+  refill tiêu hao 3 energy mỗi lần. Components:
   TreeBlocker (`scripts/world/tree_blocker.gd`), WaterSource
   (`scripts/world/water_source.gd`), GatheringPoint (`scripts/world/gathering_point.gd`).
   Scenes: `forest_map.tscn` (long route + shortcut), farm/town portal topology updated.
@@ -299,6 +308,8 @@ cần (VD: `ConfigManager` trước `GameState`).
 - **File:** `scripts/autoload/time_manager.gd` (228 dòng).
 - Thời gian chạy 0–24 liên tục; 6:00 = bắt đầu ngày mới; 24:00 wrap về 0.
 - Mốc quan trọng: 1:00 (mod 24) → AFK penalty; 6:00 → `advance_day`.
+- Gameplay nhảy giờ (portal/travel) phải gọi `TimeManager.advance_clock()` để
+  không bỏ qua boundary 1:00/6:00; `set_time()` chỉ dành cho đặt giờ trực tiếp.
 - Hỗ trợ `pause()`, `set_time_scale()`.
 - Signals: `time_changed(current_time, is_day)`, `day_changed(new_day)`,
   `hour_elapsed(hour)`.
@@ -312,6 +323,11 @@ cần (VD: `ConfigManager` trước `GameState`).
   vẽ tile + route action, **không giữ state**.
 - **Tương tác ô đất:** `scripts/world/farm/farm_plot.gd` (637 dòng) — `TileMapLayer`
   quản lý grid + highlight + click chuột (plow/water/plant/harvest).
+- **Farm hiện tại:** `farm_map.tscn` dùng kích thước `640×480`; khu trồng tại
+  `Rect2(24, 274, 320, 160)` tương ứng `20×10` ô. Cell save cũ ngoài vùng mới
+  vẫn được giữ trong state nhưng không render và không thể thao tác.
+- Hàng rào khu trồng có `FenceCollisions` gồm các `StaticBody2D` theo từng đoạn;
+  đoạn phải chừa lối đi nối với `Road6` để cổng Farm không bị khóa kín.
 - **Visual:** `scripts/world/farm/crop_visual_manager.gd` (185 dòng).
 - **Enum:** `farm_enums.gd` — `CropState` (EMPTY→PLOWED→SEEDED→SPROUTED→GROWING→
   MATURE/WILTED), `CropType`, map `SEED_TO_CROP`, `CROP_TO_HARVEST`,
@@ -321,6 +337,11 @@ cần (VD: `ConfigManager` trước `GameState`).
 > phải `FarmManager` (scene node). Khi sửa logic farming theo ngày → sửa
 > `farm_tick_manager.gd`; khi sửa hiển thị/tương tác → `farm_manager.gd` /
 > `farm_plot.gd`.
+
+`CatchUpSystem` dùng `FarmTickManager.export_save_data()` /
+`import_save_data()` với adapter format save v3 `{ "cells": [...] }`. Không
+được đổi lại sang tìm group `farm_manager`, vì group này không tồn tại khi
+player đang ở map ngoài Farm.
 
 ### 6.4 NPC & lịch trình
 - **Base:** `scripts/npc/npc.gd` (615 dòng) — `CharacterBody2D`, state
@@ -333,9 +354,18 @@ cần (VD: `ConfigManager` trước `GameState`).
 - **Marcus (hàng xóm):** `scripts/npc/neighbor.gd` (620 dòng) — day-1 intro
   cutscene, lịch đặc biệt khi chưa gặp player.
 - **Voss (chủ shop):** `scripts/npc/shopkeeper.gd` (98 dòng).
+- Từ ngày 3, `shopkeeper_new_stock_day3.json` được trigger một lần khi người
+  chơi nói chuyện với Vos hoặc mở quầy shop; cờ `voss_dialogue_seen_new_stock_day3`
+  nằm trong `GameState` để giữ trạng thái qua đổi scene/save. Mở quầy sẽ chờ
+  thoại kết thúc rồi mới hiện ShopUI.
 - **Lịch trình:** `npc_schedules.gd` (Dwarf-Fortress style, theo ngày/tuần) và
   config `resources/config/npc_schedule_config.json`.
 - **Route:** `npc_route_manager.gd` — danh sách route waypoint giữa các map.
+- **Bám đường ColorRect:** `npc_road_pathfinder.gd` dựng waypoint qua các
+  ColorRect thuộc group `npc_road` (hoặc tự nhận diện tên Road/Street/Path).
+  Map không có đường phù hợp giữ hành vi di chuyển thẳng tới vị trí lịch trình.
+  Forest giữ hình ảnh đường bằng `Polygon2D`, đồng thời có ba ColorRect trong
+  `NPCRoadGuides` làm guide trong suốt để NPC bám đúng nhánh đường dài.
 
 ### 6.5 Hội thoại (DialogueManager + DialogueUI)
 - **File:** `scripts/autoload/dialogue_manager.gd` (554 dòng) +
@@ -377,6 +407,9 @@ cần (VD: `ConfigManager` trước `GameState`).
 - **ToolHandler** (`tool_handler.gd`): `equip/unequip/is_equipped`.
 - **Inventory UI:** `scripts/ui/inventory_ui.gd` (993 dòng) — 21 ô, drag/drop;
   **Shop:** `shop_ui.gd` (677 dòng); **Hotbar:** `hotbar.gd` (480 dòng).
+- Tooltip vật phẩm và thanh năng lượng dùng chung `ui.tooltips.hover_delay_seconds`
+  (mặc định 0,3 giây) trong `ui_text_config.json`; Shop `Win` giữ kích thước
+  cố định 220×176 để layout không thay đổi theo danh sách item.
 
 ### 6.9 Năng lượng & knock-out
 - **File:** `scripts/autoload/energy_manager.gd` (173 dòng).
@@ -432,7 +465,7 @@ cần (VD: `ConfigManager` trước `GameState`).
 | `config/money_config.json` | Giá trị tiền tệ (vàng khởi đầu…) |
 | `config/ui_text_config.json` | Text UI |
 | `config/quest_text_config.json` | Text nhiệm vụ |
-| `dialogue/*.json` | Hội thoại (welcome, neighbor*, shopkeeper*, examine_farm_note) |
+| `dialogue/*.json` | Hội thoại (welcome, neighbor*, shopkeeper*, shopkeeper_new_stock_day3, examine_farm_note) |
 | `items/item_data.gd` + `items/item_database.gd` | Định nghĩa + database vật phẩm |
 | `items/definitions/*.tres` | 22 vật phẩm (seed, crop, harvest, tool, key item…) |
 | `quest/quest_data.json` | Định nghĩa nhiệm vụ |
@@ -479,7 +512,8 @@ cần (VD: `ConfigManager` trước `GameState`).
   `DialogueManager.is_active` để chặn.
 - **Save đi qua `CatchUpSystem`:** không serialize trực tiếp trong `SaveManager`;
   mọi trạng thái mới cần lưu phải được thêm vào `prepare_save_data()` /
-  `apply_save_data()`.
+  `apply_save_data()`. Farm state phải đọc/ghi trực tiếp `FarmTickManager` để
+  save/load không phụ thuộc scene hiện tại.
 - **Inventory cố định 21 ô:** `GameState._ensure_inventory_slots()` luôn đảm bảo
   đủ entry `{id:"", amount:0}` để drag/drop nhất quán.
 - **Có nhiều bản farm map** (`farm_map.tscn`, `farm_map_v2.tscn`, `Farm_.tscn`):

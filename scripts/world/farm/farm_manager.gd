@@ -67,11 +67,15 @@ func _process(_delta: float) -> void:
 			_refresh_all_tiles()
 
 func _find_plot_layer() -> void:
-	_plot_layer = get_tree().get_first_node_in_group("farm_plot")
+	# Ưu tiên FarmPlot cùng scene/parent. get_first_node_in_group() toàn tree có
+	# thể trả FarmPlot của background map ẩn do NPC simulation tạo ra.
+	var parent := get_parent()
+	if parent != null:
+		_plot_layer = parent.find_child("FarmPlot", true, false)
 	if _plot_layer == null:
-		var parent := get_parent()
-		if parent != null:
-			_plot_layer = parent.find_child("FarmPlot", true, false)
+		var active_scene: Node = get_tree().current_scene
+		if active_scene != null:
+			_plot_layer = active_scene.find_child("FarmPlot", true, false)
 	if _plot_layer != null:
 		print("[FarmManager] Connected to FarmPlot TileMapLayer.")
 
@@ -116,9 +120,21 @@ func _get_cell_data(cell: Vector2i) -> Dictionary:
 # =============================================================================
 # PUBLIC API — delegate tới FarmTickManager, sau đó update visuals
 # =============================================================================
+# Mọi action farming đều phải kiểm tra TreeBlocker ở TẦNG API này, không chỉ
+# ở input layer (FarmPlot). Nếu không, tool/test/script khác gọi thẳng
+# FarmManager.plow_cell() vẫn có thể thao tác ô bị blocker chặn → vi phạm
+# Phase 5 SDD: "Trước clear: cell không thể plow/plant/water".
+
+## Kiểm tra ô có đang bị một TreeBlocker (chưa clear) chiếm không.
+## FarmPlot sở hữu geometry grid; FarmManager chỉ delegate để tránh duplicate
+## FARM_ZONE/CELL_SIZE và tránh blocker của background map ảnh hưởng active Farm.
+func _is_cell_blocked_by_tree(cell: Vector2i) -> bool:
+	if _plot_layer != null and is_instance_valid(_plot_layer) and _plot_layer.has_method("_is_cell_blocked_by_tree"):
+		return bool(_plot_layer.call("_is_cell_blocked_by_tree", cell))
+	return false
 
 func plant_crop(cell: Vector2i, crop_type: CropType, grow_days: int, water_need: int = 1, growth_per_water: float = 0.25) -> bool:
-	if _ft == null:
+	if _ft == null or _is_cell_blocked_by_tree(cell):
 		return false
 	var ok: bool = _ft.call("plant_crop", cell, int(crop_type), grow_days, water_need, growth_per_water)
 	if ok:
@@ -126,6 +142,8 @@ func plant_crop(cell: Vector2i, crop_type: CropType, grow_days: int, water_need:
 	return ok
 
 func plant_from_seed(cell: Vector2i, seed_item_id: String) -> bool:
+	if _is_cell_blocked_by_tree(cell):
+		return false
 	var crop_type: int = FarmEnumsRef.get_crop_type_from_seed(seed_item_id)
 	if crop_type == int(CropType.NONE):
 		print("[FarmManager] Unknown seed: %s" % seed_item_id)
@@ -147,7 +165,7 @@ func plant_from_seed(cell: Vector2i, seed_item_id: String) -> bool:
 	return plant_crop(cell, crop_type, grow_days, water_need, growth_per_water)
 
 func plow_cell(cell: Vector2i) -> bool:
-	if _ft == null:
+	if _ft == null or _is_cell_blocked_by_tree(cell):
 		return false
 	var ok: bool = _ft.call("plow_cell", cell)
 	if ok:
@@ -155,7 +173,7 @@ func plow_cell(cell: Vector2i) -> bool:
 	return ok
 
 func clear_wilted_cell(cell: Vector2i) -> bool:
-	if _ft == null:
+	if _ft == null or _is_cell_blocked_by_tree(cell):
 		return false
 	var ok: bool = _ft.call("clear_wilted_cell", cell)
 	if ok:
@@ -163,15 +181,21 @@ func clear_wilted_cell(cell: Vector2i) -> bool:
 	return ok
 
 func water_cell(cell: Vector2i) -> bool:
-	if _ft == null:
+	if _ft == null or _is_cell_blocked_by_tree(cell):
+		return false
+	# Phase 6: capacity là contract của WATERING — kiểm tra ở tầng API để mọi
+	# caller (UI, tool, script khác) đều không thể tưới miễn phí. Chỉ consume
+	# SAU KHI FarmTickManager.water_cell() xác nhận thành công.
+	if GameState.get_watering_can_level() <= 0:
 		return false
 	var ok: bool = _ft.call("water_cell", cell)
 	if ok:
+		GameState.consume_watering_can_use(1)
 		_update_tile(cell, _get_cell_data(cell))
 	return ok
 
 func harvest_crop(cell: Vector2i) -> String:
-	if _ft == null:
+	if _ft == null or _is_cell_blocked_by_tree(cell):
 		return ""
 	var harvest_id: String = _ft.call("harvest_crop", cell)
 	if harvest_id != "":

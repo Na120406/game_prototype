@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/world/gathering_point.gd" id="1_script"]
 
 [sub_resource type="CircleShape2D" id="CS_gather"]
-radius = 40.0
+radius = 18.0
 
 [node name="GatheringPoint" type="Area2D"]
 script = ExtResource("1_script")
@@ -11,13 +11,31 @@ script = ExtResource("1_script")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CS_gather")
 
-[node name="Visual" type="ColorRect" parent="."]
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="Body" type="ColorRect" parent="Visual"]
+z_index = 1
+offset_left = -6.0
+offset_top = -6.0
+offset_right = 6.0
+offset_bottom = 6.0
+color = Color(0.85, 0.2, 0.15, 1)
+
+[node name="Highlight" type="ColorRect" parent="Visual"]
 z_index = 2
-offset_left = -8.0
-offset_top = -8.0
-offset_right = 8.0
-offset_bottom = 8.0
-color = Color(0.9, 0.7, 0.2, 1)
+offset_left = -3.0
+offset_top = -4.0
+offset_right = 1.0
+offset_bottom = 0.0
+color = Color(1, 1, 1, 0.3)
+
+[node name="Stem" type="ColorRect" parent="Visual"]
+z_index = 2
+offset_left = -1.0
+offset_top = -9.0
+offset_right = 1.0
+offset_bottom = -6.0
+color = Color(0.4, 0.25, 0.1, 1)
 
 [node name="Prompt" type="Label" parent="."]
 offset_left = -16.0

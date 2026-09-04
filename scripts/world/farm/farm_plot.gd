@@ -11,7 +11,9 @@ class_name FarmPlot
 
 const CELL_SIZE: Vector2 = Vector2(16, 16)
 
-const FARM_ZONE := Rect2(24, 274, 592, 302)
+# Khu trồng compact: 20 cột × 10 hàng. Giữ nguyên origin để cell/save cũ
+# không bị dịch tọa độ khi thu nhỏ FarmMap.
+const FARM_ZONE := Rect2(24, 274, 320, 160)
 
 var _farm_manager: Node = null
 var _highlight_cell: Vector2i = Vector2i(-999, -999)
@@ -119,17 +121,36 @@ func get_player_facing_cell(player_node: Node) -> Vector2i:
 # =============================================================================
 
 func _is_cell_blocked_by_tree(cell: Vector2i) -> bool:
-	var world_pos: Vector2 = _cell_to_world(cell)
-	var tolerance: float = 12.0  # Half cell size tolerance
+	# API FarmManager dùng hàm này làm gate chung. Ô ngoài khu trồng mới được
+	# xem như bị chặn để script/test không thể trồng vượt khỏi hàng rào.
+	if not is_cell_inside_farm_zone(cell):
+		return true
+	var cell_origin: Vector2 = _cell_to_world(cell)
+	var cell_rect := Rect2(cell_origin, CELL_SIZE)
+	var active_scene: Node = get_tree().current_scene
 	var blockers: Array = get_tree().get_nodes_in_group("tree_blocker")
 	for blocker in blockers:
 		if blocker is Node2D and blocker.has_method("is_cleared"):
+			# NPC simulation có thể giữ background FarmMap trong SceneTree. Chỉ
+			# blocker thuộc current_scene mới được tác động gameplay của player.
+			if active_scene != null and not active_scene.is_ancestor_of(blocker):
+				continue
 			if blocker.call("is_cleared"):
 				continue
-			var blocker_pos: Vector2 = (blocker as Node2D).global_position
-			if world_pos.distance_to(blocker_pos) < tolerance:
+			var blocker_rect: Rect2 = _get_blocker_collision_rect(blocker as Node2D)
+			if blocker_rect.intersects(cell_rect):
 				return true
 	return false
+
+func _get_blocker_collision_rect(blocker: Node2D) -> Rect2:
+	var shape_node: CollisionShape2D = blocker.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if shape_node != null and shape_node.shape is RectangleShape2D:
+		var shape: RectangleShape2D = shape_node.shape as RectangleShape2D
+		var scale: Vector2 = shape_node.global_scale.abs()
+		var world_size: Vector2 = shape.size * scale
+		return Rect2(shape_node.global_position - world_size * 0.5, world_size)
+	var fallback_size := Vector2(16.0, 16.0)
+	return Rect2(blocker.global_position - fallback_size * 0.5, fallback_size)
 
 func _input(event: InputEvent) -> void:
 	# Không cho farm input hoạt động trong intro/dialogue cutscene.
@@ -203,6 +224,8 @@ func _is_in_farm_zone(world_pos: Vector2) -> bool:
 	return FARM_ZONE.has_point(world_pos)
 
 func _is_cell_in_reach(cell: Vector2i) -> bool:
+	if not is_cell_inside_farm_zone(cell):
+		return false
 	var player := get_tree().get_first_node_in_group("player")
 	if player == null:
 		return true
@@ -214,6 +237,25 @@ func _is_cell_in_reach(cell: Vector2i) -> bool:
 	var dx: int = abs(cell.x - pcell.x)
 	var dy: int = abs(cell.y - pcell.y)
 	return dx <= 1 and dy <= 1
+
+
+func is_cell_inside_farm_zone(cell: Vector2i) -> bool:
+	var dimensions := Vector2i(
+		int(FARM_ZONE.size.x / CELL_SIZE.x),
+		int(FARM_ZONE.size.y / CELL_SIZE.y)
+	)
+	return cell.x >= 0 and cell.y >= 0 and cell.x < dimensions.x and cell.y < dimensions.y
+
+
+func get_farm_zone() -> Rect2:
+	return FARM_ZONE
+
+
+func get_grid_dimensions() -> Vector2i:
+	return Vector2i(
+		int(FARM_ZONE.size.x / CELL_SIZE.x),
+		int(FARM_ZONE.size.y / CELL_SIZE.y)
+	)
 
 # =============================================================================
 # HIGHLIGHT
@@ -284,7 +326,7 @@ func _try_farm_action(cell: Vector2i) -> void:
 	
 	# Phase 5: Kiểm tra cell có bị TreeBlocker chặn không
 	if _is_cell_blocked_by_tree(cell):
-		_play_feedback(cell, "Có gốc cây chắn đường! Cần Rìu để dọn.", Color(0.6, 0.3, 0.1))
+		_play_feedback(cell, "Cần vật gì đó để xử lý.", Color(0.6, 0.3, 0.1))
 		return
 
 	var state: CropState = _get_cell_state(cell)
@@ -315,7 +357,9 @@ func _try_farm_action(cell: Vector2i) -> void:
 			if _is_tool_id("hoe"):
 				_play_feedback(cell, "Ô đất đã được cày!", Color(0.8, 0.6, 0.3))
 			elif _is_tool_id("water_can"):
-				# Phase 6: Kiểm tra water capacity trước khi tưới
+				# Phase 6: Kiểm tra water capacity trước khi tưới. Việc trừ nước
+				# do FarmManager.water_cell() đảm nhận (tầng API) — chỉ trừ sau
+				# khi tưới thành công; không double-consume ở đây.
 				var water_level: int = GameState.get_watering_can_level()
 				if water_level <= 0:
 					_play_feedback(cell, "Bình nước hết! Cần đổ nước vào bình.", Color(0.8, 0.3, 0.3))
@@ -323,7 +367,6 @@ func _try_farm_action(cell: Vector2i) -> void:
 				if not _consume_action_energy(cell):
 					return
 				if _farm_manager.water_cell(cell):
-					GameState.consume_watering_can_use(1)
 					var data: Dictionary = _farm_manager.get_cell_data(cell)
 					_update_soil_visual_color(_cell_key(cell), data)
 					var remaining: int = GameState.get_watering_can_level()
@@ -333,7 +376,7 @@ func _try_farm_action(cell: Vector2i) -> void:
 
 		CropState.SEEDED, CropState.SPROUTED, CropState.GROWING:
 			if _is_tool_id("water_can"):
-				# Phase 6: Kiểm tra water capacity
+				# Phase 6: Kiểm tra water capacity — consume do FarmManager quản lý.
 				var water_level: int = GameState.get_watering_can_level()
 				if water_level <= 0:
 					_play_feedback(cell, "Bình nước hết! Cần đổ nước vào bình.", Color(0.8, 0.3, 0.3))
@@ -341,7 +384,6 @@ func _try_farm_action(cell: Vector2i) -> void:
 				if not _consume_action_energy(cell):
 					return
 				if _farm_manager.water_cell(cell):
-					GameState.consume_watering_can_use(1)
 					var remaining: int = GameState.get_watering_can_level()
 					_play_feedback(cell, "Đã tưới nước! (Còn: %d)" % remaining, Color(0.3, 0.6, 0.9))
 			elif item_type == "seed":
@@ -413,6 +455,11 @@ func _consume_seed_from_active_toolbar(item_id: String) -> bool:
 
 func _try_harvest(cell: Vector2i) -> void:
 	if _farm_manager == null:
+		return
+	# Mọi farming action, bao gồm harvest bằng chuột trái, đều phải tôn trọng
+	# TreeBlocker. Không chỉ kiểm tra ở _try_farm_action() vì harvest có caller riêng.
+	if _is_cell_blocked_by_tree(cell):
+		_play_feedback(cell, "Cần vật gì đó để xử lý.", Color(0.6, 0.3, 0.1))
 		return
 	if not _consume_action_energy(cell):
 		return
@@ -489,6 +536,9 @@ func _play_feedback(cell: Vector2i, text: String, color: Color) -> void:
 # hóa bãi cỏ khi trồng hạt / tưới nước (fix v4).
 
 func _show_soil_visual(cell: Vector2i, data: Dictionary = {}) -> void:
+	if not is_cell_inside_farm_zone(cell):
+		_hide_soil_visual(cell)
+		return
 	var cell_key := _cell_key(cell)
 	# Đã có visual → chỉ cần cập nhật màu (khô/tưới đổi màu).
 	if _soil_visuals.has(cell_key):

@@ -48,6 +48,7 @@
 		},
 
 		"tooltips": {
+			"hover_delay_seconds": 0.3,
 			"energy_restore": "+%d năng lượng",
 			"health_restore": "+%d sức khỏe",
 			"days_to_harvest": "Còn %d ngày thu hoạch",

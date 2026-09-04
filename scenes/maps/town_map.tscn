@@ -25,15 +25,355 @@ size = Vector2(225, 4)
 size = Vector2(480, 4)
 
 [sub_resource type="RectangleShape2D" id="RS_wall_v"]
-size = Vector2(4, 270)
+size = Vector2(4, 480)
 
 [sub_resource type="RectangleShape2D" id="RS_trans"]
-size = Vector2(20, 40)
+size = Vector2(20, 17)
 
 [sub_resource type="RectangleShape2D" id="RS_door"]
 size = Vector2(30, 25)
 
 [node name="TownMap" type="Node2D"]
+
+[node name="GroundBackdrop" type="ColorRect" parent="."]
+z_index = -3
+offset_right = 480.0
+offset_bottom = 480.0
+mouse_filter = 2
+color = Color(0.35233277, 0.40299815, 0.15470475, 1)
+
+[node name="ForestLongRoadVertical3" type="ColorRect" parent="GroundBackdrop" groups=["npc_road"]]
+z_index = 4
+layout_mode = 0
+offset_left = 226.0
+offset_top = -1.0
+offset_right = 254.0
+offset_bottom = 121.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="ForestLongRoad" type="ColorRect" parent="GroundBackdrop" groups=["npc_road"]]
+layout_mode = 0
+offset_top = 386.0
+offset_right = 232.0
+offset_bottom = 414.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="ForestLongRoadVertical" type="ColorRect" parent="GroundBackdrop" groups=["npc_road"]]
+layout_mode = 0
+offset_left = 204.0
+offset_top = 152.0
+offset_right = 232.0
+offset_bottom = 400.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="MainRoadTopTrim2" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_top = 72.0
+offset_right = 11.0
+offset_bottom = 74.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim3" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_top = 46.0
+offset_right = 35.0
+offset_bottom = 48.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim4" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 11.0
+offset_top = 154.0
+offset_right = 204.0
+offset_bottom = 156.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="ForestLongRoadVertical2" type="ColorRect" parent="GroundBackdrop" groups=["npc_road"]]
+z_index = 1
+layout_mode = 0
+offset_left = 358.0
+offset_top = 134.0
+offset_right = 386.0
+offset_bottom = 289.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="ForestLongRoadVertical2" type="ColorRect" parent="GroundBackdrop/ForestLongRoadVertical2"]
+z_index = 1
+layout_mode = 0
+offset_left = 358.0
+offset_top = 134.0
+offset_right = 386.0
+offset_bottom = 289.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="MainRoadTopTrim7" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 232.0
+offset_top = 289.0
+offset_right = 388.0
+offset_bottom = 291.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim9" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_top = 384.0
+offset_right = 75.0
+offset_bottom = 386.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim9" type="ColorRect" parent="GroundBackdrop/MainRoadTopTrim9"]
+layout_mode = 0
+offset_top = 384.0
+offset_right = 75.0
+offset_bottom = 386.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim10" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_top = 414.0
+offset_right = 232.0
+offset_bottom = 416.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim12" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 234.0
+offset_top = 156.10527
+offset_right = 493.89673
+offset_bottom = 158.10527
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim13" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 204.0
+offset_top = 154.4454
+offset_right = 435.48315
+offset_bottom = 156.4454
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim16" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 11.0
+offset_top = 73.0
+offset_right = 93.99838
+offset_bottom = 75.0
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim17" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 37.0
+offset_top = 46.0
+offset_right = 119.99838
+offset_bottom = 48.0
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim18" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 226.0
+offset_top = -0.028316498
+offset_right = 343.88663
+offset_bottom = 1.9716835
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim19" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 256.0
+offset_right = 373.88663
+offset_bottom = 2.0
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim20" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 358.0
+offset_top = 155.0
+offset_right = 488.615
+offset_bottom = 157.0
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim22" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 283.0
+offset_top = 240.0
+offset_right = 322.87347
+offset_bottom = 242.0
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim22" type="ColorRect" parent="GroundBackdrop/MainRoadTopTrim22"]
+layout_mode = 0
+offset_left = 297.0
+offset_top = 308.26974
+offset_right = 403.73596
+offset_bottom = 310.26974
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim14" type="ColorRect" parent="GroundBackdrop/MainRoadTopTrim22/MainRoadTopTrim22"]
+layout_mode = 0
+offset_left = 44.0
+offset_top = 155.86194
+offset_right = 179.13535
+offset_bottom = 157.86194
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim23" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 313.0
+offset_top = 199.0
+offset_right = 399.96637
+offset_bottom = 201.0
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="LampSouth" type="ColorRect" parent="GroundBackdrop"]
+z_index = 2
+layout_mode = 0
+offset_left = 190.0
+offset_top = 334.0
+offset_right = 196.0
+offset_bottom = 374.0
+color = Color(0.2, 0.18, 0.15, 1)
+
+[node name="Light" type="ColorRect" parent="GroundBackdrop/LampSouth"]
+z_index = 3
+layout_mode = 0
+offset_left = -4.0
+offset_top = -5.0
+offset_right = 10.0
+offset_bottom = 7.0
+color = Color(0.95, 0.76, 0.32, 1)
+
+[node name="LampSouth2" type="ColorRect" parent="GroundBackdrop"]
+z_index = 11
+layout_mode = 0
+offset_left = 240.0
+offset_top = 259.0
+offset_right = 246.0
+offset_bottom = 299.0
+color = Color(0.2, 0.18, 0.15, 1)
+
+[node name="Light" type="ColorRect" parent="GroundBackdrop/LampSouth2"]
+z_index = 3
+layout_mode = 0
+offset_left = -4.0
+offset_top = -5.0
+offset_right = 10.0
+offset_bottom = 7.0
+color = Color(0.95, 0.76, 0.32, 1)
+
+[node name="MainRoadTopTrim24" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 388.0
+offset_top = 154.20671
+offset_right = 523.0988
+offset_bottom = 156.20671
+rotation = 1.5707964
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim25" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 384.0
+offset_right = 203.0
+offset_bottom = 386.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="ForestLongRoadVertical4" type="ColorRect" parent="GroundBackdrop" groups=["npc_road"]]
+z_index = 1
+layout_mode = 0
+offset_left = 283.0
+offset_top = 234.0
+offset_right = 311.0
+offset_bottom = 283.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="ShopWindowRight" type="ColorRect" parent="GroundBackdrop"]
+z_index = 2
+layout_mode = 0
+offset_left = 164.0
+offset_top = 278.0
+offset_right = 198.0
+offset_bottom = 314.0
+color = Color(0.26507843, 0.7562188, 0.06787811, 1)
+
+[node name="ShopWindowRight2" type="ColorRect" parent="GroundBackdrop"]
+z_index = 2
+layout_mode = 0
+offset_left = 244.0
+offset_top = 351.0
+offset_right = 278.0
+offset_bottom = 387.0
+color = Color(0.25981325, 0.74294806, 0.06478639, 1)
+
+[node name="ShopWindowRight" type="ColorRect" parent="GroundBackdrop/ShopWindowRight2"]
+z_index = 2
+layout_mode = 0
+offset_left = 164.0
+offset_top = 278.0
+offset_right = 198.0
+offset_bottom = 314.0
+color = Color(0.2242307, 0.6522417, 0.049304433, 1)
+
+[node name="ShopWindowRight3" type="ColorRect" parent="GroundBackdrop"]
+z_index = 2
+layout_mode = 0
+offset_left = 304.0
+offset_top = 297.0
+offset_right = 338.0
+offset_bottom = 333.0
+color = Color(0.22308938, 0.6518209, 0.052266628, 1)
+
+[node name="ShopWindowRight4" type="ColorRect" parent="GroundBackdrop"]
+z_index = 2
+layout_mode = 0
+offset_left = 67.0
+offset_top = 420.0
+offset_right = 101.0
+offset_bottom = 456.0
+color = Color(0.2242307, 0.6522417, 0.049304433, 1)
+
+[node name="ShopWindowRight5" type="ColorRect" parent="GroundBackdrop"]
+z_index = 2
+layout_mode = 0
+offset_left = 155.0
+offset_top = 159.0
+offset_right = 189.0
+offset_bottom = 195.0
+color = Color(0.2242307, 0.6522417, 0.049304433, 1)
+
+[node name="MainRoadTopTrim8" type="ColorRect" parent="GroundBackdrop"]
+layout_mode = 0
+offset_left = 232.0
+offset_top = 259.0
+offset_right = 388.0
+offset_bottom = 261.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="ShopWindowRight6" type="ColorRect" parent="GroundBackdrop"]
+z_index = 2
+layout_mode = 0
+offset_left = 396.0
+offset_top = 176.0
+offset_right = 430.0
+offset_bottom = 212.0
+color = Color(0.20934333, 0.6150234, 0.045582596, 1)
+
+[node name="ShopWindowRight7" type="ColorRect" parent="GroundBackdrop"]
+z_index = 2
+layout_mode = 0
+offset_left = 137.0
+offset_top = 432.0
+offset_right = 171.0
+offset_bottom = 468.0
+color = Color(0.19142744, 0.5696125, 0.038757976, 1)
 
 [node name="Ground" type="TileMapLayer" parent="."]
 tile_set = SubResource("TS_town")
@@ -54,30 +394,31 @@ position = Vector2(367.5, 2)
 shape = SubResource("RS_wall_h_right")
 
 [node name="WallBottom" type="StaticBody2D" parent="Walls"]
-position = Vector2(240, 268)
+position = Vector2(240, 478)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallBottom"]
 shape = SubResource("RS_wall_h")
 
 [node name="WallLeft" type="StaticBody2D" parent="Walls"]
-position = Vector2(2, 135)
+position = Vector2(2, 240)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallLeft"]
 shape = SubResource("RS_wall_v")
 
 [node name="WallRight" type="StaticBody2D" parent="Walls"]
-position = Vector2(478, 135)
+position = Vector2(478, 240)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/WallRight"]
 shape = SubResource("RS_wall_v")
 
 [node name="ToMountain" type="Area2D" parent="."]
-position = Vector2(240, 2)
+position = Vector2(240, 19)
 script = ExtResource("3_trans")
 portal_id = "portal_town_to_mountain"
 target_scene = "res://scenes/maps/mountain_map.tscn"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="ToMountain"]
+position = Vector2(0, 11.5)
 shape = SubResource("RS_trans")
 
 [node name="DoorSprite" type="Sprite2D" parent="ToMountain"]
@@ -85,16 +426,16 @@ modulate = Color(0.3, 0.2, 0.12, 1)
 scale = Vector2(30, 25)
 
 [node name="Prompt" type="Label" parent="ToMountain"]
-offset_left = -10.0
-offset_top = 5.0
-offset_right = 10.0
+offset_left = -19.0
+offset_top = -7.0
+offset_right = 19.0
 offset_bottom = 14.0
 theme_override_font_sizes/font_size = 6
 text = "[E]"
 horizontal_alignment = 1
 
 [node name="FromForestShort" type="Area2D" parent="."]
-position = Vector2(455, 60)
+position = Vector2(20, 60)
 script = ExtResource("3_trans")
 portal_id = "portal_town_to_forest_short"
 target_scene = "res://scenes/maps/forest_map.tscn"
@@ -111,37 +452,49 @@ theme_override_font_sizes/font_size = 6
 text = "[E]"
 horizontal_alignment = 1
 
-[node name="Road" type="ColorRect" parent="."]
-z_index = 1
-offset_top = 121.0
-offset_right = 63.0
-offset_bottom = 148.0
-color = Color(0.55, 0.5, 0.4, 1)
-
-[node name="RoadShortcut" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 406.0
-offset_top = 50.0
+[node name="Road" type="ColorRect" parent="." groups=["npc_road"]]
+offset_left = 11.0
+offset_top = 118.0
 offset_right = 480.0
-offset_bottom = 70.0
-color = Color(0.55, 0.5, 0.4, 1)
+offset_bottom = 154.0
+color = Color(0.56, 0.53, 0.47, 1)
 
-[node name="Road" type="ColorRect" parent="Road"]
-z_index = 1
+[node name="RoadShortcut" type="ColorRect" parent="." groups=["npc_road"]]
+offset_top = 48.0
+offset_right = 35.0
+offset_bottom = 72.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="RoadShortcutTurn" type="ColorRect" parent="." groups=["npc_road"]]
+offset_left = 11.0
+offset_top = 61.0
+offset_right = 35.0
+offset_bottom = 137.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="MainRoadTopTrim" type="ColorRect" parent="."]
+offset_left = 35.0
+offset_top = 117.0
+offset_right = 480.0
+offset_bottom = 119.0
+color = Color(0.38, 0.36, 0.32, 1)
+
+[node name="MainRoadTopTrim" type="ColorRect" parent="MainRoadTopTrim"]
+z_index = -3
 layout_mode = 0
-offset_left = 33.0
-offset_top = 18.0
-offset_right = 436.0
-offset_bottom = 45.0
-color = Color(0.55, 0.5, 0.4, 1)
+offset_left = 197.0
+offset_top = 37.0
+offset_right = 445.0
+offset_bottom = 39.0
+color = Color(0.38, 0.36, 0.32, 1)
 
 [node name="ShopBuilding" type="ColorRect" parent="."]
 z_index = 1
 offset_left = 60.0
 offset_top = 30.0
 offset_right = 220.0
-offset_bottom = 139.0
-color = Color(0.4, 0.3, 0.2, 1)
+offset_bottom = 119.0
+color = Color(0.52, 0.37, 0.24, 1)
 
 [node name="ShopRoof" type="ColorRect" parent="ShopBuilding"]
 layout_mode = 0
@@ -159,6 +512,24 @@ offset_top = -21.0
 offset_right = 118.0
 offset_bottom = -4.0
 color = Color(0.7, 0.6, 0.4, 1)
+
+[node name="ShopWindowRight" type="ColorRect" parent="ShopBuilding"]
+z_index = 2
+layout_mode = 0
+offset_left = 96.0
+offset_top = 28.0
+offset_right = 126.0
+offset_bottom = 59.0
+color = Color(0, 0, 0, 0.627451)
+
+[node name="ShopWindowRight" type="ColorRect" parent="ShopBuilding/ShopWindowRight"]
+z_index = 2
+layout_mode = 0
+offset_left = -134.0
+offset_top = 177.0
+offset_right = -100.0
+offset_bottom = 213.0
+color = Color(0.20926699, 0.6148299, 0.045553554, 1)
 
 [node name="ShopDoor" type="Area2D" parent="."]
 position = Vector2(95, 105)
@@ -184,38 +555,84 @@ horizontal_alignment = 1
 
 [node name="Well" type="ColorRect" parent="."]
 z_index = 1
-offset_left = 380.0
-offset_top = 60.0
-offset_right = 420.0
-offset_bottom = 100.0
-color = Color(0.5, 0.5, 0.55, 1)
+offset_left = 274.0
+offset_top = 188.0
+offset_right = 318.0
+offset_bottom = 232.0
+color = Color(0.43, 0.43, 0.47, 1)
 
-[node name="Tree1" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 70.0
-offset_top = 24.0
-offset_right = 100.0
-offset_bottom = 54.0
-color = Color(0.3, 0.5, 0.2, 1)
+[node name="Water" type="ColorRect" parent="Well"]
+z_index = 2
+layout_mode = 0
+offset_left = 7.0
+offset_top = 7.0
+offset_right = 37.0
+offset_bottom = 37.0
+color = Color(0.25, 0.58, 0.72, 1)
 
-[node name="Tree2" type="ColorRect" parent="."]
+[node name="TownHall" type="ColorRect" parent="."]
 z_index = 1
-offset_left = 300.0
-offset_top = 40.0
-offset_right = 340.0
-offset_bottom = 80.0
-color = Color(0.3, 0.5, 0.2, 1)
+offset_left = 292.0
+offset_top = 31.0
+offset_right = 448.0
+offset_bottom = 119.0
+color = Color(0.58, 0.48, 0.34, 1)
 
-[node name="Tree3" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 420.0
-offset_top = 200.0
-offset_right = 460.0
-offset_bottom = 240.0
-color = Color(0.3, 0.5, 0.2, 1)
+[node name="Roof" type="ColorRect" parent="TownHall"]
+z_index = 2
+layout_mode = 0
+offset_left = -10.0
+offset_top = -14.0
+offset_right = 166.0
+offset_bottom = 6.0
+color = Color(0.32, 0.2, 0.16, 1)
+
+[node name="Door" type="ColorRect" parent="TownHall"]
+z_index = 2
+layout_mode = 0
+offset_left = 64.0
+offset_top = 49.0
+offset_right = 92.0
+offset_bottom = 88.0
+color = Color(0.3, 0.2, 0.13, 1)
+
+[node name="BannerLeft" type="ColorRect" parent="TownHall"]
+z_index = 2
+layout_mode = 0
+offset_left = 20.0
+offset_top = 25.0
+offset_right = 34.0
+offset_bottom = 55.0
+color = Color(0, 0, 0, 0.627451)
+
+[node name="BannerRight" type="ColorRect" parent="TownHall"]
+z_index = 2
+layout_mode = 0
+offset_left = 122.0
+offset_top = 25.0
+offset_right = 136.0
+offset_bottom = 55.0
+color = Color(0, 0, 0, 0.627451)
+
+[node name="NoticeBoard" type="ColorRect" parent="."]
+z_index = 2
+offset_left = 144.0
+offset_top = 345.0
+offset_right = 176.0
+offset_bottom = 370.0
+color = Color(0.42, 0.27, 0.14, 1)
+
+[node name="NoticePaper" type="ColorRect" parent="NoticeBoard"]
+z_index = 3
+layout_mode = 0
+offset_left = 6.0
+offset_top = 5.0
+offset_right = 26.0
+offset_bottom = 20.0
+color = Color(0.86, 0.8, 0.6, 1)
 
 [node name="FromForestLong" type="Area2D" parent="."]
-position = Vector2(20, 135)
+position = Vector2(20, 400)
 script = ExtResource("3_trans")
 portal_id = "portal_town_to_forest_long"
 target_scene = "res://scenes/maps/forest_map.tscn"
@@ -231,6 +648,92 @@ offset_bottom = -2.0
 theme_override_font_sizes/font_size = 6
 text = "[E]"
 horizontal_alignment = 1
+
+[node name="ForestLongRoad" type="ColorRect" parent="." groups=["npc_road"]]
+offset_left = 227.0
+offset_top = 261.0
+offset_right = 386.0
+offset_bottom = 289.0
+color = Color(0.56, 0.53, 0.47, 1)
+
+[node name="LowerSquare" type="ColorRect" parent="."]
+z_index = -2
+offset_left = 248.0
+offset_top = 172.0
+offset_right = 343.0
+offset_bottom = 249.0
+color = Color(0.63, 0.6, 0.53, 1)
+
+[node name="MarketDistrict" type="Node2D" parent="."]
+
+[node name="StallA" type="ColorRect" parent="MarketDistrict"]
+z_index = 1
+offset_left = 33.0
+offset_top = 300.0
+offset_right = 131.0
+offset_bottom = 348.0
+color = Color(0.5, 0.32, 0.2, 1)
+
+[node name="Awning" type="ColorRect" parent="MarketDistrict/StallA"]
+z_index = 2
+layout_mode = 0
+offset_left = -4.0
+offset_top = -8.0
+offset_right = 102.0
+offset_bottom = 8.0
+color = Color(0.72, 0.2, 0.17, 1)
+
+[node name="Counter" type="ColorRect" parent="MarketDistrict/StallA"]
+z_index = 2
+layout_mode = 0
+offset_left = 8.0
+offset_top = 25.0
+offset_right = 90.0
+offset_bottom = 38.0
+color = Color(0.34, 0.2, 0.1, 1)
+
+[node name="StallB" type="ColorRect" parent="MarketDistrict"]
+z_index = 1
+offset_left = 83.0
+offset_top = 209.0
+offset_right = 181.0
+offset_bottom = 257.0
+color = Color(0.5, 0.32, 0.2, 1)
+
+[node name="Awning" type="ColorRect" parent="MarketDistrict/StallB"]
+z_index = 2
+layout_mode = 0
+offset_left = -4.0
+offset_top = -8.0
+offset_right = 102.0
+offset_bottom = 8.0
+color = Color(0.18, 0.42, 0.62, 1)
+
+[node name="Counter" type="ColorRect" parent="MarketDistrict/StallB"]
+z_index = 2
+layout_mode = 0
+offset_left = 8.0
+offset_top = 25.0
+offset_right = 90.0
+offset_bottom = 38.0
+color = Color(0.34, 0.2, 0.1, 1)
+
+[node name="LampSouth" type="ColorRect" parent="."]
+z_index = 11
+offset_left = 45.0
+offset_top = 130.0
+offset_right = 51.0
+offset_bottom = 170.0
+color = Color(0.2, 0.18, 0.15, 1)
+
+[node name="Light" type="ColorRect" parent="LampSouth"]
+z_index = 3
+layout_mode = 0
+offset_left = -4.0
+offset_top = -5.0
+offset_right = 10.0
+offset_bottom = 7.0
+color = Color(0.95, 0.76, 0.32, 1)
 
 [node name="ToMarcusFarm" type="Area2D" parent="."]
 position = Vector2(460, 135)
@@ -258,7 +761,7 @@ position = Vector2(240, 135)
 limit_left = 0
 limit_top = 0
 limit_right = 480
-limit_bottom = 270
+limit_bottom = 480
 
 [node name="SceneRoot" type="Node" parent="."]
 script = ExtResource("5_sceneroot")
@@ -271,32 +774,41 @@ script = ExtResource("4_uimgr")
 
 [node name="Door" type="ColorRect" parent="."]
 z_index = 2
-offset_left = 80.0
-offset_top = 91.0
-offset_right = 110.0
-offset_bottom = 131.0
+offset_left = 79.0
+offset_top = 77.0
+offset_right = 109.0
+offset_bottom = 117.0
 color = Color(0.35, 0.22, 0.15, 1)
 
 [node name="DoorFrame" type="ColorRect" parent="."]
 z_index = 1
-offset_left = 77.0
-offset_top = 88.0
-offset_right = 113.0
-offset_bottom = 134.0
+offset_left = 76.0
+offset_top = 73.0
+offset_right = 112.0
+offset_bottom = 119.0
 color = Color(0.25, 0.18, 0.1, 1)
 
 [node name="DoorKnob" type="ColorRect" parent="."]
 z_index = 3
 offset_left = 103.0
-offset_top = 109.0
+offset_top = 96.0
 offset_right = 107.0
-offset_bottom = 113.0
+offset_bottom = 100.0
 color = Color(0.7, 0.6, 0.3, 1)
 
-[node name="Road2" type="ColorRect" parent="."]
-z_index = 1
-offset_left = 406.0
-offset_top = 121.0
-offset_right = 480.0
-offset_bottom = 148.0
-color = Color(0.55, 0.5, 0.4, 1)
+[node name="LampSouth2" type="ColorRect" parent="."]
+z_index = 11
+offset_left = 344.0
+offset_top = 128.0
+offset_right = 350.0
+offset_bottom = 168.0
+color = Color(0.2, 0.18, 0.15, 1)
+
+[node name="Light" type="ColorRect" parent="LampSouth2"]
+z_index = 3
+layout_mode = 0
+offset_left = -4.0
+offset_top = -5.0
+offset_right = 10.0
+offset_bottom = 7.0
+color = Color(0.95, 0.76, 0.32, 1)

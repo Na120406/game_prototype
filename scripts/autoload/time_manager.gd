@@ -179,6 +179,50 @@ func set_time(new_time: float) -> void:
 	time_changed.emit(GameState.current_time, GameState.is_day)
 
 
+## Tăng clock theo một bước gameplay (travel, cutscene) nhưng vẫn xử lý các
+## boundary mà `_process()` sẽ gặp nếu thời gian trôi liên tục. Boundary đầu
+## tiên có side effect kết thúc chu kỳ hiện tại (AFK hoặc dawn) giữ nguyên
+## semantics realtime: AFK bắt đầu knock-out; dawn bắt đầu ngày mới ở 06:00.
+func advance_clock(hours: float) -> void:
+	var duration: float = maxf(0.0, hours)
+	if duration <= 0.0:
+		return
+	var previous_time: float = GameState.current_time
+	var next_time: float = previous_time + duration
+	var afk_at: float = _next_daily_boundary(previous_time, 1.0)
+	var dawn_at: float = _next_daily_boundary(previous_time, 6.0)
+
+	if afk_at <= next_time and afk_at < dawn_at and not _afk_triggered_this_night:
+		set_time(next_time)
+		var energy_manager: Node = get_tree().root.get_node_or_null("EnergyManager")
+		if energy_manager != null and energy_manager.has_method("trigger_afk_knock_out"):
+			energy_manager.call("trigger_afk_knock_out")
+			_afk_triggered_this_night = true
+		else:
+			GameState.advance_day(6.0)
+			_afk_triggered_this_night = true
+			_farm_day_ticked_this_night = true
+		return
+
+	if dawn_at <= next_time and not _farm_day_ticked_this_night:
+		# Dawn bắt đầu ngày mới nhưng travel vẫn phải giữ phần thời gian đã đi
+		# sau 06:00 (05:00 + 1,5h => 06:30, không bị cắt về 06:00).
+		GameState.advance_day(fposmod(next_time, 24.0))
+		_farm_day_ticked_this_night = true
+		time_changed.emit(GameState.current_time, GameState.is_day)
+		return
+
+	set_time(next_time)
+
+
+func _next_daily_boundary(from_time: float, boundary_hour: float) -> float:
+	var cycle_start: float = floorf(from_time / 24.0) * 24.0
+	var occurrence: float = cycle_start + boundary_hour
+	if occurrence <= from_time:
+		occurrence += 24.0
+	return occurrence
+
+
 # =============================================================================
 # HÀM ĐẶT NGÀY (set_day)
 # =============================================================================

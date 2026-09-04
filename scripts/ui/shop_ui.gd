@@ -17,6 +17,9 @@ func _tr(key: String, fallback: String = "") -> String:
 signal shop_closed()
 
 const SELL_PRICE_RATIO: float = 0.5
+const SHOP_ROW_WIDTH: float = 210.0
+const SHOP_WINDOW_SIZE := Vector2(220, 176)
+const VOSS_NEW_STOCK_DIALOGUE_ID: String = "shopkeeper_new_stock_day3"
 
 var _player_gold: int = 100
 var _hotbar: Control = null
@@ -45,10 +48,15 @@ var _shop_is_visible: bool = false
 var _hotbar_last_id: String = ""
 var _hotbar_pending_id: String = ""
 var _hotbar_hover_timer: float = 0.0
-const HOTBAR_HOVER_DELAY: float = 1.5
 
 # Cờ báo tooltip đang hiện (dùng cho cả shop và hotbar)
 var _tooltip_is_shown: bool = false
+
+# Khi mở shop là trigger thoại lô hàng mới, giữ yêu cầu mở lại sau khi người
+# chơi đóng thoại. Cờ này chỉ tồn tại trong lượt mở hiện tại; trạng thái đã
+# xem thoại được lưu bền vững trong GameState.
+var _pending_shop_open_after_dialogue: bool = false
+var _pending_shop_gold: int = 0
 
 @onready var items_scroll: ScrollContainer = $Win/Col/ItemsScroll
 @onready var items_list: VBoxContainer = $Win/Col/ItemsScroll/Margin/ItemsList
@@ -65,8 +73,11 @@ func _ready() -> void:
 	buy_tab.pressed.connect(_on_tab_buy)
 	sell_tab.pressed.connect(_on_tab_sell)
 	shop_closed.connect(_on_shop_closed)
+	if not DialogueManager.dialogue_ended.is_connected(_on_pending_voss_dialogue_ended):
+		DialogueManager.dialogue_ended.connect(_on_pending_voss_dialogue_ended)
 	_create_tooltip()
 	_refresh_tabs()
+	_enforce_window_size()
 	items_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	items_scroll.get_v_scroll_bar().visible = false
 	items_scroll.get_h_scroll_bar().visible = false
@@ -269,6 +280,9 @@ func _show_tooltip_for_hotbar(item_id: String) -> void:
 # KIỂM TRA: Chỉ xử lý tooltip khi tooltip layer còn tồn tại
 
 func _process(_delta: float) -> void:
+	# PanelContainer có thể tự nới theo minimum size của một tên item dài;
+	# ép lại kích thước chuẩn mỗi frame để cửa sổ không nhảy giữa các tab.
+	_enforce_window_size()
 	# =================================================================
 	# SỬA LỖI: Kiểm tra tooltip layer còn tồn tại không
 	# Nếu đã bị xóa (scene chuyển), không làm gì
@@ -292,7 +306,7 @@ func _process(_delta: float) -> void:
 					_hide_tooltip()
 			elif _pending_item_data != null:
 				_hover_timer += _delta
-				if _hover_timer >= 1.5:
+				if _hover_timer >= _get_tooltip_hover_delay():
 					_show_tooltip(_pending_item_data)
 					_pending_item_data = null
 			elif _tooltip_panel.visible:
@@ -312,7 +326,7 @@ func _process(_delta: float) -> void:
 	# - Có pending item từ hotbar
 	elif not visible and _hotbar_pending_id != "":
 		_hotbar_hover_timer += _delta
-		if _hotbar_hover_timer >= HOTBAR_HOVER_DELAY:
+		if _hotbar_hover_timer >= _get_tooltip_hover_delay():
 			var db = get_node_or_null("/root/ItemDB")
 			if db != null:
 				var data: ItemData = db.get_item(_hotbar_pending_id)
@@ -322,6 +336,12 @@ func _process(_delta: float) -> void:
 	elif not visible and _hotbar_last_id != "" and not _tooltip_panel.visible:
 		_hotbar_last_id = ""
 		_hotbar_hover_timer = 0.0
+
+func _get_tooltip_hover_delay() -> float:
+	var config_manager: Node = get_node_or_null("/root/ConfigManager")
+	if config_manager != null and config_manager.has_method("get_tooltip_hover_delay"):
+		return float(config_manager.call("get_tooltip_hover_delay"))
+	return 0.3
 
 
 # =============================================================================
@@ -431,14 +451,50 @@ func _try_show_hotbar() -> void:
 # =============================================================================
 
 func open(gold: int = 200) -> void:
+	# Nếu đây là lần đầu vào shop từ ngày 3, ưu tiên thoại nhập hàng mới.
+	# Shop chỉ hiện sau khi người chơi đóng xong đoạn thoại.
+	if _try_start_voss_new_stock_dialogue(gold):
+		return
+	_open_shop_now(gold)
+
+
+func _try_start_voss_new_stock_dialogue(gold: int) -> bool:
+	if not GameState.is_voss_new_stock_dialogue_due():
+		return false
+	if DialogueManager.is_active:
+		return false
+
+	_pending_shop_open_after_dialogue = true
+	_pending_shop_gold = gold
+	DialogueManager.start_dialogue(VOSS_NEW_STOCK_DIALOGUE_ID, "Vos", "shopkeeper")
+	if not DialogueManager.is_active:
+		# Nếu dữ liệu/UI thoại không khởi động được, không khóa luôn quầy shop.
+		_pending_shop_open_after_dialogue = false
+		return false
+	GameState.mark_voss_new_stock_dialogue_seen()
+	return true
+
+
+func _on_pending_voss_dialogue_ended() -> void:
+	if not _pending_shop_open_after_dialogue:
+		return
+	var gold := _pending_shop_gold
+	_pending_shop_open_after_dialogue = false
+	_pending_shop_gold = 0
+	# Để DialogueManager hoàn tất việc ẩn DialogueUI trước khi dựng shop.
+	call_deferred("_open_shop_now", gold)
+
+
+func _open_shop_now(gold: int = 200) -> void:
 	_player_gold = gold
 	_current_tab = 0
+	# Reset tooltip state trước khi dựng lại danh sách. Trước đây gọi
+	# _refresh_shop() rồi mới reset đã xóa _row_item_cache vừa tạo, khiến tab
+	# Mua mới mở không tìm được item dưới con trỏ cho tới khi đổi tab.
+	_reset_all_state()
 	_refresh_tabs()
 	_refresh_shop()
 	_try_hide_hotbar()
-
-	# Reset state khi mở shop
-	_reset_all_state()
 
 	_shop_is_visible = true
 	visible = true
@@ -500,6 +556,7 @@ func _on_tab_buy() -> void:
 	_current_tab = 0
 	_refresh_tabs()
 	_refresh_shop()
+	_enforce_window_size()
 
 
 # =============================================================================
@@ -512,6 +569,7 @@ func _on_tab_sell() -> void:
 	_current_tab = 1
 	_refresh_tabs()
 	_refresh_shop()
+	_enforce_window_size()
 
 
 # =============================================================================
@@ -527,6 +585,16 @@ func _refresh_shop() -> void:
 		_refresh_buy_list()
 	else:
 		_refresh_sell_list()
+	_enforce_window_size()
+
+
+func _enforce_window_size() -> void:
+	var win: Control = get_node_or_null("Win") as Control
+	if win == null:
+		return
+	win.custom_minimum_size = SHOP_WINDOW_SIZE
+	if win.size != SHOP_WINDOW_SIZE:
+		win.size = SHOP_WINDOW_SIZE
 
 
 # =============================================================================
@@ -607,7 +675,7 @@ func _refresh_sell_list() -> void:
 
 func _make_buy_row(item_data: ItemData) -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(0, 26)
+	row.custom_minimum_size = Vector2(SHOP_ROW_WIDTH, 26)
 
 	var hover_zone := HBoxContainer.new()
 	hover_zone.name = "HoverZone"
@@ -663,7 +731,7 @@ func _make_buy_row(item_data: ItemData) -> HBoxContainer:
 
 func _make_sell_row(item_id: String, amount: int) -> Array:
 	var row := HBoxContainer.new()
-	row.custom_minimum_size = Vector2(0, 26)
+	row.custom_minimum_size = Vector2(SHOP_ROW_WIDTH, 26)
 
 	var db = get_node_or_null("/root/ItemDB")
 	var item_data: ItemData = null
@@ -697,17 +765,20 @@ func _make_sell_row(item_id: String, amount: int) -> Array:
 	name_lbl.add_theme_font_size_override("font_size", 10)
 	hover_zone.add_child(name_lbl)
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(2, 0)
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-
+	# Số lượng nằm ngay cạnh tên item, thay vì bị dồn vào action zone bên phải.
+	# Nhờ vậy giá + nút Bán dùng đúng cùng cột phải với hàng Mua.
 	var amount_lbl := Label.new()
 	amount_lbl.custom_minimum_size = Vector2(28, 0)
 	amount_lbl.text = "x%d" % amount
 	amount_lbl.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55, 1))
 	amount_lbl.add_theme_font_size_override("font_size", 8)
-	amount_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	amount_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hover_zone.add_child(amount_lbl)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(2, 0)
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
 
 	var sell_price: int = _get_sell_price(item_id)
 	var price_lbl := Label.new()
@@ -726,7 +797,6 @@ func _make_sell_row(item_id: String, amount: int) -> Array:
 	action_zone.name = "ActionZone"
 	action_zone.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	action_zone.alignment = HBoxContainer.ALIGNMENT_END
-	action_zone.add_child(amount_lbl)
 	action_zone.add_child(price_lbl)
 	action_zone.add_child(action_btn)
 	row.add_child(action_zone)

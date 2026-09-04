@@ -10,6 +10,7 @@ extends Area2D
 @export var metadata: PortalData = null
 
 var _player_inside: bool = false
+var _traversal_cost_applied: bool = false
 
 var prompt_label: Label = null
 
@@ -77,7 +78,68 @@ func _process(_delta: float) -> void:
 func _change_scene() -> void:
 	if target_scene == "":
 		return
+	if not ResourceLoader.exists(target_scene):
+		push_error("[WorldTransition] Scene không tồn tại: %s" % target_scene)
+		return
+	if not can_traverse():
+		GameState.pending_portal_interaction = false
+		_show_locked_feedback()
+		return
+	if _traversal_cost_applied:
+		return
+	_traversal_cost_applied = true
+	var traversal_cost: float = get_traversal_cost()
+	if traversal_cost > 0.0:
+		_apply_traversal_cost(traversal_cost)
 	SceneManager.change_scene(target_scene, portal_id)
+
+
+## Enforce gate ngay tại portal boundary. TreeBlocker vẫn giữ vai trò visual và
+## collision, nhưng portal không thể bị bypass khi placeholder map cho đi vòng.
+func can_traverse() -> bool:
+	# Enforce the same shortcut gate from both sides.  The Town-side portal
+	# used to be open unconditionally, which allowed bypassing the blocker by
+	# entering the portal from the new Town map.
+	if portal_id == "portal_forest_short_to_town" or portal_id == "portal_town_to_forest_short":
+		return GameState.is_forest_shortcut_cleared()
+	return true
+
+
+func _show_locked_feedback() -> void:
+	var warning: Node = get_node_or_null("/root/FloatingWarning")
+	if warning != null and warning.has_method("show_text_plain"):
+		var message := "đường này bị chặn rồi" if portal_id == "portal_town_to_forest_short" else "Cần vật gì đó để xử lý."
+		warning.call("show_text_plain", message)
+
+
+## Route cost là clock travel, không phải ngủ/knock-out. Không dùng
+## GameState.advance_time() vì API đó reset ngày về 06:00 và hồi energy khi
+## vượt 24:00. TimeManager giữ phần dư qua nửa đêm và tự xử lý clock boundary.
+func _apply_traversal_cost(hours: float) -> void:
+	var next_time: float = GameState.current_time + maxf(0.0, hours)
+	var time_manager: Node = get_node_or_null("/root/TimeManager")
+	if time_manager != null and time_manager.has_method("advance_clock"):
+		time_manager.call("advance_clock", hours)
+		return
+	if time_manager != null and time_manager.has_method("set_time"):
+		time_manager.call("set_time", next_time)
+		return
+	GameState.current_time = next_time
+	var t24: float = fposmod(next_time, 24.0)
+	GameState.is_day = t24 >= 6.0 and t24 < 22.0
+
+
+## Thời gian di chuyển của portal. Chỉ Forest route dùng cost gameplay;
+## các portal khác giữ cost bằng 0 để không thay đổi hành vi cũ.
+func get_traversal_cost() -> float:
+	var cm: Node = get_node_or_null("/root/ConfigManager")
+	if cm == null:
+		return 0.0
+	if portal_id == "portal_forest_long_to_town":
+		return maxf(0.0, float(cm.get_forest_long_route_time()))
+	if portal_id == "portal_forest_short_to_town" or portal_id == "portal_town_to_forest_short":
+		return maxf(0.0, float(cm.get_forest_shortcut_time()))
+	return 0.0
 
 
 # =============================================================================

@@ -202,7 +202,7 @@ func _schedule_waiting_at_player_house() -> void:
 func _schedule_after_intro_to_town() -> void:
 	schedule = [
 		# Sau intro, Marcus phải đến Town và ở đó từ 08:00 đến 12:00.
-		{"time": 7.0, "state": NPCState.WALKING, "action": "leave_player_farm", "scene": SCENE_PLAYER_FARM, "pos": Vector2(790, 300), "route_id": "farm_to_town"},
+		{"time": 7.0, "state": NPCState.WALKING, "action": "leave_player_farm", "scene": SCENE_PLAYER_FARM, "pos": Vector2(630, 300), "route_id": "farm_to_town"},
 		{"time": 7.1, "state": NPCState.WALKING, "action": "arrive_in_town", "scene": SCENE_TOWN, "pos": Vector2(430, 110), "route_id": "farm_to_town"},
 		# 12:00: rời Town qua portal và đi về Marcus Farm.
 		{"time": 12.0, "state": NPCState.WALKING, "action": "return_to_marcus_farm", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
@@ -327,7 +327,7 @@ func _on_dm_ended() -> void:
 			_schedule_after_intro_to_town()
 			# Cutscene có thể kết thúc muộn khi Marcus đã được chuyển sang
 			# marcus_farm_map. Khi đó farm_to_town bắt đầu ở farm_map và khiến
-			# NPC chạy thẳng về (790,300), thường là góc dưới phải.
+			# NPC đi theo đường về cổng Forest mới tại (630,300).
 			# Luôn dùng route farm_to_town cho đoạn 08:00–11:00 của ngày 1,
 			# giống trường hợp skip nhanh đã được kiểm chứng ổn định.
 			for step: Dictionary in schedule:

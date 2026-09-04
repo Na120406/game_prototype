@@ -380,6 +380,14 @@ func _interact() -> void:
 	# (npc/counter/apple/bed) vẫn chạy qua đây, nên reset cho sạch).
 	GameState.pending_portal_interaction = false
 
+	# Các interactable có prompt đăng ký target tập trung (WaterSource,
+	# TreeBlocker, ...) phải nhận E qua cùng một dispatcher để không bị bỏ qua
+	# khi raycast không chạm đúng collider.
+	var prompt_manager: Node = get_node_or_null("/root/InteractionPromptManager")
+	if prompt_manager != null and prompt_manager.has_method("try_interact"):
+		if prompt_manager.call("try_interact", self):
+			return
+
 	_set_state(State.INTERACTING)
 	_current_interact_target = null
 

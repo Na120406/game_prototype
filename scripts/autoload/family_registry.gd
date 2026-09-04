@@ -210,10 +210,11 @@ func mark_family_member_dead(member_id: String, family_id: String) -> bool:
 	if family.is_empty():
 		return false
 
+	var canonical_id: String = resolve_canonical_npc_id(member_id)
 	var members: Array = family["members"]
 	for i: int in range(members.size()):
 		var m_id: String = members[i].get("id", "")
-		if m_id == member_id:
+		if m_id == member_id or resolve_canonical_npc_id(m_id) == canonical_id:
 			members[i]["alive"] = false
 			var dead_member: Dictionary = members[i]
 			_on_member_death(family_id, dead_member)
@@ -456,3 +457,22 @@ func serialize_families() -> Dictionary:
 
 func load_families(data: Dictionary) -> void:
 	families = data.duplicate(true)
+
+
+# =============================================================================
+# CANONICAL NPC ID — VOS & CLAY
+# =============================================================================
+# ID chính thức đã chốt: cha = "Vos", con = "Clay".
+# Các ID prototype (shopkeeper, shopkeeper_father, shopkeeper_son) được ánh xạ
+# về canonical để logic mới dùng thống nhất; alias giữ cho code cũ không vỡ.
+
+const CANONICAL_NPC_ALIASES: Dictionary = {
+	"Vos": "Vos",
+	"Clay": "Clay",
+	"shopkeeper": "Vos",
+	"shopkeeper_father": "Vos",
+	"shopkeeper_son": "Clay",
+}
+
+func resolve_canonical_npc_id(npc_id: String) -> String:
+	return str(CANONICAL_NPC_ALIASES.get(npc_id, npc_id))

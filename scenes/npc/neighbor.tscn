@@ -1,16 +1,17 @@
 [gd_scene load_steps=4 format=3]
 
-[ext_resource type="Texture2D" uid="uid://dld8dhw00k2y4" path="res://scenes/icon.svg" id="1_icon"]
+[ext_resource type="Texture2D" path="res://assets/characters/marcus.png" id="1_marcus_texture"]
 [ext_resource type="Script" path="res://scripts/npc/neighbor.gd" id="2_neighbor"]
 
 [sub_resource type="RectangleShape2D" id="RS_body"]
-size = Vector2(14, 14)
+size = Vector2(18.392, 18.392)
 
 [sub_resource type="RectangleShape2D" id="RS_interact"]
 size = Vector2(28, 28)
 
 [node name="Neighbor" type="CharacterBody2D"]
 z_index = 5
+safe_margin = 0.0
 script = ExtResource("2_neighbor")
 npc_name = "Old Marcus"
 npc_id = "neighbor"
@@ -18,11 +19,11 @@ dialogue_id = "neighbor"
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 position = Vector2(0, -4)
-scale = Vector2(0.2, 0.2)
-texture = ExtResource("1_icon")
+scale = Vector2(0.242, 0.242)
+texture = ExtResource("1_marcus_texture")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, 1)
+position = Vector2(0, -6.299)
 shape = SubResource("RS_body")
 
 [node name="InteractionArea" type="Area2D" parent="."]

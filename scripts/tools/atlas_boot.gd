@@ -4,8 +4,8 @@ extends Node
 # Run via /root/ATLAS_BOOT autoload, OR call _build_all() from any node.
 # Saves resources to disk so other scenes can reference them via ExtResource.
 
-const GROUND_TEX_PATH := "res://Tile Maps/1 Tiles/FieldsTileset.png"
-const DECOR_TEX_PATH  := "res://Tile Maps/Plants/Plants.png"
+const GROUND_TEX_PATH := "res://tilesets/Ground/FieldsTileset.png"
+const DECOR_TEX_PATH  := "res://tilesets/Plants/Plants.png"
 const GROUND_TS_PATH  := "res://resources/tilesets/farm_ground_tileset.tres"
 const DECOR_TS_PATH   := "res://resources/tilesets/decor_tileset.tres"
 

@@ -104,6 +104,7 @@ const SLOT_KIND_TOOLBAR := 1
 var _inv_slot_panels: Array[Panel] = []
 var _inv_slot_icons: Array[Label] = []
 var _inv_slot_counts: Array[RichTextLabel] = []
+var _water_bar_fills: Array[ColorRect] = []
 
 var _tooltip: RichTextLabel = null
 var _tooltip_panel: Panel = null
@@ -224,10 +225,15 @@ func _ready() -> void:
 	_apply_panel_size_if_ready()
 	_apply_title_label_offset_if_ready()
 	_build_tooltip()
+	# Trong editor, autoload được biểu diễn bằng placeholder instance nên không
+	# được gọi API runtime. Các bước dựng/style phía trên vẫn chạy để giữ live preview.
+	if Engine.is_editor_hint():
+		return
 	GameState.reset_inventory_layout()
 	_refresh_all()
 	GameState.inventory_changed.connect(_on_inventory_changed)
 	GameState.toolbar_changed.connect(_on_toolbar_changed)
+	GameState.watering_can_changed.connect(_on_watering_can_changed)
 	_bright_region = get_node_or_null("Root/BrightRegion")
 	_inventory_panel = get_node_or_null("Root/Panel")
 	if _bright_region != null:
@@ -235,6 +241,14 @@ func _ready() -> void:
 	_build_context_menu()
 	_build_tabs()
 	print("[InvUI] _ready EXIT, _bright_region=", _bright_region, " _inventory_panel=", _inventory_panel, " _context_menu=", _context_menu)
+
+func _exit_tree() -> void:
+	if GameState.inventory_changed.is_connected(_on_inventory_changed):
+		GameState.inventory_changed.disconnect(_on_inventory_changed)
+	if GameState.toolbar_changed.is_connected(_on_toolbar_changed):
+		GameState.toolbar_changed.disconnect(_on_toolbar_changed)
+	if GameState.watering_can_changed.is_connected(_on_watering_can_changed):
+		GameState.watering_can_changed.disconnect(_on_watering_can_changed)
 
 # Áp style bo góc nhẹ cho PanelContainer (TitleBox / GridBox).
 # bg_color: màu nền nâu, border_color: màu viền vàng nâu,
@@ -371,6 +385,29 @@ func _build_inv_grid() -> void:
 		var count := _make_count_label("InvCount")
 		panel.add_child(count)
 		_inv_slot_counts.append(count)
+		var water_bar := ColorRect.new()
+		water_bar.name = "WaterLevelBar"
+		water_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		water_bar.anchor_top = 1.0
+		water_bar.anchor_bottom = 1.0
+		water_bar.offset_left = 3.0
+		water_bar.offset_top = -5.0
+		water_bar.offset_right = -3.0
+		water_bar.offset_bottom = -2.0
+		water_bar.color = Color(0.15, 0.10, 0.07, 0.85)
+		water_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		water_bar.z_index = 8
+		panel.add_child(water_bar)
+		var water_fill := ColorRect.new()
+		water_fill.name = "WaterLevelFill"
+		water_fill.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+		water_fill.anchor_top = 0.0
+		water_fill.anchor_bottom = 1.0
+		water_fill.anchor_right = 1.0
+		water_fill.color = Color(0.2, 0.65, 0.95, 1.0)
+		water_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		water_bar.add_child(water_fill)
+		_water_bar_fills.append(water_fill)
 		grid.add_child(panel)
 		_inv_slot_panels.append(panel)
 
@@ -467,7 +504,8 @@ func _build_tooltip() -> void:
 	_tooltip.add_theme_stylebox_override("normal", tooltip_style)
 
 	_tooltip_timer = Timer.new()
-	_tooltip_timer.wait_time = 0.3
+	var config_manager: Node = get_node_or_null("/root/ConfigManager")
+	_tooltip_timer.wait_time = config_manager.get_tooltip_hover_delay() if config_manager != null and config_manager.has_method("get_tooltip_hover_delay") else 0.3
 	_tooltip_timer.one_shot = true
 	_tooltip_timer.timeout.connect(_show_tooltip_for_pending)
 	add_child(_tooltip_timer)
@@ -1006,6 +1044,9 @@ func _on_toolbar_changed() -> void:
 	if visible and _drop_target_slot >= 100:
 		_apply_drop_target_style(_drop_target_slot, _is_drop_target(_drop_target_slot))
 
+func _on_watering_can_changed(_level: int) -> void:
+	_refresh_inv()
+
 func _refresh_inv() -> void:
 	for i: int in range(TOTAL_SLOTS):
 		_update_inv_slot(i)
@@ -1023,6 +1064,7 @@ func _update_inv_slot(slot_idx: int) -> void:
 		item_id = entry.get("id", "")
 		amount = entry.get("amount", 1)
 	_fill_slot(panel, icon, count, item_id, amount, slot_idx)
+	_update_watering_bar(slot_idx, item_id)
 
 func _fill_slot(panel: Panel, icon: Label, count: RichTextLabel, item_id: String, amount: int, slot_idx: int) -> void:
 	if item_id == "":
@@ -1048,6 +1090,22 @@ func _fill_slot(panel: Panel, icon: Label, count: RichTextLabel, item_id: String
 			icon.visible = true
 			count.visible = false
 			_set_slot_border(panel, true, false, slot_idx)
+
+func _update_watering_bar(slot_idx: int, item_id: String) -> void:
+	if slot_idx < 0 or slot_idx >= _water_bar_fills.size():
+		return
+	var fill: ColorRect = _water_bar_fills[slot_idx]
+	var bar: Control = fill.get_parent() as Control
+	bar.visible = item_id == "water_can"
+	if not bar.visible:
+		return
+	var max_capacity: int = maxi(1, GameState.get_watering_can_max_capacity())
+	fill.anchor_right = clampf(float(GameState.get_watering_can_level()) / float(max_capacity), 0.0, 1.0)
+
+func get_watering_bar_ratio(slot_idx: int) -> float:
+	if slot_idx < 0 or slot_idx >= _water_bar_fills.size():
+		return -1.0
+	return _water_bar_fills[slot_idx].anchor_right
 
 func _set_slot_border(panel: Panel, has_item: bool, is_drop: bool, slot_idx: int) -> void:
 	var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat

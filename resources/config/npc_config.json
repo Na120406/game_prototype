@@ -202,6 +202,7 @@
     "neighbor_still_need": "res://resources/dialogue/neighbor_still_need.json",
     "neighbor_idle": "res://resources/dialogue/neighbor_idle.json",
     "neighbor_quest_complete": "res://resources/dialogue/neighbor_quest_complete.json",
-    "shopkeeper": "res://resources/dialogue/shopkeeper.json"
+    "shopkeeper": "res://resources/dialogue/shopkeeper.json",
+    "shopkeeper_new_stock_day3": "res://resources/dialogue/shopkeeper_new_stock_day3.json"
   }
 }

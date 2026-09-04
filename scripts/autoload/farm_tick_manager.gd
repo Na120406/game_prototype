@@ -298,7 +298,38 @@ func serialize() -> Dictionary:
 func deserialize(data: Dictionary) -> void:
 	cells.clear()
 	for key in data.keys():
-		cells[key] = data[key]
+		cells[key] = data[key].duplicate(true) if data[key] is Dictionary else data[key]
+
+
+## Adapter save ổn định dùng trực tiếp source-of-truth FarmTickManager.
+## Giữ format legacy {"cells": [{x, y, data}]} để save v3 vẫn tương thích.
+func export_save_data() -> Dictionary:
+	var cells_array: Array = []
+	for cell_key: String in cells.keys():
+		var parts: PackedStringArray = cell_key.split(",")
+		if parts.size() != 2:
+			continue
+		cells_array.append({
+			"x": int(parts[0]),
+			"y": int(parts[1]),
+			"data": cells[cell_key].duplicate(true),
+		})
+	return {"cells": cells_array}
+
+
+## Restore trực tiếp vào autoload nên hoạt động ở mọi scene, kể cả Forest/Town.
+func import_save_data(data: Dictionary) -> void:
+	var restored: Dictionary = {}
+	var entries: Variant = data.get("cells", [])
+	if entries is Array:
+		for entry: Variant in entries:
+			if entry is Dictionary:
+				var key := "%d,%d" % [int(entry.get("x", 0)), int(entry.get("y", 0))]
+				restored[key] = entry.get("data", {}).duplicate(true)
+	deserialize(restored)
+	_sanitize_plowed_cells()
+	_last_day = GameState.current_day
+	_persist_snapshot()
 
 func _save_to_snapshot() -> void:
 	if cells.is_empty():

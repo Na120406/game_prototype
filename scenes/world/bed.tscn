@@ -6,7 +6,7 @@
 size = Vector2(60, 50)
 
 [sub_resource type="RectangleShape2D" id="RS_wall"]
-size = Vector2(40, 6)
+size = Vector2(44, 4)
 
 [node name="Bed" type="StaticBody2D"]
 position = Vector2(360, 110)
@@ -45,11 +45,11 @@ offset_bottom = 8.0
 color = Color(0.3, 0.25, 0.45, 1)
 
 [node name="CollisionTop" type="CollisionShape2D" parent="."]
-position = Vector2(0, -14)
+position = Vector2(0, -12)
 shape = SubResource("RS_wall")
 
 [node name="CollisionBottom" type="CollisionShape2D" parent="."]
-position = Vector2(0, 14)
+position = Vector2(0, 12)
 shape = SubResource("RS_wall")
 
 [node name="InteractArea" type="Area2D" parent="."]

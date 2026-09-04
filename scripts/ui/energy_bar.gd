@@ -3,7 +3,7 @@ extends Node
 # EnergyBar — thanh năng lượng persistent ở góc dưới phải màn hình.
 # Là autoload singleton: chạy trên root SceneTree, không bị destroy khi chuyển map.
 # Thanh là 1 dải màu xanh liền, fill từ dưới lên theo % năng lượng.
-# Hover 2s → hiển thị tooltip "E XX/XX".
+# Hover theo cùng delay tooltip vật phẩm trong Inventory → hiển thị "E XX/XX".
 
 const GREEN_COLOR := Color(0.30, 0.78, 0.35, 1.0)
 const RED_COLOR := Color(0.85, 0.25, 0.20, 1.0)
@@ -12,8 +12,6 @@ const EMPTY_COLOR := Color(0.12, 0.09, 0.06, 0.9)
 const BAR_W: float = 14.0
 const BAR_H: float = 40.0
 const BORDER_THICK: float = 1.0
-
-const HOVER_DELAY: float = 2.0
 
 var _fill: ColorRect = null
 var _bar: Control = null
@@ -138,8 +136,14 @@ func _process(delta: float) -> void:
 	if _hover_timer <= 0.0:
 		return
 	_hover_timer += delta
-	if _hover_timer >= HOVER_DELAY:
+	if _hover_timer >= _get_tooltip_hover_delay():
 		_tooltip.visible = true
+
+func _get_tooltip_hover_delay() -> float:
+	var config_manager: Node = get_node_or_null("/root/ConfigManager")
+	if config_manager != null and config_manager.has_method("get_tooltip_hover_delay"):
+		return float(config_manager.call("get_tooltip_hover_delay"))
+	return 0.3
 
 func _on_bar_mouse_entered() -> void:
 	_hover_timer = 0.01

@@ -1,0 +1,62 @@
+{
+  "event_id": "shopkeeper_mountain",
+  "version": 1,
+  "canonical_npc_ids": {
+    "shopkeeper": "Vos",
+    "son": "Clay",
+    "family": "shopkeeper_family"
+  },
+  "schedule": {
+    "event_day": 5,
+    "departure_time": 11.0,
+    "fall_time": 16.0,
+    "end_time": 17.0,
+    "recurring": false,
+    "repeat_cycle_days": 0
+  },
+  "outcome_weights": {
+    "baseline": {
+      "safe": 0.45,
+      "injured": 0.30,
+      "severely_injured": 0.20,
+      "dead": 0.05
+    },
+    "rescue_generic": {
+      "safe": 0.60,
+      "injured": 0.30,
+      "severely_injured": 0.10,
+      "dead": 0.0
+    },
+    "rescue_rope": {
+      "safe": 0.80,
+      "injured": 0.20,
+      "severely_injured": 0.0,
+      "dead": 0.0
+    }
+  },
+  "price_modifier": {
+    "no_rescue_penalty": 0.15,
+    "rescue_discount": -0.15,
+    "apply_to": ["buy_price", "sell_price"],
+    "discount_duration_days": 14
+  },
+  "shop_consequences": {
+    "injured": { "closed_days": 0, "temporary_seller_days": 1 },
+    "severely_injured": { "closed_days": 2 },
+    "dead": { "closed_days": 2 }
+  },
+  "death_price_cycle": {
+    "interval_days": 3,
+    "mode": "volatile_higher",
+    "algorithm": "TBD"
+  },
+  "mountain": {
+    "scene_path": "res://scenes/maps/mountain_map.tscn",
+    "north_portal": "portal_town_to_mountain",
+    "return_portal": "portal_mountain_to_town",
+    "route_to_mountain": "town_to_mountain",
+    "route_to_town": "mountain_to_town",
+    "fall_point": "FallPoint",
+    "fall_zone": "FallZone"
+  }
+}
