@@ -1,107 +1,143 @@
-# Old Town
+# Old Town — GameDemo
 
-**Old Town** là một prototype game 2D góc nhìn từ trên xuống, kết hợp vòng lặp
-canh tác, khám phá và mô phỏng đời sống trong một thị trấn nhỏ. Dự án được xây dựng
-bằng **Godot 4.5** và **GDScript**.
+Prototype game 2D góc nhìn từ trên xuống về canh tác, đời sống thị trấn và một lớp
+bí ẩn nhẹ. Người chơi quản lý một ngày có giới hạn thời gian/năng lượng, chăm sóc
+nông trại, đi qua các khu vực, gặp NPC và mở dần các lựa chọn khám phá.
 
-Người chơi bắt đầu trong căn nhà, chăm sóc nông trại, quản lý năng lượng, tương tác
-với NPC, hoàn thành nhiệm vụ và khám phá các sự kiện thay đổi theo thời gian, thời tiết
-và lựa chọn của người chơi.
-
-> **Trạng thái:** Prototype đang phát triển  
-> **Engine:** Godot 4.5 (Forward Plus)  
+> **Trạng thái:** Prototype v1.0.0 · chưa phải bản phát hành thương mại<br>
+> **Engine:** Godot 4.5 · Forward Plus<br>
 > **Ngôn ngữ:** GDScript  
 > **Scene khởi động:** `res://scenes/maps/inside_house_map.tscn`
 
-## Chạy dự án
+![Character prototype](assets/characters/characters_prototype.png)
+
+## Chạy prototype
 
 ### Yêu cầu
 
-- Godot **4.5** hoặc mới hơn trong nhánh Godot 4
-- Git (khuyến nghị khi làm việc theo nhóm)
+- Godot 4.5.x (hoặc bản Godot 4 tương thích).
+- Git nếu muốn clone và theo dõi lịch sử thay đổi.
+- Không có dependency ngoài Godot.
 
 ### Khởi động
 
-1. Clone hoặc tải repository về máy.
-2. Mở Godot Project Manager.
-3. Chọn **Import** và mở file `project.godot`.
-4. Mở project bằng Godot 4.5.
-5. Nhấn **F6** để chạy scene hiện tại hoặc **F5** để chạy game từ scene chính.
+1. Clone repository hoặc tải source về máy.
+2. Mở Godot Project Manager → **Import** → chọn `project.godot`.
+3. Mở project bằng Godot 4.5.
+4. Nhấn **F6** để chạy scene đang mở hoặc **F5** để chạy scene chính.
 
-Không cần cài thêm dependency bên ngoài. Các thiết lập input, autoload và scene chính
-đã được cấu hình trong `project.godot`.
+Scene chính đã được cấu hình sẵn; không cần chạy script build hay copy asset thủ công.
 
 ## Điều khiển
 
 | Hành động | Phím mặc định |
 |---|---|
-| Di chuyển lên / xuống / trái / phải | `W` / `S` / `A` / `D` |
-| Tương tác | `E` |
-| Mở / đóng túi đồ | `Tab` |
-| Chọn ô công cụ trên thanh nhanh | `1`–`5` |
-| Tương tác bằng chuột | Chuột trái / phải tùy đối tượng |
+| Di chuyển | `W` `A` `S` `D` |
+| Tương tác, nhặt, dùng công cụ | `E` |
+| Chạy nước rút | `X` |
+| Mở/đóng inventory | `Tab` |
+| Chọn ô hotbar | `1`–`5` |
+| Dùng vật phẩm trên ô đất | Chuột trái/phải tùy ngữ cảnh |
 
-Các phím có thể được điều chỉnh trong Input Map của Godot hoặc trong mục `[input]`
-của `project.godot`.
+Input Map có thể xem và chỉnh trong `project.godot`.
 
-## Cấu trúc dự án
+## Vòng lặp chơi hiện có
+
+- Bắt đầu ngày lúc 06:00 với 20 năng lượng; ngủ để chuyển sang ngày mới.
+- Cuốc, gieo hạt, tưới, chờ cây lớn và thu hoạch trên farm.
+- Bình tưới có sức chứa 5; lấy nước ở WaterSource hồi đầy và tiêu hao 3 năng lượng.
+- Khai thác TreeBlocker bằng rìu: cần 3 lần chặt, mỗi lần tốn 1 năng lượng.
+- Rìu mở bán từ ngày 3 với giá 120 vàng.
+- Táo tại các điểm gathering có xác suất xuất hiện 25% mỗi điểm, reset theo ngày.
+- Inventory 21 ô và hotbar 5 ô; tooltip dùng chung độ trễ 0,3 giây.
+- Portal town/forest có tuyến dài và đường tắt; đường tắt bị chặn cho đến khi phá khúc gỗ.
+- Marcus có lịch theo ngày, đi theo road ColorRect khi route có đường vẽ; Voss mở thoại hàng mới từ ngày 3.
+
+## Bản đồ và scene chính
+
+| Khu vực | Scene | Vai trò |
+|---|---|---|
+| Nhà người chơi | `scenes/maps/inside_house_map.tscn` | Scene khởi động, ngủ và vào ngày mới |
+| Farm | `scenes/maps/farm_map.tscn` | Trồng trọt, hàng rào, WaterSource |
+| Forest | `scenes/maps/forest_map.tscn` | Gathering táo, đường dài/đường tắt, TreeBlocker |
+| Town | `scenes/maps/town_map.tscn` | Shop, NPC và hai cổng đi forest |
+| Shop | `scenes/maps/inside_shop_map.tscn` | Mua/bán vật phẩm, Voss |
+| Marcus farm/house | `scenes/maps/marcus_farm_map.tscn`, `marcus_house_map.tscn` | Route và điểm nghỉ của Marcus |
+
+## Cấu trúc repository
 
 ```text
 game-demo/
-├── scenes/                 # Scene Godot: bản đồ, NPC, UI, vật thể
+├── project.godot              # Cấu hình project, input, autoload, scene chính
+├── scenes/                    # Scene Godot: map, NPC, UI, world object
 ├── scripts/
-│   ├── autoload/           # Hệ thống toàn cục trong project.godot
-│   ├── player/             # Điều khiển người chơi
-│   ├── npc/                # NPC, lịch trình và tương tác
-│   ├── world/              # Nông trại, chuyển scene và môi trường
-│   ├── ui/                 # HUD, inventory, dialogue và input UI
-│   ├── tools/              # Công cụ phát triển
-│   └── utils/              # Lưu game và tiện ích
+│   ├── autoload/              # GameState, time, scene, NPC, dialogue, save...
+│   ├── player/                # Điều khiển player và tương tác
+│   ├── npc/                   # NPC, schedule, route/pathfinding
+│   ├── world/                 # Farm, portal, tree blocker, gathering...
+│   ├── ui/                    # HUD, hotbar, inventory, shop, dialogue
+│   ├── data/                  # Resource route/waypoint/portal
+│   └── utils/                 # Tiện ích và save manager
 ├── resources/
-│   ├── config/             # Cấu hình gameplay và dữ liệu NPC
-│   ├── dialogue/           # Dữ liệu hội thoại
-│   ├── items/              # Item database và ItemData
-│   ├── quest/              # Dữ liệu nhiệm vụ
-│   └── tilesets/           # Tài nguyên tileset
-├── tilesets/               # Texture tileset và asset môi trường
-├── docs/                   # Template và tài liệu NPC
-├── project.godot           # Cấu hình project Godot
-└── README.md               # Tài liệu này
+│   ├── config/                # JSON cân bằng game, text, NPC
+│   ├── dialogue/              # Hội thoại theo ngày/trạng thái
+│   ├── items/                # ItemData và định nghĩa item (.tres)
+│   └── quest/                 # Dữ liệu nhiệm vụ
+├── assets/characters/         # Chỉ asset runtime PNG của player/NPC
+├── tilesets/                  # Chỉ texture tileset còn được runtime tham chiếu
+├── docs/ARCHITECTURE.md       # Bản đồ kiến trúc để bảo trì project
+└── README.md
 ```
 
-## Các hệ thống chính
+`docs/ARCHITECTURE.md` là bản đồ mã nguồn chi tiết và phải được đọc trước khi sửa
+logic. Tài liệu thiết kế, regression tests, công cụ build, map thử nghiệm, tileset
+nguồn và metadata editor nằm ngoài project runtime tại thư mục sibling
+`D:\Project_Game\game-demo-elements`; chúng không được đưa vào bản export.
 
-- **Farming:** ô đất, gieo trồng, tưới nước, sinh trưởng và thu hoạch.
-- **World simulation:** ngày/giờ, thời tiết, mùa và cập nhật thế giới.
-- **NPC & family:** nhân vật, lịch sinh hoạt, gia đình và tiến trình.
-- **Items & tools:** database vật phẩm, inventory và công cụ.
-- **Quests & events:** nhiệm vụ, chuỗi sự kiện phân nhánh và hệ quả.
-- **Dialogue & audio:** hội thoại theo trạng thái và quản lý âm thanh.
-- **Save/load:** lưu tiến trình bằng `SaveManager`.
+## Kiểm thử nhanh
 
-Các hệ thống dùng autoload singleton và signal của Godot. Danh sách cấu hình đầy đủ
-nằm trong phần `[autoload]` của `project.godot`.
+Kiểm tra import project:
 
-## Tài liệu dự án
+```powershell
+& "E:\Godot_v4.5.1-stable_win64.exe\Godot_v4.5.1-stable_win64.exe" --headless --editor --path . --quit
+```
 
-- `docs/ARCHITECTURE.md` — **Bản đồ mã nguồn & kiến trúc** (đọc trước khi sửa code)
-- `design/gdd/` — Game Design Document và định hướng thiết kế
-- `docs/characters/` — Thiết kế nhân vật/NPC
-- `docs/templates/` — Template viết tài liệu
+Regression scenes và harness phát triển được lưu trong
+`D:\Project_Game\game-demo-elements\tests`. Chúng không thuộc project runtime; khi
+cần chạy test, dùng một working copy phát triển có gắn lại thư mục này trước khi mở
+Godot. Giữ output trong thư mục tạm/local; không commit log hoặc screenshot debug vào
+repository runtime.
 
-## Quy trình phát triển
+## Dữ liệu và kiến trúc
 
-1. Tạo branch cho thay đổi mới.
-2. Chỉnh sửa scene, script hoặc resource liên quan.
-3. Chạy F5 trong Godot để kiểm tra.
-4. Kiểm tra Output/Debugger.
-5. Chỉ commit file nguồn và asset cần thiết cho game.
+- Trạng thái trung tâm: `scripts/autoload/game_state.gd`.
+- Cấu hình gameplay: `resources/config/game_config.json`.
+- Lịch/NPC: `resources/config/npc_config.json`, `scripts/autoload/npc_schedules.gd`.
+- Chuyển scene và portal: `scripts/autoload/scene_manager.gd`.
+- Farming: `scripts/autoload/farm_tick_manager.gd` và `scripts/world/farm/`.
+- Dialogue/UI: `scripts/autoload/dialogue_manager.gd`, `scripts/ui/`.
+- Lưu game: `scripts/utils/save_manager.gd`.
 
-## Định hướng thiết kế
+Các hệ thống giao tiếp chủ yếu qua autoload singleton và signal; dữ liệu cân bằng được
+tách khỏi scene để dễ kiểm thử và chỉnh sửa.
 
-- **Playable > Beautiful** — ưu tiên trải nghiệm chơi được.
-- **Finished > Perfect** — hoàn thiện vòng lặp cốt lõi trước.
-- **Simple > Scalable** — giữ hệ thống rõ ràng, dễ bảo trì.
+## Chính sách asset và repository
 
-Nông trại và thế giới tiếp tục vận hành theo thời gian. Các lớp bí ẩn và sự kiện là
-chiều sâu bổ sung, không cản trở vòng lặp canh tác cơ bản.
+Asset nhân vật runtime chỉ giữ định dạng PNG: `player.png`, `marcus.png`, `vos.png` và
+ảnh preview `characters_prototype.png`. File nguồn thiết kế Illustrator/Photoshop
+(`.ai`, `.psd`) không thuộc build prototype và không được giữ trong repository.
+Log, file tạm, cache `.godot/`, export và công cụ local cũng không được commit.
+
+## Tài liệu phát triển
+
+- [Bản đồ kiến trúc](docs/ARCHITECTURE.md)
+- [Thư mục tài liệu/test/tool bên ngoài](../game-demo-elements/)
+
+## Phạm vi prototype
+
+Mục tiêu của bản này là chứng minh vòng lặp chơi, tiến trình không gian, lịch NPC và
+feedback UI. Âm thanh hoàn chỉnh, save cloud, localization đa ngôn ngữ, content cuối
+game và art production chưa nằm trong phạm vi v1.0.0.
+
+Khi phát triển tiếp: tạo branch riêng, thay đổi tối thiểu theo feature, chạy regression
+liên quan, xem diff trước khi commit và ghi rõ thay đổi trong tài liệu.

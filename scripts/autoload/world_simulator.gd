@@ -167,6 +167,9 @@ func _evaluate_npc_schedules(day: int) -> Array[Dictionary]:
 					if schedule.get("type", "") == "mountain":
 						# Kiểm tra player có hộ tống không
 						var player_escorted: bool = _check_player_escort(npc_id, day)
+						var configured_voss_schedule: Dictionary = {}
+						if npc_id == "shopkeeper_father" and NPCSchedules.has_method("get_voss_mountain_schedule_for_day"):
+							configured_voss_schedule = NPCSchedules.call("get_voss_mountain_schedule_for_day", day)
 						
 						# Tạo context cho risk calculation
 						var context: Dictionary = {
@@ -175,6 +178,14 @@ func _evaluate_npc_schedules(day: int) -> Array[Dictionary]:
 							"day": day,
 							"player_escorted": player_escorted,
 						}
+						# Branch A là event không được báo trước: context phải giữ mốc
+						# departure/fall từ config để EventChainEngine normalize đúng.
+						if not configured_voss_schedule.is_empty():
+							context["event_day"] = int(configured_voss_schedule.get("event_day", day))
+							context["departure_time"] = float(configured_voss_schedule.get("departure_time", 11.0))
+							context["fall_time"] = float(configured_voss_schedule.get("fall_time", 16.0))
+							context["end_time"] = float(configured_voss_schedule.get("end_time", 17.0))
+							context["discovery_mode"] = "UNSEEN"
 						
 						# Tính risk
 						var risk: float = RiskCalculator.calculate_risk(npc_id, "mountain_trip", context)
@@ -191,7 +202,11 @@ func _evaluate_npc_schedules(day: int) -> Array[Dictionary]:
 						})
 
 						# Nếu risk cao -> kích hoạt chain
-						if risk >= 0.3:
+						# Branch A phải được kích hoạt đúng event_day ngay cả khi
+						# risk nền dưới 30%; risk được dùng để resolve outcome bên
+						# trong chain, không được dùng để bỏ qua lịch event.
+						var is_configured_voss_event: bool = not configured_voss_schedule.is_empty()
+						if risk >= 0.3 or (is_configured_voss_event and not player_escorted):
 							EventChainEngine.trigger_chain("shopkeeper_mountain", context)
 
 	return triggered

@@ -94,12 +94,12 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	# SceneManager tháo scene cũ khỏi tree trước khi queue_free. Ngắt signal ngay
 	# tại lifecycle boundary để autoload không gọi lại Hotbar đã detach.
-	if SceneManager.scene_changed.is_connected(_on_scene_changed_refresh):
-		SceneManager.scene_changed.disconnect(_on_scene_changed_refresh)
-	if GameState.toolbar_changed.is_connected(_on_toolbar_changed):
-		GameState.toolbar_changed.disconnect(_on_toolbar_changed)
-	if GameState.watering_can_changed.is_connected(_on_watering_can_changed):
-		GameState.watering_can_changed.disconnect(_on_watering_can_changed)
+	if is_instance_valid(SceneManager) and SceneManager.has_signal("scene_changed") and SceneManager.is_connected("scene_changed", Callable(self, "_on_scene_changed_refresh")):
+		SceneManager.disconnect("scene_changed", Callable(self, "_on_scene_changed_refresh"))
+	if is_instance_valid(GameState) and GameState.has_signal("toolbar_changed") and GameState.is_connected("toolbar_changed", Callable(self, "_on_toolbar_changed")):
+		GameState.disconnect("toolbar_changed", Callable(self, "_on_toolbar_changed"))
+	if is_instance_valid(GameState) and GameState.has_signal("watering_can_changed") and GameState.is_connected("watering_can_changed", Callable(self, "_on_watering_can_changed")):
+		GameState.disconnect("watering_can_changed", Callable(self, "_on_watering_can_changed"))
 
 func _on_scene_changed_refresh(_scene_path: String) -> void:
 	# Đợi 1 frame để WorldUIManager ở scene mới spawn xong layout, sau đó

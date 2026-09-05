@@ -68,9 +68,20 @@ func _process(_delta: float) -> void:
 	if GameState.player_movement_locked or GameState.cinematic_intro_state != GameState.CINEMATIC_NONE or DialogueManager.is_active:
 		return
 
+	# Một số portal sát mép map có thể không phát body_entered ổn định khi
+	# Player đứng cạnh tường. Mountain portal dùng fallback bán kính tương tác
+	# để prompt/E vẫn hoạt động đúng trong vùng Player có thể nhìn thấy.
+	var player_nearby: bool = is_player_nearby()
+	if player_nearby and prompt_label != null:
+		prompt_label.visible = true
+		_register_with_manager(true)
+	elif not player_nearby and prompt_label != null and not _player_inside:
+		prompt_label.visible = false
+		_register_with_manager(false)
+
 	# Portal tự check Input E để đổi scene. Trước khi đổi scene, set flag để
 	# Player không xử lý thêm thao tác item trong cùng frame.
-	if _player_inside and Input.is_action_just_pressed("interact"):
+	if player_nearby and Input.is_action_just_pressed("interact"):
 		GameState.pending_portal_interaction = true
 		_change_scene()
 
@@ -150,7 +161,22 @@ func get_traversal_cost() -> float:
 # dùng để quyết định ưu tiên portal > consumable. Đây là nguồn duy nhất
 # của "Player biết portal gần", vì Area2D không thể raycast bằng RayCast2D.
 func is_player_nearby() -> bool:
-	return _player_inside
+	if _player_inside:
+		return true
+	if not _uses_distance_fallback():
+		return false
+	var player: Node2D = get_tree().get_first_node_in_group("player") as Node2D
+	if player == null:
+		return false
+	var config_manager: Node = get_node_or_null("/root/ConfigManager")
+	var range_value: float = 80.0
+	if config_manager != null and config_manager.has_method("get_player_interaction_range"):
+		range_value = float(config_manager.call("get_player_interaction_range"))
+	return global_position.distance_to(player.global_position) <= range_value
+
+
+func _uses_distance_fallback() -> bool:
+	return portal_id == "portal_town_to_mountain" or portal_id == "portal_mountain_to_town"
 
 
 func _on_body_entered(body: Node) -> void:

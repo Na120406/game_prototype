@@ -52,7 +52,7 @@ func _build_default_schedules() -> void:
 		"shopkeeper_father": [
 			{
 				"id": "mountain_trip",           # Mã lịch trình
-				"day_of_week": 5,                 # Thứ 7 (0=CN, 1=T2...)
+				"day_of_week": 4,                 # Day 5 theo quy ước GameState (0=Day 1)
 				"type": "mountain",               # Loại: đi núi
 				"departure_time": 7.0,            # Đi lúc 7:00 sáng
 				"return_time": 18.0,             # Về lúc 18:00
@@ -113,6 +113,34 @@ func _build_default_schedules() -> void:
 				"required_quest": "",
 			},
 		],
+	}
+
+
+## Lịch Branch A của Voss được lấy từ config event thay vì hard-code trong
+## schedule legacy. Trả về rỗng ngoài event_day để WorldSimulator không tạo
+## event nhầm ở các ngày khác.
+func get_voss_mountain_schedule_for_day(day: int) -> Dictionary:
+	var config_manager: Node = get_node_or_null("/root/ConfigManager")
+	if config_manager == null or not config_manager.has_method("get_voss_event_config"):
+		return {}
+	var event_config: Dictionary = config_manager.call("get_voss_event_config")
+	var schedule: Dictionary = event_config.get("schedule", {})
+	var event_day: int = int(schedule.get("event_day", 5))
+	if day != event_day:
+		return {}
+	var end_time: float = float(schedule.get("end_time", 17.0))
+	return {
+		"id": "mountain_trip",
+		"day_of_week": (event_day - 1) % 7,
+		"event_day": event_day,
+		"type": "mountain",
+		"departure_time": float(schedule.get("departure_time", 11.0)),
+		"fall_time": float(schedule.get("fall_time", 16.0)),
+		"end_time": end_time,
+		"return_time": end_time,
+		"risk_activity": "mountain_trip",
+		"chain_id": str(event_config.get("event_id", "shopkeeper_mountain")),
+		"required_quest": ""
 	}
 
 

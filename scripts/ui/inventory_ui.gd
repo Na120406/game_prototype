@@ -243,12 +243,14 @@ func _ready() -> void:
 	print("[InvUI] _ready EXIT, _bright_region=", _bright_region, " _inventory_panel=", _inventory_panel, " _context_menu=", _context_menu)
 
 func _exit_tree() -> void:
-	if GameState.inventory_changed.is_connected(_on_inventory_changed):
-		GameState.inventory_changed.disconnect(_on_inventory_changed)
-	if GameState.toolbar_changed.is_connected(_on_toolbar_changed):
-		GameState.toolbar_changed.disconnect(_on_toolbar_changed)
-	if GameState.watering_can_changed.is_connected(_on_watering_can_changed):
-		GameState.watering_can_changed.disconnect(_on_watering_can_changed)
+	# Editor preview có thể giải phóng UI trước autoload placeholder. Kiểm tra
+	# signal tồn tại trước khi truy cập để shutdown không tạo SCRIPT ERROR.
+	if is_instance_valid(GameState) and GameState.has_signal("inventory_changed") and GameState.is_connected("inventory_changed", Callable(self, "_on_inventory_changed")):
+		GameState.disconnect("inventory_changed", Callable(self, "_on_inventory_changed"))
+	if is_instance_valid(GameState) and GameState.has_signal("toolbar_changed") and GameState.is_connected("toolbar_changed", Callable(self, "_on_toolbar_changed")):
+		GameState.disconnect("toolbar_changed", Callable(self, "_on_toolbar_changed"))
+	if is_instance_valid(GameState) and GameState.has_signal("watering_can_changed") and GameState.is_connected("watering_can_changed", Callable(self, "_on_watering_can_changed")):
+		GameState.disconnect("watering_can_changed", Callable(self, "_on_watering_can_changed"))
 
 # Áp style bo góc nhẹ cho PanelContainer (TitleBox / GridBox).
 # bg_color: màu nền nâu, border_color: màu viền vàng nâu,

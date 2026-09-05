@@ -80,6 +80,13 @@ var _player_has_moved: bool = false
 var _is_via_portal: bool = false
 var _initial_game_spawn_done: bool = false
 
+# Khoảng lệch tối thiểu khi player xuất hiện cạnh mép map. Portal ở mép phải
+# (ví dụ cổng Marcus Farm → Town) không được dùng offset dương vì sẽ đẩy
+# player xuyên qua WallRight nếu NPC đang đứng ngay tại portal.
+const PORTAL_EDGE_THRESHOLD: float = 40.0
+const PORTAL_INWARD_OFFSET: float = 28.0
+const PORTAL_SPAWN_MARGIN: float = 18.0
+
 
 # =============================================================================
 # HÀM KHỞI TẠO (_ready)
@@ -558,24 +565,76 @@ func _get_safe_portal_spawn_position(scene: Node, portal: Node2D) -> Vector2:
 	if portal == null:
 		return Vector2.ZERO
 	var base: Vector2 = portal.global_position
-	var occupied := false
-	for candidate: Node in scene.get_tree().get_nodes_in_group("npc"):
-		if candidate is Node2D and is_instance_valid(candidate) and (candidate as Node2D).global_position.distance_to(base) < 18.0:
-			occupied = true
-			break
-	if not occupied:
-		return base
-	# Keep the player at the same doorway, using a nearby deterministic offset.
-	for offset: Vector2 in [Vector2(22, 0), Vector2(-22, 0), Vector2(0, 22), Vector2(0, -22)]:
-		var candidate_pos := base + offset
-		var blocked := false
-		for npc: Node in scene.get_tree().get_nodes_in_group("npc"):
-			if npc is Node2D and is_instance_valid(npc) and (npc as Node2D).global_position.distance_to(candidate_pos) < 18.0:
-				blocked = true
-				break
-		if not blocked:
+	var bounds := _get_scene_play_bounds(scene)
+	var inward := _get_inward_portal_offset(base, bounds)
+	var offsets: Array[Vector2] = []
+	if inward != Vector2.ZERO:
+		# Luôn thử hướng vào trong trước. Đây là nhánh sửa lỗi portal phải:
+		# base=(460,135) → candidate=(432,135), không phải (482,135).
+		offsets.append(inward)
+		if inward.x != 0.0 and inward.y != 0.0:
+			offsets.append(Vector2(inward.x, 0.0))
+			offsets.append(Vector2(0.0, inward.y))
+	offsets.append(Vector2.ZERO)
+	# Các hướng dự phòng giữ hành vi cũ cho portal ở giữa map, nhưng đều được
+	# clamp vào bounds trước khi kiểm tra để không bao giờ trả vị trí ngoài map.
+	for offset: Vector2 in [Vector2(-22, 0), Vector2(22, 0), Vector2(0, -22), Vector2(0, 22)]:
+		if not offsets.has(offset):
+			offsets.append(offset)
+	for offset: Vector2 in offsets:
+		var candidate_pos := _clamp_spawn_to_bounds(base + offset, bounds)
+		if not _is_spawn_blocked_by_npc(scene, candidate_pos):
 			return candidate_pos
-	return base + Vector2(22, 0)
+	# Tất cả điểm lân cận đều bị NPC chiếm: giữ player ở trong map và ở phía
+	# trong cửa, thay vì fallback ra ngoài mép phải như trước.
+	var fallback_offset := inward if inward != Vector2.ZERO else Vector2.ZERO
+	return _clamp_spawn_to_bounds(base + fallback_offset, bounds)
+
+
+func _get_scene_play_bounds(scene: Node) -> Rect2:
+	if scene == null:
+		return Rect2()
+	for camera_node: Node in scene.find_children("*", "Camera2D", true, false):
+		var camera := camera_node as Camera2D
+		if camera == null or camera.limit_right <= camera.limit_left or camera.limit_bottom <= camera.limit_top:
+			continue
+		return Rect2(
+			Vector2(float(camera.limit_left), float(camera.limit_top)),
+			Vector2(float(camera.limit_right - camera.limit_left), float(camera.limit_bottom - camera.limit_top))
+		)
+	return Rect2()
+
+
+func _get_inward_portal_offset(base: Vector2, bounds: Rect2) -> Vector2:
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return Vector2.ZERO
+	var offset := Vector2.ZERO
+	if base.x <= bounds.position.x + PORTAL_EDGE_THRESHOLD:
+		offset.x = PORTAL_INWARD_OFFSET
+	elif base.x >= bounds.end.x - PORTAL_EDGE_THRESHOLD:
+		offset.x = -PORTAL_INWARD_OFFSET
+	if base.y <= bounds.position.y + PORTAL_EDGE_THRESHOLD:
+		offset.y = PORTAL_INWARD_OFFSET
+	elif base.y >= bounds.end.y - PORTAL_EDGE_THRESHOLD:
+		offset.y = -PORTAL_INWARD_OFFSET
+	return offset
+
+
+func _clamp_spawn_to_bounds(position: Vector2, bounds: Rect2) -> Vector2:
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return position
+	var min_point := bounds.position + Vector2(PORTAL_SPAWN_MARGIN, PORTAL_SPAWN_MARGIN)
+	var max_point := bounds.end - Vector2(PORTAL_SPAWN_MARGIN, PORTAL_SPAWN_MARGIN)
+	return Vector2(clampf(position.x, min_point.x, max_point.x), clampf(position.y, min_point.y, max_point.y))
+
+
+func _is_spawn_blocked_by_npc(scene: Node, candidate_pos: Vector2) -> bool:
+	if scene == null:
+		return false
+	for npc: Node in scene.get_tree().get_nodes_in_group("npc"):
+		if npc is Node2D and is_instance_valid(npc) and (npc as Node2D).global_position.distance_to(candidate_pos) < 24.0:
+			return true
+	return false
 
 
 func _find_player_spawn_marker(scene: Node) -> Node2D:

@@ -1,0 +1,63 @@
+# Godot 4+ generated files
+.godot/
+*.import
+
+# AI/editor metadata and package-manager cache
+.claude/
+.cursor/
+.pnpm-store/
+.hermes/
+
+# Local project instructions and development launchers
+# Chỉ version-control hai tài liệu portfolio chính; các bản nháp trong design/ bị bỏ qua.
+/design/*
+!/design/gdd/
+/design/gdd/*
+!/design/gdd/Falcon_Intern_Game_Design_Portfolio_VI_v2.md
+!/design/gdd/GameDemo_GDD_Portfolio.md
+/AGENTS.md
+/RULES.md
+/start-deepseek-harness.bat
+
+# Local tools, exports, and build output
+/tools/
+/tests/
+/scripts/tools/
+/scenes/tools/
+/scenes/main.tscn
+/scenes/maps/Farm_.tscn
+/scenes/maps/farm_map_v2.tscn
+/tilesets/Animated Objects/
+/tilesets/Fence/
+/tilesets/Ground/
+/tilesets/Objects/
+/tilesets/Plants/
+/tilesets/game_tile_set.tres
+/build/
+/export/
+*.exe
+*.pck
+*.zip
+*.7z
+
+# Ignore loose files at repository root by default.
+# Keep the files required to open, document, and export the Godot project.
+/*.*
+!/README.md
+!/project.godot
+!/export_presets.cfg
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Godot 4+ platform output
+/android/

@@ -687,7 +687,10 @@ func _rehome_visible_npcs() -> void:
 		if entry.get("spawned", false) and inst.get_parent() == visible_scene:
 			inst.visible = true
 			inst.modulate = Color.WHITE
-			inst.collision_layer = 1
+			# NPC body dùng layer 2: vẫn va chạm với world layer 1 nhưng
+			# không thể đẩy/kéo Player (Player cũng dùng mask world layer 1).
+			# InteractionArea riêng vẫn ở layer 2 để raycast/[E] hoạt động.
+			inst.collision_layer = 2
 			inst.collision_mask = 1
 			if inst.has_node("InteractionArea"):
 				var area: Area2D = inst.get_node("InteractionArea")
@@ -722,7 +725,8 @@ func _rehome_visible_npcs() -> void:
 		inst.global_position = saved_global_position
 		inst.visible = true
 		inst.modulate = Color.WHITE
-		inst.collision_layer = 1
+		# Giữ layer body NPC tách khỏi Player sau khi rehome vào map đang mở.
+		inst.collision_layer = 2
 		inst.collision_mask = 1
 		if inst.has_node("InteractionArea"):
 			var interaction_area: Area2D = inst.get_node("InteractionArea")

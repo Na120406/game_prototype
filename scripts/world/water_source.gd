@@ -34,10 +34,10 @@ func _ready() -> void:
 	refresh_interaction_state()
 
 func _exit_tree() -> void:
-	if GameState.inventory_changed.is_connected(_on_inventory_changed):
-		GameState.inventory_changed.disconnect(_on_inventory_changed)
-	if GameState.toolbar_changed.is_connected(_on_inventory_changed):
-		GameState.toolbar_changed.disconnect(_on_inventory_changed)
+	if is_instance_valid(GameState) and GameState.has_signal("inventory_changed") and GameState.is_connected("inventory_changed", Callable(self, "_on_inventory_changed")):
+		GameState.disconnect("inventory_changed", Callable(self, "_on_inventory_changed"))
+	if is_instance_valid(GameState) and GameState.has_signal("toolbar_changed") and GameState.is_connected("toolbar_changed", Callable(self, "_on_inventory_changed")):
+		GameState.disconnect("toolbar_changed", Callable(self, "_on_inventory_changed"))
 
 func _ensure_prompt_label() -> void:
 	if has_node("Prompt"):

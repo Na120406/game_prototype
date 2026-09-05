@@ -179,19 +179,51 @@
 		  "route_id": "farm_to_town"
 		},
 		{
+		  "time": 10.0,
+		  "state": "walking",
+		  "action": "go_to_shop",
+		  "scene": "res://scenes/maps/town_map.tscn",
+		  "pos": { "x": 95, "y": 105 },
+		  "route_id": "town_to_shop"
+		},
+		{
+		  "time": 11.0,
+		  "state": "walking",
+		  "action": "walk_away_from_shop_portal",
+		  "scene": "res://scenes/maps/inside_shop_map.tscn",
+		  "pos": { "x": 210, "y": 200 },
+		  "route_id": ""
+		},
+		{
+		  "time": 11.1,
+		  "state": "idle",
+		  "action": "rest_in_shop",
+		  "scene": "res://scenes/maps/inside_shop_map.tscn",
+		  "pos": { "x": 210, "y": 200 },
+		  "route_id": ""
+		},
+		{
 		  "time": 12.0,
+		  "state": "walking",
+		  "action": "leave_shop",
+		  "scene": "res://scenes/maps/inside_shop_map.tscn",
+		  "pos": { "x": 20, "y": 135 },
+		  "route_id": "shop_to_town"
+		},
+		{
+		  "time": 12.5,
 		  "state": "walking",
 		  "action": "return_to_marcus_farm",
 		  "scene": "res://scenes/maps/town_map.tscn",
-		  "pos": { "x": 430, "y": 90 },
+		  "pos": { "x": 95, "y": 105 },
 		  "route_id": "town_to_marcus_farm"
 		},
 		{
-		  "time": 12.1,
-		  "state": "idle",
-		  "action": "stay_at_marcus_farm",
+		  "time": 13.0,
+		  "state": "working",
+		  "action": "work_at_marcus_farm",
 		  "scene": "res://scenes/maps/marcus_farm_map.tscn",
-		  "pos": { "x": 375, "y": 200 },
+		  "pos": { "x": 160, "y": 200 },
 		  "route_id": ""
 		},
 		{
@@ -199,7 +231,7 @@
 		  "state": "walking",
 		  "action": "go_to_bed",
 		  "scene": "res://scenes/maps/marcus_house_map.tscn",
-		  "pos": { "x": -338, "y": 90 },
+		  "pos": { "x": 80, "y": 50 },
 		  "route_id": "marcus_farm_to_house"
 		},
 		{
@@ -207,7 +239,7 @@
 		  "state": "sleeping",
 		  "action": "sleep",
 		  "scene": "res://scenes/maps/marcus_house_map.tscn",
-		  "pos": { "x": -338, "y": 90 },
+		  "pos": { "x": 80, "y": 50 },
 		  "route_id": ""
 		}
 	  ],

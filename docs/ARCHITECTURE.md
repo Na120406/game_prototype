@@ -45,13 +45,11 @@ game-demo/
 ├── export_presets.cfg       # Cấu hình export
 │
 ├── scenes/                  # Scene Godot (.tscn)
-│   ├── main.tscn            # (main) — scene khởi động thực tế là inside_house_map
 │   ├── Player.tscn          # Nhân vật người chơi
 │   ├── maps/                # Bản đồ thế giới
 │   ├── npc/                 # Scene NPC (neighbor, shopkeeper)
 │   ├── ui/                  # Scene UI (dialogue, hotbar, inventory, shop, clock…)
-│   ├── world/               # Vật thể world (giường, quầy, ô đất, bảng quest…)
-│   └── tools/               # Scene công cụ build (atlas_boot)
+│   └── world/               # Vật thể world (giường, quầy, ô đất, bảng quest…)
 │
 ├── scripts/                 # Toàn bộ mã GDScript
 │   ├── autoload/            # Singleton toàn cục (xem §5) — TRÁI TIM dự án
@@ -60,7 +58,6 @@ game-demo/
 │   ├── world/               # bed, counter, portal, farm, quest_board, atmosphere…
 │   ├── ui/                  # HUD, inventory, shop, dialogue, hotbar, energy…
 │   ├── data/                # Resource dữ liệu: PortalData, RouteData, WaypointData
-│   ├── tools/               # Script build/utility phát triển
 │   └── utils/               # save_manager.gd, util.gd
 │
 ├── resources/               # Dữ liệu & tài nguyên (KHÔNG phải code logic chính)
@@ -72,11 +69,9 @@ game-demo/
 │   ├── localization/        # vi.json (bản dịch UI tiếng Việt)
 │   └── tilesets/            # .tres tileset
 │
-├── tilesets/                # Texture tileset + asset môi trường (PNG)
-├── docs/                    # Tài liệu: characters, templates, farm_v2, ARCHITECTURE.md
-├── design/gdd/              # Game Design Document
-├── tests/                   # Harness regression được version-control (SceneTree/autoload thật)
-└── tools/                   # playtest_harness.gd, smoke_test.gd (test/QA)
+├── tilesets/                # Chỉ texture còn được runtime tham chiếu
+├── docs/ARCHITECTURE.md     # Bản đồ kiến trúc runtime
+└── (game-demo-elements/)    # Tài liệu/test/tool/legacy nằm ngoài repo runtime
 ```
 
 > Lưu ý: thư mục `.godot/` (cache/import của engine), `.pnpm-store/`,
@@ -138,8 +133,8 @@ game-demo/
 | Portal chuyển scene | `scripts/world/world_transition.gd` + `scripts/data/portal_data.gd` |
 | Vật thể tương tác được (examine/pickup) | `scripts/world/interactable.gd` + `scripts/world/world_interactable_object.gd` |
 | Quầy shop | `scripts/world/counter.gd` + `scripts/world/counter_zone.gd` |
-| Test/QA (smoke test, playtest) | `tools/playtest_harness.gd` + `tools/smoke_test.gd` |
-| Spatial acceptance/regression | `tests/spatial_phase8_acceptance.gd` + `tests/portal_cost_once_regression.gd` |
+| Test/QA (smoke test, playtest) | `D:/Project_Game/game-demo-elements/tools/` |
+| Spatial acceptance/regression | `D:/Project_Game/game-demo-elements/tests/` |
 
 ---
 
@@ -438,8 +433,6 @@ player đang ở map ngoài Farm.
 |---|---|
 | `maps/inside_house_map.tscn` | **Scene khởi động** — bên trong nhà người chơi |
 | `maps/farm_map.tscn` | Nông trại người chơi (bản gốc) |
-| `maps/farm_map_v2.tscn` | Nông trại bản v2 (build bằng `tools/build_farm_v2.gd`) |
-| `maps/Farm_.tscn` | Biến thể farm (thử nghiệm) |
 | `maps/town_map.tscn` | Thị trấn |
 | `maps/forest_map.tscn` | Khu rừng (long route + shortcut blocked by TreeBlocker) |
 | `maps/inside_shop_map.tscn` | Bên trong cửa hàng |
@@ -451,7 +444,6 @@ player đang ở map ngoài Farm.
 | `ui/dialogue_ui.tscn`, `ui/hotbar.tscn`, `ui/inventory_ui.tscn`, `ui/shop_ui.tscn`, `ui/energy_bar.tscn`, `ui/clock_display.tscn`, `ui/tooltip_panel.tscn` | Các UI |
 | `world/bed.tscn`, `world/counter_zone.tscn`, `world/farm/farm_plot.tscn`, `world/farm/crop_visual_manager.tscn`, `world/items/apple.tscn`, `world/quest_board.tscn`, `world/quest_board_ui.tscn` | Vật thể world |
 | `world/tree_blocker.tscn`, `world/water_source.tscn`, `world/gathering_point.tscn` | Spatial system components (TreeBlocker, WaterSource, GatheringPoint) |
-| `tools/atlas_boot.tscn` | Scene chạy script build TileSet |
 
 ---
 
@@ -516,10 +508,9 @@ player đang ở map ngoài Farm.
   save/load không phụ thuộc scene hiện tại.
 - **Inventory cố định 21 ô:** `GameState._ensure_inventory_slots()` luôn đảm bảo
   đủ entry `{id:"", amount:0}` để drag/drop nhất quán.
-- **Có nhiều bản farm map** (`farm_map.tscn`, `farm_map_v2.tscn`, `Farm_.tscn`):
-  xác định đúng map đang dùng trước khi sửa bố cục.
-- **`atlas_boot.gd` / `build_farm_v2.gd`** là công cụ build (headless), không
-  phải logic runtime.
+- **`farm_map.tscn` là farm runtime duy nhất.** Các bản thử nghiệm `farm_map_v2`
+  và `Farm_`, cùng tool build tương ứng, được lưu tại
+  `D:/Project_Game/game-demo-elements/` và không được Godot export.
 
 ---
 
@@ -534,7 +525,7 @@ player đang ở map ngoài Farm.
 6. Trước khi viết code: tuân thủ quy trình cộng tác trong `AGENTS.md`
    (Question → Options → Decision → Draft → Approval), hỏi trước khi dùng
    Write/Edit, trình draft trước khi sửa nhiều file.
-7. Sau khi code: chạy thử (F5/F6), kiểm tra Output/Debugger; dùng
-   `tools/smoke_test.gd` / `tools/playtest_harness.gd` nếu cần.
+7. Sau khi code: chạy thử (F5/F6), kiểm tra Output/Debugger; nếu cần dùng
+   regression harness trong `D:/Project_Game/game-demo-elements/tests/`.
 8. Cập nhật file này nếu bạn tạo thư mục/hệ thống mới — để các agent sau không
    phải dò lại.
