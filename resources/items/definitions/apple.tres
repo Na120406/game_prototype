@@ -6,7 +6,7 @@
 script = ExtResource("1")
 item_id = "apple"
 display_name = "Táo"
-description = "Một quả táo tươi từ vườn cây. Hồi phục 10 năng lượng."
+description = "Một quả táo tươi từ vườn cây. Hồi phục 3 năng lượng."
 icon = "A"
 item_color = Color(0.85, 0.2, 0.15, 1)
 stack_size = 99
@@ -15,7 +15,7 @@ item_category = 2
 effect_type = 1
 buy_price = 0
 sell_price = 3
-energy_restore = 10.0
+energy_restore = 3.0
 health_restore = 0.0
 crop_to_spawn = ""
 grow_days = 0
