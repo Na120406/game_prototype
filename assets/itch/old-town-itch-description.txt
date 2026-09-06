@@ -1,0 +1,55 @@
+OLD TOWN — ITCH.IO COPY
+
+SHORT DESCRIPTION
+A quiet farming life-sim where time, energy, and every route matter.
+
+DESCRIPTION — PASTE IN HTML MODE
+
+<blockquote>
+<p><strong>Build a simple farm life. Explore a quiet town. Find what waits beyond the familiar path.</strong></p>
+<p><em>Xây dựng cuộc sống nông trại giản dị. Khám phá thị trấn yên bình. Tìm hiểu điều đang chờ đợi ngoài lối đi quen thuộc.</em></p>
+</blockquote>
+
+<h2>ABOUT</h2>
+<p><strong>Old Town</strong> is a 2D top-down farming and life-simulation prototype with a quiet mystery. Grow crops, trade, complete requests, meet scheduled NPCs, and explore at your own pace.</p>
+<p><em><strong>Old Town</strong> là prototype nông trại và mô phỏng cuộc sống 2D góc nhìn từ trên xuống, kết hợp yếu tố bí ẩn nhẹ. Trồng cây, mua bán, làm nhiệm vụ, gặp các NPC có lịch trình riêng và tự do khám phá.</em></p>
+
+<h2>FEATURES</h2>
+<ul>
+<li>Grow and harvest five crops while managing water, time, and energy.<br><em>Trồng và thu hoạch năm loại cây, đồng thời quản lý nước, thời gian và năng lượng.</em></li>
+<li>Buy and sell items, organize your inventory, and complete daily requests.<br><em>Mua bán vật phẩm, sắp xếp túi đồ và hoàn thành nhiệm vụ hằng ngày.</em></li>
+<li>Follow NPC schedules across the farm, town, shop, and nearby homes.<br><em>Theo dõi lịch trình NPC tại nông trại, thị trấn, cửa hàng và các ngôi nhà lân cận.</em></li>
+<li>Gather forest items and use an axe to unlock a faster route.<br><em>Thu thập vật phẩm trong rừng và dùng rìu để mở đường tắt.</em></li>
+<li>Experience a day–night cycle, changing weather, and hints of a larger mystery.<br><em>Trải nghiệm chu kỳ ngày–đêm, thời tiết thay đổi và những dấu hiệu của một bí ẩn lớn hơn.</em></li>
+</ul>
+
+<h2>QUICK START</h2>
+<p>Leave home → Visit the farm → Prepare, plant, and water the soil → Visit the town and shop → Return home and sleep to begin a new day.</p>
+<p><em>Rời khỏi nhà → Tới nông trại → Cày, gieo và tưới đất → Ghé thị trấn và cửa hàng → Về nhà ngủ để bắt đầu ngày mới.</em></p>
+<p><strong>Tip:</strong> Daily requests begin on Day 2. The axe becomes available in the shop on Day 3.</p>
+<p><em><strong>Mẹo:</strong> Nhiệm vụ hằng ngày bắt đầu từ Ngày 2. Rìu được mở bán tại cửa hàng từ Ngày 3.</em></p>
+
+<h2>CONTROLS</h2>
+<table>
+<thead><tr><th>Action</th><th>Key</th></tr></thead>
+<tbody>
+<tr><td>Move<br><em>Di chuyển</em></td><td><strong>WASD</strong></td></tr>
+<tr><td>Sprint<br><em>Chạy nước rút</em></td><td><strong>X</strong></td></tr>
+<tr><td>Interact or talk<br><em>Tương tác hoặc trò chuyện</em></td><td><strong>E</strong></td></tr>
+<tr><td>Open inventory<br><em>Mở túi đồ</em></td><td><strong>Tab</strong></td></tr>
+<tr><td>Select hotbar slot<br><em>Chọn ô hotbar</em></td><td><strong>1–5</strong></td></tr>
+<tr><td>Use a tool, seed, or item<br><em>Dùng công cụ, hạt giống hoặc vật phẩm</em></td><td><strong>Right click</strong></td></tr>
+<tr><td>Inspect or harvest<br><em>Kiểm tra hoặc thu hoạch</em></td><td><strong>Left click</strong></td></tr>
+</tbody>
+</table>
+
+<h2>PROTOTYPE STATUS</h2>
+<p>This is an early prototype focused on the core farming loop, exploration, NPC schedules, and progression. Final art, audio, balance, save/load presentation, quests, and mystery content are still in development.</p>
+<p><em>Đây là bản prototype ban đầu, tập trung vào vòng lặp nông trại, khám phá, lịch trình NPC và tiến trình chơi. Hình ảnh hoàn thiện, âm thanh, cân bằng, giao diện lưu/tải, nhiệm vụ và nội dung bí ẩn vẫn đang được phát triển.</em></p>
+
+<h2>FEEDBACK</h2>
+<p>Feedback about controls, farming, quests, NPC movement, balance, or bugs is welcome.</p>
+<p><em>Mọi phản hồi về điều khiển, trồng trọt, nhiệm vụ, di chuyển của NPC, cân bằng hoặc lỗi đều rất hữu ích.</em></p>
+
+<hr>
+<p><strong>Version:</strong> Prototype v1.0.0 · <strong>Engine:</strong> Godot 4.5<br><strong>Genre:</strong> Farming · Life Simulation · Light Mystery</p>

@@ -88,7 +88,8 @@ game-demo/
 | **TreeBlocker (cây chặn đường, cần Axe để phá)** | `scripts/world/tree_blocker.gd` + `scenes/world/tree_blocker.tscn` |
 | **WaterSource (giếng nước refill Watering Can)** | `scripts/world/water_source.gd` + `scenes/world/water_source.tscn` |
 | **GatheringPoint (điểm thu thập vật phẩm trên bản đồ)** | `scripts/world/gathering_point.gd` + `scenes/world/gathering_point.tscn` |
-| Enum crop state/type, map seed→crop, thông số nước | `scripts/autoload/farm_enums.gd` |
+| Enum crop state/type | `scripts/autoload/farm_enums.gd` |
+| Crop profile (ID, giá, ngày lớn, nước, yield, mùa) | `resources/config/crop_profiles.json` + `ConfigManager` |
 | Load config JSON | `scripts/autoload/config_manager.gd` |
 | Đồng hồ, ngày/đêm, tốc độ thời gian | `scripts/autoload/time_manager.gd` |
 | Chuyển scene + fade + vị trí spawn/portal | `scripts/autoload/scene_manager.gd` |
@@ -223,8 +224,8 @@ cần (VD: `ConfigManager` trước `GameState`).
 
 | # | Tên autoload | File | Vai trò |
 |---|---|---|---|
-| 1 | `FarmEnums` | `autoload/farm_enums.gd` | Enum + const dùng chung cho farming (CropState, CropType, map seed/crop, thông số nước) |
-| 2 | `ConfigManager` | `autoload/config_manager.gd` | Load + tra cứu toàn bộ JSON config; dịch text UI |
+| 1 | `FarmEnums` | `autoload/farm_enums.gd` | Enum dùng chung cho farming (CropState, CropType); không sở hữu profile crop |
+| 2 | `ConfigManager` | `autoload/config_manager.gd` | Load + tra cứu toàn bộ JSON config, gồm canonical CropProfile; dịch text UI |
 | 3 | `GameState` | `autoload/game_state.gd` | **Trạng thái trung tâm**: người chơi, ngày/giờ, năng lượng, inventory, toolbar, vàng, world_flags, quan hệ NPC |
 | 4 | `AudioManager` | `autoload/audio_manager.gd` | Phát nhạc nền + hiệu ứng âm thanh |
 | 5 | `CameraManager` | `autoload/camera_manager.gd` | Camera bám theo player |
@@ -325,8 +326,15 @@ cần (VD: `ConfigManager` trước `GameState`).
   đoạn phải chừa lối đi nối với `Road6` để cổng Farm không bị khóa kín.
 - **Visual:** `scripts/world/farm/crop_visual_manager.gd` (185 dòng).
 - **Enum:** `farm_enums.gd` — `CropState` (EMPTY→PLOWED→SEEDED→SPROUTED→GROWING→
-  MATURE/WILTED), `CropType`, map `SEED_TO_CROP`, `CROP_TO_HARVEST`,
-  `DEFAULT_WATER_PROFILES`.
+  MATURE/WILTED) và `CropType`.
+- **CropProfile canonical:** `resources/config/crop_profiles.json` — nguồn duy
+  nhất của seed/produce ID, giá mua/bán, grow days, water profile, harvest yield
+  và season cho năm crop. `ConfigManager` lập index theo crop/seed/CropType;
+  `FarmManager`, `FarmTickManager`, `ItemDB` và `QuestSystem` đều đọc profile này.
+- ID produce canonical dùng family ngắn (`turnip`, `wheat`, `corn`, `tomato`,
+  `potato`). Alias `*_harvest` chỉ dành cho migration/save cũ và lookup tương thích.
+- Growth hiện tăng trước khi kiểm tra ngưỡng wilt ở mỗi farm-day boundary; pass
+  consolidation giữ nguyên semantics này.
 
 > **Gotcha quan trọng:** farming state nằm ở `FarmTickManager` (autoload), KHÔNG
 > phải `FarmManager` (scene node). Khi sửa logic farming theo ngày → sửa
@@ -334,7 +342,8 @@ cần (VD: `ConfigManager` trước `GameState`).
 > `farm_plot.gd`.
 
 `CatchUpSystem` dùng `FarmTickManager.export_save_data()` /
-`import_save_data()` với adapter format save v3 `{ "cells": [...] }`. Không
+`import_save_data()` với adapter `{ "cells": [...] }`. Khi load, snapshot crop
+được rehydrate grow/water profile từ CropProfile nhưng giữ progress/state. Không
 được đổi lại sang tìm group `farm_manager`, vì group này không tồn tại khi
 player đang ở map ngoài Farm.
 
@@ -374,9 +383,11 @@ player đang ở map ngoài Farm.
 - Loại quest: escort, delivery, investigation, social.
 - API: `accept_quest(id)`, `complete_quest(id)`, `is_quest_active(id)`,
   `check_expired_quests()`.
-- Bảng tin hàng ngày: `_daily_board_quests` cache theo ngày; quest ngẫu nhiên
-  theo cây trồng (`FARM_CROPS`).
-- Dữ liệu: `resources/quest/quest_data.json`.
+- Bảng tin hàng ngày: `_daily_board_quests` cache theo ngày; danh sách crop,
+  grow days và display name của quest động đọc qua canonical CropProfile.
+- Static quest: `resources/quest/quest_data.json`. Dynamic delivery reward được
+  tính một lần khi generate từ CropProfile + tham số trong `money_config.json`;
+  board, accepted quest và completion dùng cùng reward snapshot.
 - UI: `scripts/world/quest_board.gd` (world Area2D) + `quest_board_ui.gd`.
 
 ### 6.7 Sự kiện, rủi ro & hệ quả
@@ -391,11 +402,12 @@ player đang ở map ngoài Farm.
 - **WorldSimulator** (`world_simulator.gd`): mô phỏng khi player vắng.
 
 ### 6.8 Vật phẩm, tool & inventory
-- **ItemData** (`resources/items/item_data.gd`): `Resource` định nghĩa vật phẩm —
-  `Type` (CONSUMABLE/TOOL/SEED/KEY_ITEM/CURRENCY/MISC), `Category`, `Effect`,
-  giá mua/bán, `water_need`, `growth_per_water`.
+- **ItemData** (`resources/items/item_data.gd`): `Resource` định nghĩa metadata
+  vật phẩm — `Type` (CONSUMABLE/TOOL/SEED/KEY_ITEM/CURRENCY/MISC), `Category`,
+  `Effect`; ItemDB đồng bộ field crop/economy từ canonical CropProfile khi load.
 - **ItemDB** (`resources/items/item_database.gd`): load các `.tres` trong
-  `resources/items/definitions/`, tra cứu theo id.
+  `resources/items/definitions/`, phát hiện duplicate ID và resolve alias
+  `*_harvest` sang produce canonical.
 - **ItemHandler** (`item_handler.gd`): `use_item()` phân loại theo `item_type`;
   `use_toolbar_slot()` cho phím 1–5.
 - **ItemManager** (`item_manager.gd`): nhặt/thả → `GameState.add_item/remove_item`.
@@ -409,7 +421,7 @@ player đang ở map ngoài Farm.
 ### 6.9 Năng lượng & knock-out
 - **File:** `scripts/autoload/energy_manager.gd` (173 dòng).
 - Mỗi hành động gọi `spend_energy()`; về 0 → knock-out: fade đen, ngất tại chỗ,
-  trừ 25% vàng, giảm 25% tốc độ.
+  trừ 10% vàng, giảm 25% tốc độ.
 - Ngưỡng vùng đỏ `LOW_ENERGY_THRESHOLD = 5.0` → giảm tốc độ di chuyển.
 - Thanh hiển thị: `scripts/ui/energy_bar.gd`.
 
@@ -418,6 +430,8 @@ player đang ở map ngoài Farm.
 - 3 slot, file `user://save_game_{slot}.dat` (JSON).
 - `CatchUpSystem.prepare_save_data()` gom toàn bộ trạng thái; `apply_save_data()`
   phục hồi.
+- Save schema v4 migrate inventory/toolbar từ legacy produce ID `*_harvest`
+  sang canonical ID, giữ nguyên slot và amount. Save v3 trở xuống vẫn load được.
 
 ### 6.11 Thời tiết & mùa
 - **File:** `scripts/autoload/weather_system.gd` (445 dòng).
@@ -452,14 +466,15 @@ player đang ở map ngoài Farm.
 | Đường dẫn | Nội dung |
 |---|---|
 | `config/game_config.json` | Thông số game: speed, energy, quest chance, fade… |
+| `config/crop_profiles.json` | Canonical profile của 5 crop + produce alias cũ |
 | `config/npc_config.json` | Thông số NPC (tên, vị trí, scene, schedule) |
 | `config/npc_schedule_config.json` | Lịch trình NPC (284 dòng) |
-| `config/money_config.json` | Giá trị tiền tệ (vàng khởi đầu…) |
+| `config/money_config.json` | Vàng khởi đầu, knockout loss và tham số reward delivery |
 | `config/ui_text_config.json` | Text UI |
 | `config/quest_text_config.json` | Text nhiệm vụ |
 | `dialogue/*.json` | Hội thoại (welcome, neighbor*, shopkeeper*, shopkeeper_new_stock_day3, examine_farm_note) |
 | `items/item_data.gd` + `items/item_database.gd` | Định nghĩa + database vật phẩm |
-| `items/definitions/*.tres` | 22 vật phẩm (seed, crop, harvest, tool, key item…) |
+| `items/definitions/*.tres` | 19 vật phẩm canonical (seed, produce, tool, key item…) |
 | `quest/quest_data.json` | Định nghĩa nhiệm vụ |
 | `localization/vi.json` | Bản dịch tiếng Việt (key → text) |
 | `tilesets/farm_tileset.tres` | Tileset nông trại |
@@ -506,6 +521,9 @@ player đang ở map ngoài Farm.
   mọi trạng thái mới cần lưu phải được thêm vào `prepare_save_data()` /
   `apply_save_data()`. Farm state phải đọc/ghi trực tiếp `FarmTickManager` để
   save/load không phụ thuộc scene hiện tại.
+- **Không thêm lại produce `*_harvest`:** đây chỉ là alias tương thích. Runtime,
+  quest, shop và save v4 đều dùng family ID ngắn; crop/economy không được khai
+  báo lại trong FarmEnums, seed `.tres` hay QuestSystem.
 - **Inventory cố định 21 ô:** `GameState._ensure_inventory_slots()` luôn đảm bảo
   đủ entry `{id:"", amount:0}` để drag/drop nhất quán.
 - **`farm_map.tscn` là farm runtime duy nhất.** Các bản thử nghiệm `farm_map_v2`

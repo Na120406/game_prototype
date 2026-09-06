@@ -38,41 +38,13 @@ enum CropType {
 	MYSTERY_PLANT = 6,
 }
 
-# -----------------------------------------------------------------------------
-# SEED TO CROP MAPPING - Chuyển từ seed item ID sang CropType
-# -----------------------------------------------------------------------------
-const SEED_TO_CROP: Dictionary = {
-	"seed_wheat": CropType.WHEAT,
-	"seed_corn": CropType.CORN,
-	"seed_tomato": CropType.TOMATO,
-	"seed_potato": CropType.POTATO,
-	"seed_turnip": CropType.TURNIP,
-}
-
-# -----------------------------------------------------------------------------
-# CROP TO HARVEST MAPPING - Chuyển từ CropType sang harvest item ID
-# -----------------------------------------------------------------------------
-const CROP_TO_HARVEST: Dictionary = {
-	CropType.WHEAT: "wheat",
-	CropType.CORN: "corn",
-	CropType.TOMATO: "tomato_harvest",
-	CropType.POTATO: "potato_harvest",
-	CropType.TURNIP: "turnip_harvest",
-	CropType.MYSTERY_PLANT: "strange_fruit",
-}
-
-# -----------------------------------------------------------------------------
-# DEFAULT WATER PROFILES - Thông số nước mặc định cho mỗi loại cây
-# -----------------------------------------------------------------------------
-# water_need: Số ngày liên tiếp không tưới trước khi héo (1 = phải tưới mỗi ngày)
-# growth_per_water: Tốc độ tăng trưởng mỗi lần tưới (0.0 - 1.0)
-const DEFAULT_WATER_PROFILES: Dictionary = {
-	CropType.WHEAT: {"water_need": 2, "growth_per_water": 0.25, "grow_days": 6},
-	CropType.CORN: {"water_need": 1, "growth_per_water": 0.20, "grow_days": 6},
-	CropType.TOMATO: {"water_need": 1, "growth_per_water": 0.20, "grow_days": 7},
-	CropType.POTATO: {"water_need": 3, "growth_per_water": 0.25, "grow_days": 9},
-	CropType.TURNIP: {"water_need": 2, "growth_per_water": 0.20, "grow_days": 4},
-	CropType.MYSTERY_PLANT: {"water_need": 1, "growth_per_water": 0.20, "grow_days": 10},
+# FarmEnums chỉ còn sở hữu enum/trạng thái. Dữ liệu của năm cây trồng sản xuất
+# nằm tại crop_profiles.json và được ConfigManager cung cấp cho mọi consumer.
+const MYSTERY_PROFILE: Dictionary = {
+	"water_need": 1,
+	"growth_per_water": 0.20,
+	"grow_days": 10,
+	"produce_item_id": "strange_fruit",
 }
 
 # -----------------------------------------------------------------------------
@@ -81,17 +53,38 @@ const DEFAULT_WATER_PROFILES: Dictionary = {
 
 ## Lấy CropType từ seed item ID
 static func get_crop_type_from_seed(seed_id: String) -> CropType:
-	return SEED_TO_CROP.get(seed_id, CropType.NONE)
+	var config := _get_config_manager()
+	if config != null:
+		var profile: Dictionary = config.call("get_crop_profile", seed_id)
+		return int(profile.get("crop_type", CropType.NONE)) as CropType
+	return CropType.NONE
 
 ## Lấy harvest item ID từ CropType
 static func get_harvest_id(crop_type: CropType) -> String:
-	return CROP_TO_HARVEST.get(crop_type, "")
+	if crop_type == CropType.MYSTERY_PLANT:
+		return str(MYSTERY_PROFILE["produce_item_id"])
+	var config := _get_config_manager()
+	if config != null:
+		var profile: Dictionary = config.call("get_crop_profile_for_type", int(crop_type))
+		return str(profile.get("produce_item_id", ""))
+	return ""
 
 ## Lấy thông số nước mặc định từ CropType
 static func get_water_profile(crop_type: CropType) -> Dictionary:
-	if DEFAULT_WATER_PROFILES.has(crop_type):
-		return DEFAULT_WATER_PROFILES[crop_type]
+	if crop_type == CropType.MYSTERY_PLANT:
+		return MYSTERY_PROFILE.duplicate(true)
+	var config := _get_config_manager()
+	if config != null:
+		var profile: Dictionary = config.call("get_crop_profile_for_type", int(crop_type))
+		if not profile.is_empty():
+			return profile
 	return {"water_need": 1, "growth_per_water": 0.25, "grow_days": 6}
+
+static func _get_config_manager() -> Node:
+	var main_loop := Engine.get_main_loop()
+	if main_loop is SceneTree:
+		return (main_loop as SceneTree).root.get_node_or_null("ConfigManager")
+	return null
 
 ## Kiểm tra CropState có phải là trạng thái "sống" không
 static func is_living_state(state: CropState) -> bool:

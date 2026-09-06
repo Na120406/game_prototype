@@ -61,85 +61,9 @@ var _daily_board_quests: Dictionary = {}  # {npc_id: Array[quest]}
 var _daily_board_quest_day: int = -1     # Ngày đã cache quests
 var _daily_board_has_quests: Dictionary = {}  # {npc_id: bool} - đã roll có quest trong ngày
 
-# =============================================================================
-# HỆ THỐNG QUEST NGẪU NHIÊN THEO CÂY TRỒNG
-# =============================================================================
-# Các loại cây trồng CÓ THỰC trong game (dựa trên resource definitions)
-const FARM_CROPS: Array[String] = [
-	"wheat",    # Lúa mì (seed: seed_wheat, harvest: wheat)
-	"corn",     # Ngô (seed: seed_corn, harvest: corn)
-	"tomato",   # Cà chua (seed: seed_tomato, harvest: tomato)
-	"potato",   # Khoai tây (seed: seed_potato, harvest: potato)
-	"turnip",   # Củ cải (seed: seed_turnip, harvest: turnip)
-]
-
-# Phần thưởng theo loại cây trồng và số lượng
-# Công thức: reward = (sell_price + grow_days×3) × amount × 1.4
-# Làm tròn về bội số 5 để dễ nhớ
-const GOLD_REWARD_BY_CROP_AND_AMOUNT: Dictionary = {
-	"turnip": {  # Củ cải: 4 ngày, giá trị thấp nhất
-		1: 55,
-		2: 115,
-		3: 175,
-		4: 235,
-		5: 290,
-	},
-	"tomato": {  # Cà chua: 5 ngày
-		1: 65,
-		2: 130,
-		3: 195,
-		4: 260,
-		5: 325,
-	},
-	"wheat": {  # Lúa mì: 6 ngày
-		1: 65,
-		2: 130,
-		3: 195,
-		4: 260,
-		5: 325,
-	},
-	"potato": {  # Khoai tây: 7 ngày
-		1: 85,
-		2: 170,
-		3: 260,
-		4: 345,
-		5: 430,
-	},
-	"corn": {  # Ngô: 8 ngày, giá trị cao nhất
-		1: 95,
-		2: 190,
-		3: 285,
-		4: 385,
-		5: 480,
-	},
-}
-
-# Phần thưởng cũ (fallback) — deprecated, giữ lại để không break existing code
-const GOLD_REWARD_BY_AMOUNT: Dictionary = {
-	1: 25,
-	2: 50,
-	3: 75,
-	4: 100,
-	5: 125,
-}
-
-# Relationship reward theo số lượng (ceiling of gold/20)
-const RELATIONSHIP_REWARD_BY_AMOUNT: Dictionary = {
-	1: 2,
-	2: 3,
-	3: 4,
-	4: 5,
-	5: 6,
-}
-
-# Tên hiển thị của cây trồng (theo item_id trong resources)
-const CROP_DISPLAY_NAMES: Dictionary = {
-	"wheat": "Lúa mì",
-	"corn": "Ngô",
-	"tomato": "Cà chua",
-	"potato": "Khoai tây",
-	"turnip": "Củ cải",
-}
+# Crop list, display name, grow days và economy được đọc từ CropProfile qua
+# ConfigManager. Quest chỉ giữ snapshot deadline/reward sau khi generate.
+var _dynamic_quest_sequence: int = 0
 
 const NPC_DISPLAY_NAMES: Dictionary = {
 	"neighbor": "Marcus",
@@ -147,16 +71,6 @@ const NPC_DISPLAY_NAMES: Dictionary = {
 	"shopkeeper_father": "ông Voss",
 	"farmer_mother": "bà Martha",
 	"hermit": "ông Hanz",
-}
-
-# Mapping từ harvest item_id → crop_type (để so sánh quest)
-# Ví dụ: "tomato_harvest" → "tomato"
-const HARVEST_TO_CROP: Dictionary = {
-	"wheat_harvest": "wheat",
-	"corn_harvest": "corn",
-	"tomato_harvest": "tomato",
-	"potato_harvest": "potato",
-	"turnip_harvest": "turnip",
 }
 
 # =============================================================================
@@ -171,18 +85,12 @@ const HARVEST_TO_CROP: Dictionary = {
 # Trả về: crop_type nếu tìm thấy, ngược lại trả về item_id gốc
 
 func harvest_to_crop_type(item_id: String) -> String:
-	return HARVEST_TO_CROP.get(item_id, item_id)
+	return ConfigManager.canonicalize_item_id(item_id)
 
 
-# Convert crop type (vd "tomato") sang harvest item id (vd "tomato_harvest").
-# Nếu item_id đã là harvest (vd "tomato_harvest") thì trả về nguyên.
+# Compatibility API cũ: mọi crop/harvest ID đều được trả về canonical produce ID.
 func crop_to_harvest(item_id: String) -> String:
-	if item_id.ends_with("_harvest"):
-		return item_id
-	for harvest_id: String in HARVEST_TO_CROP:
-		if HARVEST_TO_CROP[harvest_id] == item_id:
-			return harvest_id
-	return item_id
+	return ConfigManager.canonicalize_item_id(item_id)
 
 # Chuẩn hóa item giao quest về cùng một crop ID. Item thu hoạch có thể dùng
 # dạng "tomato_harvest", còn quest lưu "tomato"; cả hai phải được coi là một.
@@ -355,27 +263,13 @@ func accept_quest(quest_id: String, quest_data: Dictionary = {}) -> bool:
 		var quest_def: Dictionary = quest_definitions[quest_id]
 		quest = quest_def.duplicate()
 
-		# Kiểm tra không cho nhận quest với item trùng lặp (delivery quest)
-		var qtype: String = quest.get("type", "")
-		if qtype == "delivery":
-			var req_item: String = quest.get("required_item", "")
-			if req_item != "" and has_active_quest_with_item(req_item):
-				print("[QuestSystem] Cannot accept %s - already have active delivery quest with item '%s'" % [quest_id, req_item])
-				quest_rejected_duplicate_item.emit(req_item, quest_id)
-				return false
-
 		# Tính deadline: delivery quest theo thời gian trồng cây, quest khác 2-3 ngày.
 		var deadline_days: int = get_quest_deadline_days(quest)
 		quest["deadline_day"] = GameState.current_day + deadline_days
 		quest["deadline_days"] = deadline_days
+
 		print("[QuestSystem] Quest %s deadline: day %d (%d days)" % [quest_id, quest["deadline_day"], deadline_days])
 
-		# Đăng ký intervention nếu có
-		if quest_def.has("chain_interaction"):
-			var chain_id: String = quest_def.get("chain_interaction", "")
-			if quest_def.has("intervention_effect"):
-				var effect: String = quest_def.get("intervention_effect", "")
-				_register_intervention(quest_id, chain_id, effect)
 	elif quest_data.is_empty():
 		# Không có trong definitions và không có quest_data
 		push_error("[QuestSystem] Unknown quest: %s" % quest_id)
@@ -387,6 +281,23 @@ func accept_quest(quest_id: String, quest_data: Dictionary = {}) -> bool:
 		var deadline_days: int = get_quest_deadline_days(quest)
 		quest["deadline_day"] = GameState.current_day + deadline_days
 		quest["deadline_days"] = deadline_days
+
+	# Static và dynamic quest cùng đi qua một guard và cùng lưu canonical ID.
+	if str(quest.get("type", "")) == "delivery":
+		var required_item: String = normalize_delivery_item_id(str(quest.get("required_item", "")))
+		quest["required_item"] = required_item
+		if required_item != "" and has_active_quest_with_item(required_item):
+			print("[QuestSystem] Cannot accept %s - already have active delivery quest with item '%s'" % [quest_id, required_item])
+			quest_rejected_duplicate_item.emit(required_item, quest_id)
+			return false
+
+	# Chỉ đăng ký intervention sau khi mọi guard đã pass.
+	if quest.has("chain_interaction") and quest.has("intervention_effect"):
+		_register_intervention(
+			quest_id,
+			str(quest.get("chain_interaction", "")),
+			str(quest.get("intervention_effect", ""))
+		)
 
 	# Thêm thông tin chung
 	quest["id"] = quest_id
@@ -671,12 +582,11 @@ func get_available_quests_for_npc(npc_id: String) -> Array:
 # Trả về: true nếu đã có quest active với item này
 
 func has_active_quest_with_item(item_id: String) -> bool:
-	# Convert harvest item (vd "tomato_harvest") sang crop type (vd "tomato")
-	var crop_type: String = harvest_to_crop_type(item_id)
+	var crop_type: String = normalize_delivery_item_id(item_id)
 	for quest: Dictionary in active_quests:
 		var qtype: String = quest.get("type", "")
 		if qtype == "delivery":
-			var req_item: String = quest.get("required_item", "")
+			var req_item: String = normalize_delivery_item_id(str(quest.get("required_item", "")))
 			if req_item == crop_type:
 				return true
 	return false
@@ -737,23 +647,8 @@ func get_quest_deadline(quest_id: String) -> Dictionary:
 
 # Lấy số ngày sinh trưởng của crop dựa trên required_item (harvest hoặc seed id).
 func get_crop_grow_days(item_id: String) -> int:
-	var crop_id: String = harvest_to_crop_type(item_id)
-	var crop_type: FarmEnums.CropType = FarmEnums.get_crop_type_from_seed("seed_" + crop_id)
-	if crop_type == FarmEnums.CropType.NONE:
-		crop_type = _crop_type_from_harvest_id(crop_id)
-	if crop_type == FarmEnums.CropType.NONE:
-		return 0
-	var profile: Dictionary = FarmEnums.get_water_profile(crop_type)
+	var profile: Dictionary = ConfigManager.get_crop_profile(item_id)
 	return int(profile.get("grow_days", 0))
-
-func _crop_type_from_harvest_id(harvest_id: String) -> FarmEnums.CropType:
-	match harvest_id:
-		"wheat": return FarmEnums.CropType.WHEAT
-		"corn": return FarmEnums.CropType.CORN
-		"tomato", "tomato_harvest": return FarmEnums.CropType.TOMATO
-		"potato", "potato_harvest": return FarmEnums.CropType.POTATO
-		"turnip", "turnip_harvest": return FarmEnums.CropType.TURNIP
-	return FarmEnums.CropType.NONE
 
 # Trả về số ngày deadline cho một quest. Deadline được tính MỘT LẦN và lưu vào
 # quest["deadline_days"] để bảng quest và accept_quest dùng chung giá trị — tránh
@@ -792,31 +687,26 @@ func get_quest_deadline_days(quest: Dictionary) -> int:
 # Trả về Dictionary quest mới, KHÔNG lưu vào definitions (chỉ dùng 1 lần rồi bỏ)
 
 func _get_gold_reward(amount: int, crop_type: String = "") -> int:
-	# Nếu có crop_type, tra theo bảng cân bằng mới
-	if crop_type != "" and GOLD_REWARD_BY_CROP_AND_AMOUNT.has(crop_type):
-		var crop_rewards: Dictionary = GOLD_REWARD_BY_CROP_AND_AMOUNT[crop_type]
-		if crop_rewards.has(amount):
-			return int(crop_rewards[amount])
-	
-	# Fallback: ConfigManager hoặc bảng cũ
-	var cm: Node = get_node_or_null("/root/ConfigManager")
-	if cm != null:
-		return int(cm.get_value("money_config.quest_rewards.gold_by_amount.%d" % amount, GOLD_REWARD_BY_AMOUNT.get(amount, 25)))
-	return int(GOLD_REWARD_BY_AMOUNT.get(amount, 25))
+	return ConfigManager.get_dynamic_quest_gold_reward(crop_type, amount)
 
 func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 	if GameState.current_day < 2:
 		return {}
-	var crop_type: String = FARM_CROPS[randi() % FARM_CROPS.size()]
+	var crop_ids: Array[String] = ConfigManager.get_crop_ids()
+	if crop_ids.is_empty():
+		return {}
+	var crop_type: String = crop_ids[randi() % crop_ids.size()]
 	var required_amount: int = (randi() % 5) + 1  # 1-5
 
-	var crop_name: String = CROP_DISPLAY_NAMES.get(crop_type, crop_type.capitalize())
+	var profile: Dictionary = ConfigManager.get_crop_profile(crop_type)
+	var crop_name: String = str(profile.get("display_name", crop_type.capitalize()))
 	var npc_name_display: String = NPC_DISPLAY_NAMES.get(npc_id, npc_id.capitalize())
 	var quest_name: String = "Giao %d %s" % [required_amount, crop_name]
 	var quest_desc: String = "Giao %d %s cho %s." % [required_amount, crop_name, npc_name_display]
 
+	_dynamic_quest_sequence += 1
 	var quest: Dictionary = {
-		"id": "dynamic_delivery_%s_%d" % [npc_id, Time.get_unix_time_from_system()],
+		"id": "dynamic_delivery_%s_d%d_%d_%d" % [npc_id, GameState.current_day, Time.get_ticks_usec(), _dynamic_quest_sequence],
 		"name": quest_name,
 		"description": quest_desc,
 		"giver": npc_id,
@@ -827,9 +717,8 @@ func generate_random_delivery_quest(npc_id: String) -> Dictionary:
 		"days_to_complete_min": 2,
 		"days_to_complete_max": 3,
 		"reward": {
-			# Dùng bảng reward mới — cân bằng theo giá trị + thời gian trồng
 			"gold": _get_gold_reward(required_amount, crop_type),
-			"relationship": RELATIONSHIP_REWARD_BY_AMOUNT.get(required_amount, 2),
+			"relationship": ConfigManager.get_dynamic_quest_relationship_reward(required_amount),
 		},
 		"repeatable": false,
 		"is_dynamic": true,  # Đánh dấu là quest động
@@ -1034,11 +923,6 @@ func complete_delivery_quest(quest_id: String) -> bool:
 
 	# Trao phần thưởng
 	var reward: Dictionary = quest.get("reward", {}).duplicate(true)
-	# Hỗ trợ cả dữ liệu cũ dùng reward_gold/reward_relationship.
-	if not reward.has("gold") and quest.has("reward_gold"):
-		reward["gold"] = quest.get("reward_gold", 0)
-	if not reward.has("relationship") and quest.has("reward_relationship"):
-		reward["relationship"] = quest.get("reward_relationship", 0)
 	var giver: String = quest.get("giver", quest.get("target_npc", ""))
 
 	print("[QuestSystem] Reward: %s, giver: %s" % [str(reward), giver])

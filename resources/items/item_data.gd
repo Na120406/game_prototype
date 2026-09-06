@@ -58,11 +58,11 @@ enum Effect {
 
 @export_group("Water & Growth")
 ## Number of consecutive un-watered days a crop can survive before wilting.
-## (e.g. 1 = must water every day; 3 = can skip 3 days before wilting)
-@export var water_need: int = 1
+## (e.g. 1 = must water every day; 3 = can skip at most 2 consecutive days)
+@export var water_need: int = 0
 ## Growth progress added per watering event (0.0 - 1.0).
-## Default: requires watering each day to advance one stage.
-@export var growth_per_water: float = 0.2
+## Zero means this ItemData does not declare a crop-profile override.
+@export var growth_per_water: float = 0.0
 
 func can_use() -> bool:
 	return item_type in [Type.CONSUMABLE, Type.TOOL, Type.SEED]

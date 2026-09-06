@@ -517,9 +517,9 @@ func _create_quest_item(quest_data: Dictionary) -> Control:
 	hbox.add_theme_constant_override("separation", 4)
 	vbox.add_child(hbox)
 
-	# Lấy reward từ quest data (hỗ trợ cả reward dict và reward_gold/reward_xp)
+	# Reward là snapshot được tạo và trao bởi QuestSystem.
 	var reward_dict: Dictionary = quest_data.get("reward", {})
-	var gold: int = int(reward_dict.get("gold", quest_data.get("reward_gold", 0)))
+	var gold: int = int(reward_dict.get("gold", 0))
 	var relationship: int = int(reward_dict.get("relationship", 0))
 	var reward_text := ""
 	# Tránh emoji: font fallback trên Web export/itch.io không đảm bảo có glyph,

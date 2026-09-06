@@ -3,13 +3,15 @@
 	"starting_gold": 200,
 	"knockout_loss_ratio": 0.1
   },
-  "quest_rewards": {
-	"gold_by_amount": {
-	  "1": 25,
-	  "2": 50,
-	  "3": 75,
-	  "4": 100,
-	  "5": 125
+  "dynamic_delivery_reward": {
+	"premium_multiplier": 1.4,
+	"rounding_step": 5,
+	"relationship_by_amount": {
+	  "1": 2,
+	  "2": 3,
+	  "3": 4,
+	  "4": 5,
+	  "5": 6
 	}
   }
 }

@@ -1,0 +1,76 @@
+{
+	"produce_aliases": {
+		"wheat_harvest": "wheat",
+		"corn_harvest": "corn",
+		"tomato_harvest": "tomato",
+		"potato_harvest": "potato",
+		"turnip_harvest": "turnip"
+	},
+	"crops": {
+		"turnip": {
+			"crop_type": 5,
+			"display_name": "Củ cải",
+			"seed_item_id": "seed_turnip",
+			"produce_item_id": "turnip",
+			"seed_buy_price": 10,
+			"produce_sell_price": 20,
+			"grow_days": 4,
+			"water_need": 2,
+			"growth_per_water": 0.2,
+			"harvest_yield": 1,
+			"season": "spring"
+		},
+		"wheat": {
+			"crop_type": 1,
+			"display_name": "Lúa mì",
+			"seed_item_id": "seed_wheat",
+			"produce_item_id": "wheat",
+			"seed_buy_price": 15,
+			"produce_sell_price": 45,
+			"grow_days": 6,
+			"water_need": 2,
+			"growth_per_water": 0.25,
+			"harvest_yield": 1,
+			"season": "summer"
+		},
+		"corn": {
+			"crop_type": 2,
+			"display_name": "Ngô",
+			"seed_item_id": "seed_corn",
+			"produce_item_id": "corn",
+			"seed_buy_price": 20,
+			"produce_sell_price": 75,
+			"grow_days": 8,
+			"water_need": 1,
+			"growth_per_water": 0.2,
+			"harvest_yield": 1,
+			"season": "summer"
+		},
+		"tomato": {
+			"crop_type": 3,
+			"display_name": "Cà chua",
+			"seed_item_id": "seed_tomato",
+			"produce_item_id": "tomato",
+			"seed_buy_price": 12,
+			"produce_sell_price": 30,
+			"grow_days": 5,
+			"water_need": 1,
+			"growth_per_water": 0.2,
+			"harvest_yield": 1,
+			"season": "summer"
+		},
+		"potato": {
+			"crop_type": 4,
+			"display_name": "Khoai tây",
+			"seed_item_id": "seed_potato",
+			"produce_item_id": "potato",
+			"seed_buy_price": 18,
+			"produce_sell_price": 30,
+			"grow_days": 7,
+			"water_need": 3,
+			"growth_per_water": 0.25,
+			"harvest_yield": 2,
+			"season": "autumn"
+		}
+	}
+}

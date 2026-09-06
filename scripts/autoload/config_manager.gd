@@ -19,6 +19,10 @@ var _npc_schedule_config: Dictionary = {}
 var _ui_text_config: Dictionary = {}
 var _quest_text_config: Dictionary = {}
 var _money_config: Dictionary = {}
+var _crop_profiles: Dictionary = {}
+var _crop_by_seed: Dictionary = {}
+var _crop_by_type: Dictionary = {}
+var _produce_aliases: Dictionary = {}
 var _localization: Dictionary = {}
 var _voss_event_config: Dictionary = {}
 var _loaded: bool = false
@@ -35,6 +39,7 @@ func load_all_configs() -> void:
 	load_ui_text_config()
 	load_quest_text_config()
 	load_money_config()
+	load_crop_profiles()
 	load_voss_event_config()
 	load_localization()
 	_loaded = true
@@ -101,6 +106,26 @@ func load_money_config() -> bool:
 	push_error("[ConfigManager] Failed to load money_config.json")
 	return false
 
+func load_crop_profiles() -> bool:
+	var result := _load_json(CONFIG_PATH + "crop_profiles.json")
+	if result.is_empty():
+		push_error("[ConfigManager] Failed to load crop_profiles.json")
+		return false
+	_crop_profiles = result.get("crops", {}).duplicate(true)
+	_produce_aliases = result.get("produce_aliases", {}).duplicate(true)
+	_crop_by_seed.clear()
+	_crop_by_type.clear()
+	for crop_id: String in _crop_profiles:
+		var profile: Dictionary = _crop_profiles[crop_id]
+		var seed_id: String = str(profile.get("seed_item_id", ""))
+		if seed_id != "":
+			_crop_by_seed[seed_id] = crop_id
+		var crop_type: int = int(profile.get("crop_type", 0))
+		if crop_type > 0:
+			_crop_by_type[crop_type] = crop_id
+	print("[ConfigManager] Loaded crop_profiles.json (%d crops)" % _crop_profiles.size())
+	return not _crop_profiles.is_empty()
+
 func load_voss_event_config() -> bool:
 	var result := _load_json(CONFIG_PATH + "voss_mountain_event_config.json")
 	if result.size() > 0:
@@ -112,6 +137,52 @@ func load_voss_event_config() -> bool:
 
 func get_voss_event_config() -> Dictionary:
 	return _voss_event_config.duplicate(true)
+
+# =============================================================================
+# CROP / PRODUCE / DYNAMIC QUEST AUTHORITY
+# =============================================================================
+
+func canonicalize_item_id(item_id: String) -> String:
+	return str(_produce_aliases.get(item_id, item_id))
+
+func get_crop_profile(item_or_crop_id: String) -> Dictionary:
+	var canonical_id: String = canonicalize_item_id(item_or_crop_id)
+	if _crop_profiles.has(canonical_id):
+		return _crop_profiles[canonical_id].duplicate(true)
+	var crop_id: String = str(_crop_by_seed.get(item_or_crop_id, ""))
+	if crop_id != "" and _crop_profiles.has(crop_id):
+		return _crop_profiles[crop_id].duplicate(true)
+	return {}
+
+func get_crop_profile_for_type(crop_type: int) -> Dictionary:
+	var crop_id: String = str(_crop_by_type.get(crop_type, ""))
+	if crop_id == "":
+		return {}
+	return get_crop_profile(crop_id)
+
+func get_crop_ids() -> Array[String]:
+	var result: Array[String] = []
+	for crop_id: String in _crop_profiles:
+		result.append(crop_id)
+	result.sort()
+	return result
+
+func get_dynamic_quest_gold_reward(item_or_crop_id: String, amount: int) -> int:
+	var profile: Dictionary = get_crop_profile(item_or_crop_id)
+	if profile.is_empty() or amount <= 0:
+		return 0
+	var reward_config: Dictionary = _money_config.get("dynamic_delivery_reward", {})
+	var premium: float = float(reward_config.get("premium_multiplier", 1.4))
+	var rounding_step: int = maxi(1, int(reward_config.get("rounding_step", 5)))
+	var direct_sale_value: float = float(profile.get("produce_sell_price", 0)) * float(amount)
+	var raw_reward: float = direct_sale_value * premium
+	# Round to the nearest configured step (5G by default), not always down.
+	return roundi(raw_reward / float(rounding_step)) * rounding_step
+
+func get_dynamic_quest_relationship_reward(amount: int) -> int:
+	var reward_config: Dictionary = _money_config.get("dynamic_delivery_reward", {})
+	var by_amount: Dictionary = reward_config.get("relationship_by_amount", {})
+	return int(by_amount.get(str(amount), 0))
 
 func load_quest_text_config() -> bool:
 	var path := CONFIG_PATH + "quest_text_config.json"

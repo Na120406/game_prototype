@@ -144,25 +144,21 @@ func plant_crop(cell: Vector2i, crop_type: CropType, grow_days: int, water_need:
 func plant_from_seed(cell: Vector2i, seed_item_id: String) -> bool:
 	if _is_cell_blocked_by_tree(cell):
 		return false
-	var crop_type: int = FarmEnumsRef.get_crop_type_from_seed(seed_item_id)
+	var config: Node = get_node_or_null("/root/ConfigManager")
+	if config == null or not config.has_method("get_crop_profile"):
+		return false
+	var profile: Dictionary = config.call("get_crop_profile", seed_item_id)
+	var crop_type: int = int(profile.get("crop_type", CropType.NONE))
 	if crop_type == int(CropType.NONE):
 		print("[FarmManager] Unknown seed: %s" % seed_item_id)
 		return false
-	var profile: Dictionary = FarmEnumsRef.get_water_profile(crop_type)
-	var grow_days: int = profile["grow_days"]
-	var water_need: int = profile["water_need"]
-	var growth_per_water: float = profile["growth_per_water"]
-	var db = get_node_or_null("/root/ItemDB")
-	if db != null:
-		var seed_data: ItemData = db.get_item(seed_item_id)
-		if seed_data != null:
-			if seed_data.grow_days > 0:
-				grow_days = seed_data.grow_days
-			if seed_data.water_need > 0:
-				water_need = seed_data.water_need
-			if seed_data.growth_per_water > 0.0:
-				growth_per_water = seed_data.growth_per_water
-	return plant_crop(cell, crop_type, grow_days, water_need, growth_per_water)
+	return plant_crop(
+		cell,
+		crop_type,
+		int(profile.get("grow_days", 0)),
+		int(profile.get("water_need", 1)),
+		float(profile.get("growth_per_water", 0.25))
+	)
 
 func plow_cell(cell: Vector2i) -> bool:
 	if _ft == null or _is_cell_blocked_by_tree(cell):
@@ -197,9 +193,16 @@ func water_cell(cell: Vector2i) -> bool:
 func harvest_crop(cell: Vector2i) -> String:
 	if _ft == null or _is_cell_blocked_by_tree(cell):
 		return ""
+	var crop_type: int = int(_get_cell_data(cell).get("type", CropType.NONE))
+	# Profiles define the per-seed yield; keep one product as the safe fallback.
+	var harvest_yield: int = 1
+	var config: Node = get_node_or_null("/root/ConfigManager")
+	if config != null and config.has_method("get_crop_profile_for_type"):
+		var profile: Dictionary = config.call("get_crop_profile_for_type", crop_type)
+		harvest_yield = maxi(1, int(profile.get("harvest_yield", harvest_yield)))
 	var harvest_id: String = _ft.call("harvest_crop", cell)
 	if harvest_id != "":
-		GameState.add_item(harvest_id, 2)
+		GameState.add_item(harvest_id, harvest_yield)
 		_update_tile(cell, {"type": CropType.NONE, "state": CropState.EMPTY})
 	return harvest_id
 

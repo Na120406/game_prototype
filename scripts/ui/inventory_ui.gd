@@ -868,7 +868,7 @@ func _create_quest_list_item(quest: Dictionary) -> Control:
 
 	# Dòng phần thưởng: gold + item (nếu có)
 	var reward_dict: Dictionary = quest.get("reward", {})
-	var gold: int = int(reward_dict.get("gold", quest.get("reward_gold", 0)))
+	var gold: int = int(reward_dict.get("gold", 0))
 	var item_id: String = str(reward_dict.get("item", ""))
 	var reward_text := ""
 	if gold > 0:

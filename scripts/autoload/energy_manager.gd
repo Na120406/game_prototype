@@ -7,14 +7,14 @@ extends Node
 # hành động, knock-out sẽ được kích hoạt:
 #   - Fade đen trong 1.0s
 #   - Player NGẤT TẠI CHỖ (không teleport về giường)
-#   - Trừ 25% vàng hiện có (làm tròn lên)
+#   - Trừ 10% vàng hiện có (làm tròn lên)
 #   - Tốc độ di chuyển bị giảm 25% sau khi tỉnh
 #
 signal knock_out_started
 signal knock_out_finished
 
 const FADE_DURATION: float = 1.5
-const GOLD_LOSS_RATIO: float = 0.25
+const GOLD_LOSS_RATIO: float = 0.10
 
 # Ngưỡng năng lượng "vùng đỏ" (khớp với energy_bar.gd → RED_COLOR).
 # Khi energy ≤ ngưỡng này → move_speed_mult giảm 23% (còn 0.77).
@@ -144,7 +144,7 @@ func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 	for i in range(days_passed):
 		GameState.advance_day(reset_to_hour)
 
-	# Phạt -25% vàng trong CẢ HAI trường hợp:
+	# Phạt -10% vàng trong CẢ HAI trường hợp:
 	#   - Cày kiệt sức (trigger_knock_out, có teleport về giường)
 	#   - Quá giờ đi ngủ / đứng ngoài trời ngủ muộn (trigger_afk_knock_out)
 	# Speed penalty (-25%) cũng áp dụng đồng thời; cả hai được reset khi
@@ -163,7 +163,7 @@ func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 
 
 func _apply_gold_loss_penalty() -> void:
-	# Trừ 25% vàng hiện có (làm tròn lên). Dùng chung cho cả hai dạng
+	# Trừ 10% vàng hiện có (làm tròn lên). Dùng chung cho cả hai dạng
 	# knock-out (cày kiệt sức + quá giờ ngủ ngoài trời).
 	var cm: Node = get_node_or_null("/root/ConfigManager")
 	var loss_ratio: float = GOLD_LOSS_RATIO

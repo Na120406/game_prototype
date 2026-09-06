@@ -465,6 +465,12 @@ func _try_harvest(cell: Vector2i) -> void:
 		return
 	var harvest_id: String = _farm_manager.harvest_crop(cell)
 	if harvest_id != "":
+		# Match the profile contract: one product per seed by default.
+		var harvest_yield: int = 1
+		var config := get_node_or_null("/root/ConfigManager")
+		if config != null and config.has_method("get_crop_profile"):
+			var profile: Dictionary = config.call("get_crop_profile", harvest_id)
+			harvest_yield = maxi(1, int(profile.get("harvest_yield", harvest_yield)))
 		var db := get_node_or_null("/root/ItemDB")
 		var color := Color(1.0, 0.9, 0.3)
 		var name_str: String = harvest_id
@@ -473,7 +479,7 @@ func _try_harvest(cell: Vector2i) -> void:
 			if item_data != null:
 				color = item_data.item_color
 				name_str = item_data.get_display_name()
-		_play_feedback(cell, "+2 " + name_str, color)
+		_play_feedback(cell, "+%d %s" % [harvest_yield, name_str], color)
 
 # =============================================================================
 # GROWTH INFO

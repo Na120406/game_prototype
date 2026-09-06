@@ -1,6 +1,6 @@
 extends Node
 
-const _save_data_version: int = 3
+const _save_data_version: int = 4
 
 func _ready() -> void:
 	print("[CatchUpSystem] Ready — passive metadata storage only.")
@@ -100,8 +100,22 @@ func _get_npc_runtime_data() -> Dictionary:
 		return npc_manager.call("export_runtime_state")
 	return {}
 
-func _migrate_save_data(_data: Dictionary, _from_version: int) -> void:
-	print("[CatchUpSystem] Migrating save data from v%d to v%d" % [_from_version, _save_data_version])
+func _migrate_save_data(data: Dictionary, from_version: int) -> void:
+	print("[CatchUpSystem] Migrating save data from v%d to v%d" % [from_version, _save_data_version])
+	if from_version <= 3:
+		var saved_state: Dictionary = data.get("game_state", {})
+		_migrate_item_slots(saved_state.get("inventory", []))
+		_migrate_item_slots(saved_state.get("toolbar", []))
+	data["version"] = _save_data_version
+
+func _migrate_item_slots(slots: Variant) -> void:
+	if not (slots is Array):
+		return
+	for slot: Variant in slots:
+		if slot is Dictionary:
+			var item_id: String = str(slot.get("id", ""))
+			if item_id != "":
+				slot["id"] = ConfigManager.canonicalize_item_id(item_id)
 
 func _get_farm_cells_data() -> Dictionary:
 	# FarmTickManager là source-of-truth và tồn tại ở mọi scene. Không đọc qua

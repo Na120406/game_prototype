@@ -92,8 +92,7 @@ func _day_boundary_update(reset_watered: bool) -> void:
 
 		# Living crops (SEEDED / SPROUTED / GROWING)
 		if FarmEnumsRef.is_living_state(state):
-			var profile: Dictionary = FarmEnumsRef.get_water_profile(data.get("type", FarmEnumsRef.CropType.NONE))
-			var water_need: int = profile["water_need"]
+			var water_need: int = maxi(1, int(data.get("water_need", 1)))
 			var watered_today: bool = data.get("watered", false)
 
 			_advance_growth_daily(data, cell)
@@ -260,7 +259,13 @@ func harvest_crop(cell: Vector2i) -> String:
 		cells[cell_key]["state"] = FarmEnumsRef.CropState.MATURE
 	cells[cell_key]["mature_day"] = GameState.current_day
 	var crop_type: int = cells[cell_key].get("type", FarmEnumsRef.CropType.NONE)
-	var item_id: String = FarmEnumsRef.get_harvest_id(crop_type)
+	var item_id: String = ""
+	var config: Node = get_node_or_null("/root/ConfigManager")
+	if config != null and config.has_method("get_crop_profile_for_type"):
+		var profile: Dictionary = config.call("get_crop_profile_for_type", crop_type)
+		item_id = str(profile.get("produce_item_id", ""))
+	if item_id == "":
+		item_id = FarmEnumsRef.get_harvest_id(crop_type)
 	cells.erase(cell_key)
 	crop_harvested.emit(cell, item_id)
 	_persist_snapshot()
@@ -282,8 +287,11 @@ func has_valid_crop(cell: Vector2i) -> bool:
 	return FarmEnumsRef.is_living_state(get_cell_state(cell))
 
 func get_harvest_id_for_seed(seed_id: String) -> String:
-	var crop_type: int = FarmEnumsRef.get_crop_type_from_seed(seed_id)
-	return FarmEnumsRef.get_harvest_id(crop_type)
+	var config: Node = get_node_or_null("/root/ConfigManager")
+	if config != null and config.has_method("get_crop_profile"):
+		var profile: Dictionary = config.call("get_crop_profile", seed_id)
+		return str(profile.get("produce_item_id", ""))
+	return ""
 
 # =============================================================================
 # SERIALIZATION
@@ -376,6 +384,25 @@ func _sanitize_plowed_cells() -> void:
 		var state: int = data.get("state", FarmEnumsRef.CropState.EMPTY)
 		if state == FarmEnumsRef.CropState.PLOWED and data.get("watered", false):
 			data["watered"] = false
+		if state in [
+			FarmEnumsRef.CropState.SEEDED,
+			FarmEnumsRef.CropState.SPROUTED,
+			FarmEnumsRef.CropState.GROWING,
+			FarmEnumsRef.CropState.MATURE,
+			FarmEnumsRef.CropState.WILTED,
+		]:
+			_rehydrate_crop_profile(data)
+
+func _rehydrate_crop_profile(data: Dictionary) -> void:
+	var config: Node = get_node_or_null("/root/ConfigManager")
+	if config == null or not config.has_method("get_crop_profile_for_type"):
+		return
+	var profile: Dictionary = config.call("get_crop_profile_for_type", int(data.get("type", 0)))
+	if profile.is_empty():
+		return
+	data["grow_days"] = int(profile.get("grow_days", data.get("grow_days", 0)))
+	data["water_need"] = int(profile.get("water_need", data.get("water_need", 1)))
+	data["growth_per_water"] = float(profile.get("growth_per_water", data.get("growth_per_water", 0.25)))
 
 func _persist_snapshot() -> void:
 	_save_to_snapshot()
