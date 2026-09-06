@@ -58,30 +58,30 @@ func _ready() -> void:
 func _build_initial_families() -> void:
 	families = {
 		# =================================================================
-		# GIA ĐÌNH SHOPKEEPER (VOSS)
+		# GIA ĐÌNH SHOPKEEPER (VOS)
 		# =================================================================
 		"shopkeeper_family": {
 			"id": "shopkeeper_family",
 			"name": "The Shopkeeper's Family",
-			"surname": "Voss",
+			"surname": "Vos",
 			"status": FamilyStatus.INTACT,
 			"members": [
-				# Ông Voss (cha) - chủ cửa hàng
+				# Ông Vos (cha) - chủ cửa hàng
 				{
 					"id": "shopkeeper_father",
-					"name": "Old Voss",
+					"name": "Old Vos",
 					"role": "father",
 					"alive": true,                    # Đang sống
 					"at_home": true,                  # Đang ở nhà
 					"personality": "cautious",        # Tính cách: cẩn thận
 					"dialogue_id": "shopkeeper_father_normal",
-					"successor": "shopkeeper_son",     # Kế thừa: Voss con
+					"successor": "shopkeeper_son",     # Kế thừa: Vos con
 					"scene_path": "res://scenes/npc/shopkeeper_father.tscn",
 				},
-				# Voss con (con trai)
+				# Vos con (con trai)
 				{
 					"id": "shopkeeper_son",
-					"name": "Young Voss",
+					"name": "Young Vos",
 					"role": "son",
 					"alive": true,
 					"at_home": true,
@@ -93,7 +93,7 @@ func _build_initial_families() -> void:
 			],
 			"current_head": "shopkeeper_father",   # Người đứng đầu hiện tại
 			"home_location": Vector2(240, 320),    # Vị trí nhà
-			"business_name": "Voss General Store", # Tên cửa hàng
+			"business_name": "Vos General Store", # Tên cửa hàng
 		},
 		
 		# =================================================================

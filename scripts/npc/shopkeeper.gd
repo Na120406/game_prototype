@@ -74,14 +74,14 @@ func interact(_player: Node) -> void:
 	# Sau khi thoại lô hàng mới đã chạy, không quay lại lời giới thiệu ban đầu;
 	# các lần nói chuyện tiếp theo dùng thoại daily như bình thường.
 	var selected_dialogue: String = dialogue_id
-	if talk_count == 1 and dialogue_first_id != "" and not GameState.is_voss_dialogue_seen(GameState.VOSS_NEW_STOCK_DIALOGUE_KEY):
+	if talk_count == 1 and dialogue_first_id != "" and not GameState.is_vos_dialogue_seen(GameState.VOS_NEW_STOCK_DIALOGUE_KEY):
 		selected_dialogue = dialogue_first_id
 
 	DialogueManager.start_dialogue(selected_dialogue, npc_name, npc_id)
 
 
 func _try_start_new_stock_dialogue() -> bool:
-	if not GameState.is_voss_new_stock_dialogue_due():
+	if not GameState.is_vos_new_stock_dialogue_due():
 		return false
 	# Không chen thoại mới vào giữa một hội thoại khác.
 	if DialogueManager.is_active:
@@ -89,7 +89,7 @@ func _try_start_new_stock_dialogue() -> bool:
 	DialogueManager.start_dialogue(NEW_STOCK_DIALOGUE_ID, npc_name, npc_id)
 	if not DialogueManager.is_active:
 		return false
-	GameState.mark_voss_new_stock_dialogue_seen()
+	GameState.mark_vos_new_stock_dialogue_seen()
 	return true
 
 

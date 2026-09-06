@@ -712,7 +712,7 @@ func check_selected_hotbar_item(item_id: String, required_amount: int) -> bool:
 # Dùng để theo dõi trạng thái quest, đã làm gì trong game
 #
 # Tham số:
-#   flag: String - tên cờ (ví dụ: "talked_to_voss")
+#   flag: String - tên cờ (ví dụ: "talked_to_vos")
 #   value: Variant - giá trị đặt cho cờ (mặc định = true)
 
 func set_flag(flag: String, value: Variant = true) -> void:
@@ -736,64 +736,64 @@ func get_flag(flag: String, default: Variant = false) -> Variant:
 
 
 # =============================================================================
-# VOSS MOUNTAIN EVENT — STATE KEYS & HELPERS
+# VOS MOUNTAIN EVENT — STATE KEYS & HELPERS
 # =============================================================================
-# State keys chuẩn cho chuỗi sự kiện Voss lên núi. Toàn bộ trạng thái bền vững
+# State keys chuẩn cho chuỗi sự kiện Vos lên núi. Toàn bộ trạng thái bền vững
 # nằm trong world_flags (lưu qua CatchUpSystem), KHÔNG tạo biến global rời.
-# Naming: voss_mountain_*, voss_*, shop_price_*.
+# Naming: vos_mountain_*, vos_*, shop_price_*.
 
-const VOSS_EVENT_DAY_KEY: String = "voss_mountain_event_day"
-const VOSS_PHASE_KEY: String = "voss_mountain_phase"
-const VOSS_OUTCOME_KEY: String = "voss_outcome"
-const VOSS_ALIVE_KEY: String = "voss_alive"
-const VOSS_INJURY_STATE_KEY: String = "voss_injury_state"
-const VOSS_DIALOGUE_SEEN_PREFIX: String = "voss_dialogue_seen_"
-const VOSS_NEW_STOCK_DIALOGUE_KEY: String = "new_stock_day3"
+const VOS_EVENT_DAY_KEY: String = "vos_mountain_event_day"
+const VOS_PHASE_KEY: String = "vos_mountain_phase"
+const VOS_OUTCOME_KEY: String = "vos_outcome"
+const VOS_ALIVE_KEY: String = "vos_alive"
+const VOS_INJURY_STATE_KEY: String = "vos_injury_state"
+const VOS_DIALOGUE_SEEN_PREFIX: String = "vos_dialogue_seen_"
+const VOS_NEW_STOCK_DIALOGUE_KEY: String = "new_stock_day3"
 const SHOP_PRICE_MODIFIER_KEY: String = "shop_price_modifier"
 const SHOP_PRICE_CYCLE_DAY_KEY: String = "shop_price_cycle_day"
 
-func set_voss_event_day(day: int) -> void:
-	set_flag(VOSS_EVENT_DAY_KEY, day)
+func set_vos_event_day(day: int) -> void:
+	set_flag(VOS_EVENT_DAY_KEY, day)
 
-func get_voss_event_day() -> int:
-	return int(get_flag(VOSS_EVENT_DAY_KEY, -1))
+func get_vos_event_day() -> int:
+	return int(get_flag(VOS_EVENT_DAY_KEY, -1))
 
-func set_voss_phase(phase_name: String) -> void:
-	set_flag(VOSS_PHASE_KEY, phase_name)
+func set_vos_phase(phase_name: String) -> void:
+	set_flag(VOS_PHASE_KEY, phase_name)
 
-func get_voss_phase() -> String:
-	return str(get_flag(VOSS_PHASE_KEY, "SCHEDULED"))
+func get_vos_phase() -> String:
+	return str(get_flag(VOS_PHASE_KEY, "SCHEDULED"))
 
-func set_voss_outcome(outcome_name: String) -> void:
-	set_flag(VOSS_OUTCOME_KEY, outcome_name)
+func set_vos_outcome(outcome_name: String) -> void:
+	set_flag(VOS_OUTCOME_KEY, outcome_name)
 
-func get_voss_outcome() -> String:
-	return str(get_flag(VOSS_OUTCOME_KEY, ""))
+func get_vos_outcome() -> String:
+	return str(get_flag(VOS_OUTCOME_KEY, ""))
 
-func set_voss_alive(alive: bool) -> void:
-	set_flag(VOSS_ALIVE_KEY, alive)
+func set_vos_alive(alive: bool) -> void:
+	set_flag(VOS_ALIVE_KEY, alive)
 
-func is_voss_alive() -> bool:
-	return bool(get_flag(VOSS_ALIVE_KEY, true))
+func is_vos_alive() -> bool:
+	return bool(get_flag(VOS_ALIVE_KEY, true))
 
-func set_voss_injury_state(state_name: String) -> void:
-	set_flag(VOSS_INJURY_STATE_KEY, state_name)
+func set_vos_injury_state(state_name: String) -> void:
+	set_flag(VOS_INJURY_STATE_KEY, state_name)
 
-func get_voss_injury_state() -> String:
-	return str(get_flag(VOSS_INJURY_STATE_KEY, "none"))
+func get_vos_injury_state() -> String:
+	return str(get_flag(VOS_INJURY_STATE_KEY, "none"))
 
-func is_voss_dialogue_seen(dialogue_key: String) -> bool:
-	return bool(get_flag(VOSS_DIALOGUE_SEEN_PREFIX + dialogue_key, false))
+func is_vos_dialogue_seen(dialogue_key: String) -> bool:
+	return bool(get_flag(VOS_DIALOGUE_SEEN_PREFIX + dialogue_key, false))
 
-func mark_voss_dialogue_seen(dialogue_key: String) -> void:
-	set_flag(VOSS_DIALOGUE_SEEN_PREFIX + dialogue_key, true)
+func mark_vos_dialogue_seen(dialogue_key: String) -> void:
+	set_flag(VOS_DIALOGUE_SEEN_PREFIX + dialogue_key, true)
 
 ## Thoại thông báo lô hàng mới mở từ ngày 3 và chỉ chạy một lần trong save.
-func is_voss_new_stock_dialogue_due() -> bool:
-	return current_day >= 3 and not is_voss_dialogue_seen(VOSS_NEW_STOCK_DIALOGUE_KEY)
+func is_vos_new_stock_dialogue_due() -> bool:
+	return current_day >= 3 and not is_vos_dialogue_seen(VOS_NEW_STOCK_DIALOGUE_KEY)
 
-func mark_voss_new_stock_dialogue_seen() -> void:
-	mark_voss_dialogue_seen(VOSS_NEW_STOCK_DIALOGUE_KEY)
+func mark_vos_new_stock_dialogue_seen() -> void:
+	mark_vos_dialogue_seen(VOS_NEW_STOCK_DIALOGUE_KEY)
 
 func get_shop_price_modifier() -> float:
 	return float(get_flag(SHOP_PRICE_MODIFIER_KEY, 0.0))

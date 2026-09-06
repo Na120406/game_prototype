@@ -600,6 +600,10 @@ func _build_tabs() -> void:
 	var grid: GridContainer = get_node_or_null("Root/Panel/GridBox/GridContainer") as GridContainer
 	if panel == null or gridbox == null or grid == null:
 		return
+	# GridBox nằm phía trên phần thân dài của hai nút tab. Nó phải STOP chuột
+	# để vùng tab bị panel che không còn nhận click xuyên; các slot con vẫn nhận
+	# GUI input trước parent, còn phần tab thực sự nhô lên vẫn bấm bình thường.
+	gridbox.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	# Nút tab thay thế TitleBox/Label cũ (tránh text chồng nhau). Nút tab được đặt
 	# SAU GridBox (z thấp hơn) nên mép dưới bị GridBox che → giống "tag" gắn trên
@@ -630,6 +634,10 @@ func _build_tabs() -> void:
 	_quest_tab_button.pressed.connect(_switch_tab.bind(TAB_QUEST))
 	panel.add_child(_quest_tab_button)
 	_quest_tab_button.size = Vector2(float(tab_quest_width), float(TAB_HEIGHT))
+	# GUI picking của Control ưu tiên sibling được thêm sau, không chỉ dựa vào
+	# z_index vẽ. Đưa GridBox về cuối để nó thật sự nằm trên phần thân tab bị
+	# che và STOP click tại đó; phần tab nhô ngoài rect GridBox vẫn bấm được.
+	panel.move_child(gridbox, panel.get_child_count() - 1)
 
 	# --- Panel danh sách quest (con của GridBox, thay thế grid khi ở tab quest) ---
 	_quest_panel = PanelContainer.new()

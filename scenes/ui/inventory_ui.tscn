@@ -130,7 +130,7 @@ offset_left = 2.0
 offset_top = 16.0
 offset_right = 270.0
 offset_bottom = 131.0
-mouse_filter = 2
+mouse_filter = 0
 
 [node name="GridContainer" type="GridContainer" parent="Root/Panel/GridBox"]
 editor_description = "Grid 7 cột × 3 hàng. Padding 8px từ viền GridBox. Slot 32×32, gap 4px."

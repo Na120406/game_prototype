@@ -51,7 +51,7 @@ Input Map có thể xem và chỉnh trong `project.godot`.
 - Táo tại các điểm gathering có xác suất xuất hiện 25% mỗi điểm, reset theo ngày.
 - Inventory 21 ô và hotbar 5 ô; tooltip dùng chung độ trễ 0,3 giây.
 - Portal town/forest có tuyến dài và đường tắt; đường tắt bị chặn cho đến khi phá khúc gỗ.
-- Marcus có lịch theo ngày, đi theo road ColorRect khi route có đường vẽ; Voss mở thoại hàng mới từ ngày 3.
+- Marcus có lịch theo ngày, đi theo road ColorRect khi route có đường vẽ; Vos mở thoại hàng mới từ ngày 3.
 
 ## Bản đồ và scene chính
 
@@ -61,7 +61,7 @@ Input Map có thể xem và chỉnh trong `project.godot`.
 | Farm | `scenes/maps/farm_map.tscn` | Trồng trọt, hàng rào, WaterSource |
 | Forest | `scenes/maps/forest_map.tscn` | Gathering táo, đường dài/đường tắt, TreeBlocker |
 | Town | `scenes/maps/town_map.tscn` | Shop, NPC và hai cổng đi forest |
-| Shop | `scenes/maps/inside_shop_map.tscn` | Mua/bán vật phẩm, Voss |
+| Shop | `scenes/maps/inside_shop_map.tscn` | Mua/bán vật phẩm, Vos |
 | Marcus farm/house | `scenes/maps/marcus_farm_map.tscn`, `marcus_house_map.tscn` | Route và điểm nghỉ của Marcus |
 
 ## Cấu trúc repository

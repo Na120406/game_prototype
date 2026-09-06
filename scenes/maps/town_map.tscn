@@ -234,7 +234,7 @@ rotation = 1.5707964
 color = Color(0.38, 0.36, 0.32, 1)
 
 [node name="LampSouth" type="ColorRect" parent="GroundBackdrop"]
-z_index = 2
+z_index = 11
 layout_mode = 0
 offset_left = 190.0
 offset_top = 334.0
@@ -252,7 +252,7 @@ offset_bottom = 7.0
 color = Color(0.95, 0.76, 0.32, 1)
 
 [node name="LampSouth2" type="ColorRect" parent="GroundBackdrop"]
-z_index = 11
+z_index = 14
 layout_mode = 0
 offset_left = 240.0
 offset_top = 259.0

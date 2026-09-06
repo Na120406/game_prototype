@@ -47,7 +47,7 @@ func _ready() -> void:
 func _build_default_schedules() -> void:
 	schedules = {
 		# =================================================================
-		# ÔNG VOSS (Shopkeeper Father) - Đi núi vào thứ 7
+		# ÔNG VOS (Shopkeeper Father) - Đi núi vào thứ 7
 		# =================================================================
 		"shopkeeper_father": [
 			{
@@ -57,7 +57,7 @@ func _build_default_schedules() -> void:
 				"departure_time": 7.0,            # Đi lúc 7:00 sáng
 				"return_time": 18.0,             # Về lúc 18:00
 				"risk_activity": "mountain_trip",  # Hoạt động nguy hiểm
-				"description": "Voss climbs the mountain every Saturday.",
+				"description": "Vos climbs the mountain every Saturday.",
 				"chain_id": "shopkeeper_mountain",  # Chain sự kiện
 				"required_quest": "",             # Không cần quest
 			},
@@ -98,7 +98,7 @@ func _build_default_schedules() -> void:
 		],
 		
 		# =================================================================
-		# VOSS CON (Shopkeeper Son) - Đi ban đêm thứ 5
+		# VOS CON (Shopkeeper Son) - Đi ban đêm thứ 5
 		# =================================================================
 		"shopkeeper_son": [
 			{
@@ -108,7 +108,7 @@ func _build_default_schedules() -> void:
 				"departure_time": 21.0,          # Đi lúc 21:00 (9 giờ tối)
 				"return_time": 23.0,
 				"risk_activity": "night_walk",
-				"description": "Young Voss wanders at night.",
+				"description": "Young Vos wanders at night.",
 				"chain_id": "",
 				"required_quest": "",
 			},
@@ -116,14 +116,14 @@ func _build_default_schedules() -> void:
 	}
 
 
-## Lịch Branch A của Voss được lấy từ config event thay vì hard-code trong
+## Lịch Branch A của Vos được lấy từ config event thay vì hard-code trong
 ## schedule legacy. Trả về rỗng ngoài event_day để WorldSimulator không tạo
 ## event nhầm ở các ngày khác.
-func get_voss_mountain_schedule_for_day(day: int) -> Dictionary:
+func get_vos_mountain_schedule_for_day(day: int) -> Dictionary:
 	var config_manager: Node = get_node_or_null("/root/ConfigManager")
-	if config_manager == null or not config_manager.has_method("get_voss_event_config"):
+	if config_manager == null or not config_manager.has_method("get_vos_event_config"):
 		return {}
-	var event_config: Dictionary = config_manager.call("get_voss_event_config")
+	var event_config: Dictionary = config_manager.call("get_vos_event_config")
 	var schedule: Dictionary = event_config.get("schedule", {})
 	var event_day: int = int(schedule.get("event_day", 5))
 	if day != event_day:

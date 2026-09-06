@@ -1,9 +1,9 @@
 {
 	"static_quests": [
 		{
-			"id": "escort_voss_mountain",
+			"id": "escort_vos_mountain",
 			"name": "Chuyến đi lên núi",
-			"description": "Ông Voss đang chuẩn bị lên núi và cần người đi cùng.",
+			"description": "Ông Vos đang chuẩn bị lên núi và cần người đi cùng.",
 			"giver": "shopkeeper_father",
 			"type": "escort",
 			"target_npc": "shopkeeper_father",
@@ -15,7 +15,7 @@
 		{
 			"id": "deliver_medicine",
 			"name": "Giao thuốc",
-			"description": "Mang thuốc từ bà Martha đến cho ông Voss trước chuyến đi.",
+			"description": "Mang thuốc từ bà Martha đến cho ông Vos trước chuyến đi.",
 			"giver": "farmer_mother",
 			"type": "delivery",
 			"target_npc": "shopkeeper_father",

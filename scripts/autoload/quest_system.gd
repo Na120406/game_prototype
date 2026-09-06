@@ -67,8 +67,8 @@ var _dynamic_quest_sequence: int = 0
 
 const NPC_DISPLAY_NAMES: Dictionary = {
 	"neighbor": "Marcus",
-	"shopkeeper": "Voss",
-	"shopkeeper_father": "ông Voss",
+	"shopkeeper": "Vos",
+	"shopkeeper_father": "ông Vos",
 	"farmer_mother": "bà Martha",
 	"hermit": "ông Hanz",
 }
@@ -168,10 +168,10 @@ func _build_quest_library() -> void:
 		# =================================================================
 		# QUEST HỘ TỐNG
 		# =================================================================
-		"escort_voss_mountain": {
-			"id": "escort_voss_mountain",
+		"escort_vos_mountain": {
+			"id": "escort_vos_mountain",
 			"name": "Chuyến đi lên núi",
-			"description": "Ông Voss đang chuẩn bị lên núi và có vẻ không yên tâm khi đi một mình.",
+			"description": "Ông Vos đang chuẩn bị lên núi và có vẻ không yên tâm khi đi một mình.",
 			"giver": "shopkeeper_father",
 			"type": "escort",                      # Loại: hộ tống
 			"target_npc": "shopkeeper_father",     # NPC cần hộ tống
@@ -188,7 +188,7 @@ func _build_quest_library() -> void:
 		"deliver_medicine": {
 			"id": "deliver_medicine",
 			"name": "Giao thuốc",
-			"description": "Bà Martha cần người mang thuốc cho ông Voss trước chuyến đi lên núi.",
+			"description": "Bà Martha cần người mang thuốc cho ông Vos trước chuyến đi lên núi.",
 			"giver": "farmer_mother",
 			"type": "delivery",
 			"target_npc": "shopkeeper_father",

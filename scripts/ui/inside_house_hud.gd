@@ -56,7 +56,17 @@ func _on_sleep_chosen() -> void:
 		print("[InsideHouseHUD] Slept at %.2f (raw=%.2f) — flagged slept_after_2330" % [wrapped_hour, sleep_time_raw])
 
 	TimeManager.pause()
-	await get_tree().create_timer(0.8).timeout
+	var transition := get_node_or_null("/root/DayTransitionManager")
+	if transition != null and transition.has_method("play_day_transition"):
+		await transition.call("play_day_transition", _advance_day_while_black)
+	else:
+		# Fallback cho scene/test tối giản chưa có autoload hiệu ứng.
+		await get_tree().create_timer(0.8).timeout
+		_advance_day_while_black()
+	if player != null and player.has_method("set_sleeping"):
+		player.set_sleeping(false)
+
+func _advance_day_while_black() -> void:
 	var npc_manager: Node = get_node_or_null("/root/NPCManager")
 	if npc_manager != null and npc_manager.has_method("reset_npcs_for_sleep"):
 		npc_manager.call("reset_npcs_for_sleep")
@@ -66,5 +76,3 @@ func _on_sleep_chosen() -> void:
 	# Ngủ đúng giờ → reset speed penalty. Ngủ muộn/kiệt sức đã bị phạt ở
 	# call-site tương ứng (EnergyManager._finish_knock_out) — speed mult vẫn giữ.
 	GameState.move_speed_mult = 1.0
-	if player != null and player.has_method("set_sleeping"):
-		player.set_sleeping(false)

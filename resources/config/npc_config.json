@@ -185,7 +185,7 @@
       ]
     },
     "shopkeeper": {
-      "name": "Voss",
+      "name": "Vos",
       "npc_id": "shopkeeper",
       "scene_path": "res://scenes/npc/shopkeeper.tscn",
       "default_scene": "res://scenes/maps/inside_shop_map.tscn",

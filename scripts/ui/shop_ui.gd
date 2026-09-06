@@ -19,7 +19,7 @@ signal shop_closed()
 const SELL_PRICE_RATIO: float = 0.5
 const SHOP_ROW_WIDTH: float = 210.0
 const SHOP_WINDOW_SIZE := Vector2(220, 176)
-const VOSS_NEW_STOCK_DIALOGUE_ID: String = "shopkeeper_new_stock_day3"
+const VOS_NEW_STOCK_DIALOGUE_ID: String = "shopkeeper_new_stock_day3"
 
 var _player_gold: int = 100
 var _hotbar: Control = null
@@ -73,8 +73,8 @@ func _ready() -> void:
 	buy_tab.pressed.connect(_on_tab_buy)
 	sell_tab.pressed.connect(_on_tab_sell)
 	shop_closed.connect(_on_shop_closed)
-	if not DialogueManager.dialogue_ended.is_connected(_on_pending_voss_dialogue_ended):
-		DialogueManager.dialogue_ended.connect(_on_pending_voss_dialogue_ended)
+	if not DialogueManager.dialogue_ended.is_connected(_on_pending_vos_dialogue_ended):
+		DialogueManager.dialogue_ended.connect(_on_pending_vos_dialogue_ended)
 	_create_tooltip()
 	_refresh_tabs()
 	_enforce_window_size()
@@ -453,29 +453,29 @@ func _try_show_hotbar() -> void:
 func open(gold: int = 200) -> void:
 	# Nếu đây là lần đầu vào shop từ ngày 3, ưu tiên thoại nhập hàng mới.
 	# Shop chỉ hiện sau khi người chơi đóng xong đoạn thoại.
-	if _try_start_voss_new_stock_dialogue(gold):
+	if _try_start_vos_new_stock_dialogue(gold):
 		return
 	_open_shop_now(gold)
 
 
-func _try_start_voss_new_stock_dialogue(gold: int) -> bool:
-	if not GameState.is_voss_new_stock_dialogue_due():
+func _try_start_vos_new_stock_dialogue(gold: int) -> bool:
+	if not GameState.is_vos_new_stock_dialogue_due():
 		return false
 	if DialogueManager.is_active:
 		return false
 
 	_pending_shop_open_after_dialogue = true
 	_pending_shop_gold = gold
-	DialogueManager.start_dialogue(VOSS_NEW_STOCK_DIALOGUE_ID, "Vos", "shopkeeper")
+	DialogueManager.start_dialogue(VOS_NEW_STOCK_DIALOGUE_ID, "Vos", "shopkeeper")
 	if not DialogueManager.is_active:
 		# Nếu dữ liệu/UI thoại không khởi động được, không khóa luôn quầy shop.
 		_pending_shop_open_after_dialogue = false
 		return false
-	GameState.mark_voss_new_stock_dialogue_seen()
+	GameState.mark_vos_new_stock_dialogue_seen()
 	return true
 
 
-func _on_pending_voss_dialogue_ended() -> void:
+func _on_pending_vos_dialogue_ended() -> void:
 	if not _pending_shop_open_after_dialogue:
 		return
 	var gold := _pending_shop_gold

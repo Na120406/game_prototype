@@ -15,7 +15,7 @@ extends Node
 #   res://resources/dialogue/{dialogue_id}.json
 #
 # CÁCH SỬ DỤNG:
-#   DialogueManager.start_dialogue("shopkeeper", "Voss") - bắt đầu hội thoại
+#   DialogueManager.start_dialogue("shopkeeper", "Vos") - bắt đầu hội thoại
 # =============================================================================
 
 # =============================================================================

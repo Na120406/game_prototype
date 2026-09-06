@@ -96,7 +96,7 @@ game-demo/
 | Lịch & di chuyển NPC, spawn/despawn theo scene | `scripts/autoload/npc_manager.gd` |
 | Base NPC (state, schedule, pathfinding) | `scripts/npc/npc.gd` + `scripts/npc/npc_road_pathfinder.gd` |
 | NPC hàng xóm Marcus (lịch day1 intro, quest) | `scripts/npc/neighbor.gd` |
-| NPC chủ shop (Voss) | `scripts/npc/shopkeeper.gd` |
+| NPC chủ shop (Vos) | `scripts/npc/shopkeeper.gd` |
 | Hội thoại (đọc JSON, chạy dòng, action) | `scripts/autoload/dialogue_manager.gd` + `scripts/ui/dialogue_ui.gd` |
 | Nhiệm vụ (accept/complete/expire, quest bảng tin) | `scripts/autoload/quest_system.gd` |
 | Bảng nhiệm vụ trong world | `scripts/world/quest_board.gd` + `scripts/world/quest_board_ui.gd` |
@@ -251,12 +251,13 @@ cần (VD: `ConfigManager` trước `GameState`).
 | 25 | `ItemHandler` | `autoload/item_handler.gd` | Dùng vật phẩm (consume/seed/tool), dùng slot toolbar |
 | 26 | `ToolHandler` | `autoload/tool_handler.gd` | Trang bị/hủy trang bị tool |
 | 27 | `EnergyManager` | `autoload/energy_manager.gd` | Tiêu hao năng lượng + knock-out (ngất, trừ vàng, giảm tốc) |
-| 28 | `EnergyBar` | `ui/energy_bar.gd` | Thanh năng lượng (autoload để luôn hiển thị) |
-| 29 | `UIFocusManager` | `autoload/ui_focus_manager.gd` | Làm mờ UI nền khi mở popup |
-| 30 | `FarmTickManager` | `autoload/farm_tick_manager.gd` | **State farm + logic theo ngày** (chạy mọi scene) |
-| 31 | `FloatingWarning` | `autoload/floating_warning.gd` | Text cảnh báo lơ lửng trên đầu player |
-| 32 | `HotkeyInputManager` | `ui/hotkey_input_manager.gd` | Ánh xạ phím 1–5 → chọn slot toolbar, chặn khi mở UI |
-| 33 | `InputRouter` | `autoload/input_router.gd` | Phím tắt toàn cục (TAB mở inventory) hoạt động mọi scene |
+| 28 | `DayTransitionManager` | `autoload/day_transition_manager.gd` | Hiệu ứng chuyển ngày dùng chung: mí mắt đóng/mở và khóa input |
+| 29 | `EnergyBar` | `ui/energy_bar.gd` | Thanh năng lượng (autoload để luôn hiển thị) |
+| 30 | `UIFocusManager` | `autoload/ui_focus_manager.gd` | Làm mờ UI nền khi mở popup |
+| 31 | `FarmTickManager` | `autoload/farm_tick_manager.gd` | **State farm + logic theo ngày** (chạy mọi scene) |
+| 32 | `FloatingWarning` | `autoload/floating_warning.gd` | Text cảnh báo lơ lửng trên đầu player |
+| 33 | `HotkeyInputManager` | `ui/hotkey_input_manager.gd` | Ánh xạ phím 1–5 → chọn slot toolbar, chặn khi mở UI |
+| 34 | `InputRouter` | `autoload/input_router.gd` | Phím tắt toàn cục (TAB mở inventory) hoạt động mọi scene |
 
 ---
 
@@ -357,9 +358,9 @@ player đang ở map ngoài Farm.
   Registry tập trung ở `NPC_REGISTRY`.
 - **Marcus (hàng xóm):** `scripts/npc/neighbor.gd` (620 dòng) — day-1 intro
   cutscene, lịch đặc biệt khi chưa gặp player.
-- **Voss (chủ shop):** `scripts/npc/shopkeeper.gd` (98 dòng).
+- **Vos (chủ shop):** `scripts/npc/shopkeeper.gd` (98 dòng).
 - Từ ngày 3, `shopkeeper_new_stock_day3.json` được trigger một lần khi người
-  chơi nói chuyện với Vos hoặc mở quầy shop; cờ `voss_dialogue_seen_new_stock_day3`
+  chơi nói chuyện với Vos hoặc mở quầy shop; cờ `vos_dialogue_seen_new_stock_day3`
   nằm trong `GameState` để giữ trạng thái qua đổi scene/save. Mở quầy sẽ chờ
   thoại kết thúc rồi mới hiện ShopUI.
 - **Lịch trình:** `npc_schedules.gd` (Dwarf-Fortress style, theo ngày/tuần) và
@@ -419,9 +420,15 @@ player đang ở map ngoài Farm.
   cố định 220×176 để layout không thay đổi theo danh sách item.
 
 ### 6.9 Năng lượng & knock-out
-- **File:** `scripts/autoload/energy_manager.gd` (173 dòng).
-- Mỗi hành động gọi `spend_energy()`; về 0 → knock-out: fade đen, ngất tại chỗ,
-  trừ 10% vàng, giảm 25% tốc độ.
+- **File:** `scripts/autoload/energy_manager.gd` +
+  `scripts/autoload/day_transition_manager.gd`.
+- Mỗi hành động gọi `spend_energy()`; về 0 → knock-out: chạy hiệu ứng chuyển ngày
+  dùng chung, ngất tại chỗ, trừ 10% vàng, giảm 25% tốc độ.
+- `DayTransitionManager` dùng cho cả ba đường chuyển ngày (kiệt sức, quá 1:00
+  không ngủ, và ngủ tại giường): hai mí `ColorRect` kéo vào trong trong 0,75 giây,
+  giữ đen 0,5 giây để cập nhật ngày, rồi mở ra trong 0,75 giây (tổng 2 giây).
+  Trong toàn bộ timeline, `player_movement_locked` và `game_interacting` được bật;
+  input được consume ở lớp CanvasLayer trên cùng.
 - Ngưỡng vùng đỏ `LOW_ENERGY_THRESHOLD = 5.0` → giảm tốc độ di chuyển.
 - Thanh hiển thị: `scripts/ui/energy_bar.gd`.
 

@@ -24,7 +24,7 @@ var _crop_by_seed: Dictionary = {}
 var _crop_by_type: Dictionary = {}
 var _produce_aliases: Dictionary = {}
 var _localization: Dictionary = {}
-var _voss_event_config: Dictionary = {}
+var _vos_event_config: Dictionary = {}
 var _loaded: bool = false
 const LOCALIZATION_PATH := "res://resources/localization/vi.json"
 
@@ -40,7 +40,7 @@ func load_all_configs() -> void:
 	load_quest_text_config()
 	load_money_config()
 	load_crop_profiles()
-	load_voss_event_config()
+	load_vos_event_config()
 	load_localization()
 	_loaded = true
 
@@ -126,17 +126,17 @@ func load_crop_profiles() -> bool:
 	print("[ConfigManager] Loaded crop_profiles.json (%d crops)" % _crop_profiles.size())
 	return not _crop_profiles.is_empty()
 
-func load_voss_event_config() -> bool:
-	var result := _load_json(CONFIG_PATH + "voss_mountain_event_config.json")
+func load_vos_event_config() -> bool:
+	var result := _load_json(CONFIG_PATH + "vos_mountain_event_config.json")
 	if result.size() > 0:
-		_voss_event_config = result
-		print("[ConfigManager] Loaded voss_mountain_event_config.json")
+		_vos_event_config = result
+		print("[ConfigManager] Loaded vos_mountain_event_config.json")
 		return true
-	push_error("[ConfigManager] Failed to load voss_mountain_event_config.json")
+	push_error("[ConfigManager] Failed to load vos_mountain_event_config.json")
 	return false
 
-func get_voss_event_config() -> Dictionary:
-	return _voss_event_config.duplicate(true)
+func get_vos_event_config() -> Dictionary:
+	return _vos_event_config.duplicate(true)
 
 # =============================================================================
 # CROP / PRODUCE / DYNAMIC QUEST AUTHORITY

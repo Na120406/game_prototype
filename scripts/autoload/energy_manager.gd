@@ -5,7 +5,7 @@ extends Node
 # Hành động tiêu hao (đào, tưới, gieo, thu hoạch, dọn héo) đều gọi
 # `spend_energy()` ở đây. Nếu năng lượng về 0 và người chơi tiếp tục
 # hành động, knock-out sẽ được kích hoạt:
-#   - Fade đen trong 1.0s
+#   - Hiệu ứng nhắm mắt dùng chung: đóng 0.75s, giữ đen 0.5s, mở 0.75s
 #   - Player NGẤT TẠI CHỖ (không teleport về giường)
 #   - Trừ 10% vàng hiện có (làm tròn lên)
 #   - Tốc độ di chuyển bị giảm 25% sau khi tỉnh
@@ -13,7 +13,6 @@ extends Node
 signal knock_out_started
 signal knock_out_finished
 
-const FADE_DURATION: float = 1.5
 const GOLD_LOSS_RATIO: float = 0.10
 
 # Ngưỡng năng lượng "vùng đỏ" (khớp với energy_bar.gd → RED_COLOR).
@@ -95,37 +94,16 @@ func _start_fade(do_teleport: bool) -> void:
 	_start_fade_with_reset(do_teleport, 6.0)
 
 # Cho phép override giờ reset sau khi knock-out xong:
-#   - AFK penalty (quá 24:00 chưa ngủ) → 1.0 (giữa đêm)
+#   - AFK penalty (quá 1:00 chưa ngủ) → 6.0 (bắt đầu ngày mới)
 #   - Kiệt sức (energy = 0 giữa ngày) → 6.0 (sáng sớm, mặc định)
 func _start_fade_with_reset(do_teleport: bool, reset_to_hour: float) -> void:
-	var tree := get_tree()
-	if tree == null:
-		_finish_knock_out(do_teleport, reset_to_hour)
+	var transition := get_node_or_null("/root/DayTransitionManager")
+	if transition != null and transition.has_method("play_day_transition"):
+		transition.call("play_day_transition", _finish_knock_out.bind(do_teleport, reset_to_hour), _complete_knock_out_transition)
 		return
-	var root := tree.root
-	# Dựng overlay đen che toàn màn hình.
-	var overlay := ColorRect.new()
-	overlay.name = "KnockOutOverlay"
-	overlay.color = Color(0, 0, 0, 0)
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# KHÔNG set z_index > 4095 (CANVAS_ITEM_Z_MAX) — sẽ push error mỗi lần
-	# knock-out. Overlay đã nằm trong CanvasLayer layer 999 nên luôn hiển thị
-	# trên mọi thứ; z_index mặc định 0 là đủ.
-	var layer := CanvasLayer.new()
-	layer.name = "KnockOutLayer"
-	layer.layer = 999
-	layer.add_child(overlay)
-	root.add_child(layer)
-
-	var tween := overlay.create_tween()
-	tween.tween_property(overlay, "color:a", 1.0, FADE_DURATION * 0.5)
-	# Không tự teleport Player tới Bed. Scene transition/spawn chỉ được quyết định
-	# bởi portal hoặc vị trí mặc định hợp lệ của SceneManager.
-	tween.tween_interval(FADE_DURATION * 0.2)
-	tween.tween_property(overlay, "color:a", 0.0, FADE_DURATION * 0.5)
-	tween.tween_callback(_finish_knock_out.bind(do_teleport, reset_to_hour))
-	tween.tween_callback(layer.queue_free)
+	# Fallback an toàn nếu autoload chưa được nạp trong editor/test tối giản.
+	_finish_knock_out(do_teleport, reset_to_hour)
+	_complete_knock_out_transition()
 
 # Legacy knockout bed teleport removed. Player spawn is handled exclusively by
 # the active SceneManager portal/default spawn rules.
@@ -138,7 +116,7 @@ func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 	# Proportional days: nếu time đã trôi qua rất lâu (vd. nhiều giờ thực)
 	# mà chưa ai cập nhật, gọi advance_day() nhiều lần để farm/watering
 	# vẫn đồng bộ. Reset về reset_to_hour:
-	#   - AFK penalty (quá 24:00 chưa ngủ) → 1.0 (giữa đêm)
+	#   - AFK penalty (quá 1:00 chưa ngủ) → 6.0 (bắt đầu ngày mới)
 	#   - Kiệt sức (energy = 0) → 6.0 (sáng sớm, mặc định)
 	var days_passed: int = max(1, int(floor(GameState.current_time / 24.0)))
 	for i in range(days_passed):
@@ -153,13 +131,17 @@ func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 	GameState.energy = min(GameState.max_energy, 5.0)
 	GameState.move_speed_mult = max(0.1, GameState.move_speed_mult * 0.75)
 	GameState.energy_changed.emit(GameState.energy)
-	_knock_out_active = false
-	GameState.player_movement_locked = false
-	knock_out_finished.emit()
 	print("[EnergyManager] Knock-out -> day %d, energy %.0f, speed mult %.2f (teleport=%s, days=%d)" % [
 		GameState.current_day, GameState.energy, GameState.move_speed_mult,
 		str(do_teleport), days_passed
 	])
+
+func _complete_knock_out_transition() -> void:
+	_knock_out_active = false
+	# Fallback và callback chung đều phải trả quyền điều khiển sau khi hiệu ứng kết thúc.
+	GameState.player_movement_locked = false
+	GameState.game_interacting = false
+	knock_out_finished.emit()
 
 
 func _apply_gold_loss_penalty() -> void:
