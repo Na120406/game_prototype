@@ -27,6 +27,18 @@ var _current_interact_target: Node = null
 var _last_position: Vector2 = Vector2.ZERO
 var _current_anim: String = ""
 
+# NPC không bị Player đẩy. Nếu Player liên tục bị cùng một NPC chặn và vẫn
+# giữ hướng đi vào NPC trong thời gian đủ lâu, Player được đi xuyên qua NPC.
+const NPC_BLOCK_PASS_DELAY: float = 2.0
+const NPC_PASS_THROUGH_DURATION: float = 0.65
+const NPC_PASS_CLEAR_DISTANCE: float = 26.0
+const NPC_BLOCK_DIRECTION_THRESHOLD: float = 0.8
+var _npc_block_target: CollisionObject2D = null
+var _npc_block_elapsed: float = 0.0
+var _npc_block_direction: Vector2 = Vector2.ZERO
+var _npc_pass_target: CollisionObject2D = null
+var _npc_pass_elapsed: float = 0.0
+
 # Cinematic intro target position (đi tới NPC)
 var _cinematic_target_pos: Vector2 = Vector2.ZERO
 var _cinematic_target_reached: bool = false
@@ -139,9 +151,76 @@ func _physics_process(delta: float) -> void:
 	# 	GameState.modify_energy(-delta * GameState.stamina_drain_rate * 0.3)
 
 	move_and_slide()
+	_update_npc_block_state(delta, input_dir)
 
 	# Phạt khi quá giờ đi ngủ — áp dụng cho mọi trạng thái (đứng yên, đi, chạy…)
 	_check_sleep_deadline()
+
+
+func _update_npc_block_state(delta: float, input_dir: Vector2) -> void:
+	# Sau khi đã vượt qua NPC, bật lại va chạm khi đủ xa hoặc hết thời gian an
+	# toàn. Exception được gắn theo từng NPC, không làm mất va chạm với tường/
+	# vật cản khác.
+	if _npc_pass_target != null:
+		if not is_instance_valid(_npc_pass_target):
+			_clear_npc_pass_through()
+		else:
+			_npc_pass_elapsed += delta
+			var separation := global_position.distance_to(_npc_pass_target.global_position)
+			if separation >= NPC_PASS_CLEAR_DISTANCE or _npc_pass_elapsed >= NPC_PASS_THROUGH_DURATION:
+				_clear_npc_pass_through()
+			return
+
+	if input_dir.length_squared() < 0.01 or get_slide_collision_count() == 0:
+		_reset_npc_block()
+		return
+
+	var blocked_npc: CollisionObject2D = null
+	for index: int in range(get_slide_collision_count()):
+		var collision := get_slide_collision(index)
+		var collider := collision.get_collider()
+		if collider is CollisionObject2D and collider.is_in_group("npc"):
+			var normal: Vector2 = collision.get_normal()
+			# Collision normal hướng từ NPC về Player. Chỉ tính là bị chặn khi
+			# hướng input thực sự đang đâm vào mặt NPC.
+			if input_dir.normalized().dot(-normal) >= 0.25:
+				blocked_npc = collider as CollisionObject2D
+				break
+
+	if blocked_npc == null:
+		_reset_npc_block()
+		return
+
+	var input_direction := input_dir.normalized()
+	if _npc_block_target != blocked_npc or _npc_block_direction.dot(input_direction) < NPC_BLOCK_DIRECTION_THRESHOLD:
+		_npc_block_target = blocked_npc
+		_npc_block_elapsed = 0.0
+		_npc_block_direction = input_direction
+	else:
+		_npc_block_elapsed += delta
+
+	if _npc_block_elapsed < NPC_BLOCK_PASS_DELAY:
+		return
+
+	# Đã bị chặn liên tục đủ 2 giây: cho Player đi xuyên qua đúng NPC đang
+	# chắn đường. Không di chuyển hoặc thay đổi vị trí NPC.
+	_npc_pass_target = blocked_npc
+	_npc_pass_elapsed = 0.0
+	add_collision_exception_with(_npc_pass_target)
+	_reset_npc_block()
+
+
+func _reset_npc_block() -> void:
+	_npc_block_target = null
+	_npc_block_elapsed = 0.0
+	_npc_block_direction = Vector2.ZERO
+
+
+func _clear_npc_pass_through() -> void:
+	if _npc_pass_target != null and is_instance_valid(_npc_pass_target):
+		remove_collision_exception_with(_npc_pass_target)
+	_npc_pass_target = null
+	_npc_pass_elapsed = 0.0
 
 # Xử lý di chuyển tự động trong cinematic intro (đi tới NPC)
 func _handle_cinematic_walk(delta: float) -> void:

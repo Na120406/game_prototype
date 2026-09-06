@@ -284,6 +284,11 @@ func get_sleep_deadline_hour() -> float:
 func get_sleep_warning_hour() -> float:
 	return float(get_value("game.sleep_warning_hour", 22.0))
 
+func get_game_hours_per_real_second() -> float:
+	# Tốc độ mặc định tương đương 280 giây thực cho chu kỳ 6:00 → 1:00
+	# (19 giờ game), dài hơn 90 giây so với tốc độ cũ 190 giây.
+	return maxf(0.0, float(get_value("time.game_hours_per_real_second", 19.0 / 280.0)))
+
 func get_base_quest_chance() -> float:
 	return float(get_value("quest.base_quest_chance", 0.5))
 

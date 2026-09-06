@@ -181,10 +181,11 @@ func _move_along_schedule(delta: float) -> void:
 	var to_target := global_position.direction_to(movement_target)
 	# Không cho steering né Player làm lệch toàn bộ hướng lịch trình khi
 	# Marcus vừa ra khỏi cutscene và Player đang đứng gần portal.
-	var steering: Vector2 = _get_player_avoidance()
-	if active_route_index >= 0 or current_state == NPCState.WALKING:
-		steering = steering.limit_length(0.15)
-	var desired: Vector2 = (to_target + steering * avoid_strength).normalized() * move_speed
+	# Player không được tác động vào steering của NPC. Trước đây NPC tự né
+	# Player trong lúc hai CharacterBody2D đang va chạm, khiến NPC bị đẩy nhẹ
+	# hoặc bị kéo đi theo Player khi Player tiếp tục đi cùng hướng.
+	# NPC chỉ đi theo route/schedule của chính nó và đứng làm vật cản ổn định.
+	var desired: Vector2 = to_target * move_speed
 	velocity = velocity.move_toward(desired, acceleration * delta)
 	move_and_slide()
 

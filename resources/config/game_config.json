@@ -9,6 +9,9 @@
 	"sleep_deadline_hour": 24.0,
 	"sleep_warning_hour": 22.0
   },
+  "time": {
+	"game_hours_per_real_second": 0.0678571429
+  },
   "quest": {
 	"base_quest_chance": 0.5,
 	"bonus_per_day_no_quest": 0.1

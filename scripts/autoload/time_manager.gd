@@ -47,6 +47,11 @@ signal hour_elapsed(hour: int)
 # Tốc độ thời gian - 1.0 = bình thường, 2.0 = nhanh gấp đôi, 0.0 = dừng
 var time_scale: float = 1.0
 
+# 6:00 → 1:00 = 19 giờ game. Với hệ số này, một chu kỳ kéo dài 280 giây
+# thực (3 phút 10 giây cũ + 1 phút 30 giây).
+const DEFAULT_GAME_HOURS_PER_REAL_SECOND: float = 19.0 / 280.0
+var game_hours_per_real_second: float = DEFAULT_GAME_HOURS_PER_REAL_SECOND
+
 # Trạng thái tạm dừng - true thì thời gian không trôi
 var paused: bool = false
 
@@ -58,6 +63,9 @@ var _afk_triggered_this_night: bool = false
 var _farm_day_ticked_this_night: bool = false
 
 func _ready() -> void:
+	var config_manager := get_node_or_null("/root/ConfigManager")
+	if config_manager != null and config_manager.has_method("get_game_hours_per_real_second"):
+		game_hours_per_real_second = config_manager.call("get_game_hours_per_real_second")
 	# Khi GameState tăng day (qua advance_day từ ngủ / farm tick / AFK reset
 	# 6.0), reset các cờ night-boundary để đêm tiếp theo hoạt động đúng.
 	if not GameState.day_changed.is_connected(_on_day_changed_reset_flags):
@@ -87,10 +95,9 @@ func _process(delta: float) -> void:
 	# Lưu thời gian trước khi thay đổi (để so sánh)
 	var previous_time: float = GameState.current_time
 
-	# Tăng thời gian: delta * time_scale * 0.1
-	# 0.1 là hệ số để 1 giờ game = 10 giây thực
-	# Ví dụ: delta=0.016 (60fps), time_scale=1.0 -> thêm 0.0016 giờ
-	GameState.current_time += delta * time_scale * 0.1
+	# Tăng thời gian theo hệ số cấu hình. Mốc 6:00 → 1:00 được giữ ở
+	# 280 giây thực; time_scale vẫn cho phép debug tăng/giảm tốc độ.
+	GameState.current_time += delta * time_scale * game_hours_per_real_second
 
 	# =================================================================
 	# KIỂM TRA TRẠNG THÁI NGÀY/ĐÊM (dùng mod 24 để xử lý khi time vượt 24)
