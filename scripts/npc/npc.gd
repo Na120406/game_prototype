@@ -48,9 +48,19 @@ var _target_pos: Vector2 = Vector2.ZERO
 # NPC không chiếm chỗ ngay trước cửa và Player không bị chặn lối đi.
 const PORTAL_ARRIVAL_OFFSET: float = 14.0
 
+# NPC cũng phải tự thoát khỏi vật cản là Player khi Player đứng chắn đúng
+# hướng lịch trình. Ban đầu vẫn giữ va chạm để Player không xuyên ngay; sau
+# 2 giây bị chắn liên tục, NPC được đi xuyên qua Player trong một khoảng ngắn.
+const PLAYER_BLOCK_PASS_DELAY: float = 2.0
+const PLAYER_PASS_THROUGH_DURATION: float = 0.65
+const PLAYER_PASS_CLEAR_DISTANCE: float = 26.0
+const PLAYER_BLOCK_DIRECTION_THRESHOLD: float = 0.8
+const PLAYER_BLOCK_DETECT_DISTANCE: float = 24.0
+
 var _avoid_timer: float = 0.0
 var _last_schedule_time: float = -1.0
 var _schedule_target_scene: String = ""
+var _last_observed_schedule_clock: float = -INF
 # Prevents the just-finished transit step from being reapplied while the NPC
 # waits in the destination map for the next clock schedule step.
 var _arrived_schedule_scene: String = ""
@@ -66,12 +76,18 @@ var _road_path: PackedVector2Array = PackedVector2Array()
 var _road_path_index: int = 0
 var _road_path_target: Vector2 = Vector2(INF, INF)
 var _road_path_host_id: int = 0
+var _player_block_target: CollisionObject2D = null
+var _player_block_elapsed: float = 0.0
+var _player_block_direction: Vector2 = Vector2.ZERO
+var _player_pass_target: CollisionObject2D = null
+var _player_pass_elapsed: float = 0.0
 
 @export var prompt_offset_y: float = -32.0
 
 func _ready() -> void:
 	add_to_group("npc")
 	add_to_group("npc_" + npc_id)
+	_last_observed_schedule_clock = GameState.current_time
 	_resolve_node_refs()
 	_ensure_prompt_label()
 	_build_default_schedule()
@@ -147,6 +163,14 @@ func _build_default_schedule() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_inside_tree():
 		return
+	# Self-healing schedule tick: NPCManager normally drives schedules through
+	# TimeManager.time_changed, but a scene handoff can happen on the same frame
+	# as a schedule boundary. Re-evaluating here guarantees that a future step
+	# (notably Marcus' 14:30 Town -> Farm route) starts even when that signal was
+	# emitted while the NPC was being reparented between maps.
+	var waiting_at_schedule_target: bool = active_route.is_empty() and (_target_pos == Vector2.ZERO or global_position.distance_to(_target_pos) <= waypoint_reach_distance)
+	if schedule_enabled and not is_interacting and waiting_at_schedule_target and not is_equal_approx(_last_observed_schedule_clock, GameState.current_time):
+		tick_schedule(GameState.current_time)
 	if is_interacting or not schedule_enabled:
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
 		move_and_slide()
@@ -187,7 +211,123 @@ func _move_along_schedule(delta: float) -> void:
 	# NPC chỉ đi theo route/schedule của chính nó và đứng làm vật cản ổn định.
 	var desired: Vector2 = to_target * move_speed
 	velocity = velocity.move_toward(desired, acceleration * delta)
+	# Probe trước va chạm với Player. Nếu để NPC đi thẳng vào CharacterBody2D
+	# Player rồi mới gọi move_and_slide(), solver có thể đẩy Player theo NPC.
+	# Giữ NPC đứng lại tại mép va chạm để Player không bị đẩy/kéo.
+	var blocking_player: CollisionObject2D = null
+	if _player_pass_target == null:
+		blocking_player = _find_player_ahead(to_target)
+		if blocking_player == null:
+			blocking_player = _probe_player_blocker(velocity * delta, to_target)
+	if blocking_player != null:
+		velocity = Vector2.ZERO
+		_update_player_block_state(delta, to_target, blocking_player)
+		return
 	move_and_slide()
+	_update_player_block_state(delta, to_target)
+
+
+func _probe_player_blocker(motion: Vector2, movement_direction: Vector2) -> CollisionObject2D:
+	if motion.length_squared() < 0.0001 or movement_direction.length_squared() < 0.0001:
+		return null
+	var collision := KinematicCollision2D.new()
+	if not test_move(global_transform, motion, collision):
+		return null
+	var collider := collision.get_collider()
+	if not (collider is CollisionObject2D) or not collider.is_in_group("player"):
+		return null
+	var to_player := global_position.direction_to((collider as Node2D).global_position)
+	if movement_direction.normalized().dot(to_player) < PLAYER_BLOCK_DIRECTION_THRESHOLD:
+		return null
+	return collider as CollisionObject2D
+
+
+func _find_player_ahead(movement_direction: Vector2) -> CollisionObject2D:
+	if movement_direction.length_squared() < 0.0001:
+		return null
+	var direction := movement_direction.normalized()
+	for candidate: Node in get_tree().get_nodes_in_group("player"):
+		if not candidate is CollisionObject2D or not is_instance_valid(candidate):
+			continue
+		var offset: Vector2 = (candidate as Node2D).global_position - global_position
+		var distance := offset.length()
+		if distance <= 0.01 or distance > PLAYER_BLOCK_DETECT_DISTANCE:
+			continue
+		if direction.dot(offset.normalized()) >= PLAYER_BLOCK_DIRECTION_THRESHOLD:
+			return candidate as CollisionObject2D
+	return null
+
+
+func _update_player_block_state(delta: float, movement_direction: Vector2, preblocked_player: CollisionObject2D = null) -> void:
+	# Sau khi NPC đã đi xuyên qua Player, bật lại va chạm khi đã tách đủ xa
+	# hoặc hết thời gian an toàn. Exception chỉ áp dụng cho đúng Player đó.
+	if _player_pass_target != null:
+		if not is_instance_valid(_player_pass_target):
+			_clear_player_pass_through()
+		else:
+			_player_pass_elapsed += delta
+			var separation := global_position.distance_to(_player_pass_target.global_position)
+			if separation >= PLAYER_PASS_CLEAR_DISTANCE or _player_pass_elapsed >= PLAYER_PASS_THROUGH_DURATION:
+				_clear_player_pass_through()
+			return
+
+	if movement_direction.length_squared() < 0.01:
+		_reset_player_block()
+		return
+
+	var movement_normalized := movement_direction.normalized()
+	var blocked_player: CollisionObject2D = preblocked_player
+	# Giữ bộ đếm ổn định ở khoảng cách mép an toàn ngay cả khi frame hiện tại
+	# không còn slide collision do NPC đã dừng velocity trước solver.
+	if blocked_player == null and _player_block_target != null and is_instance_valid(_player_block_target):
+		var offset_to_player: Vector2 = _player_block_target.global_position - global_position
+		if offset_to_player.length() <= PLAYER_BLOCK_DETECT_DISTANCE and movement_normalized.dot(offset_to_player.normalized()) >= PLAYER_BLOCK_DIRECTION_THRESHOLD:
+			blocked_player = _player_block_target
+	if blocked_player == null:
+		for index: int in range(get_slide_collision_count()):
+			var collision := get_slide_collision(index)
+			var collider := collision.get_collider()
+			if not (collider is CollisionObject2D) or not collider.is_in_group("player"):
+				continue
+			var to_player := global_position.direction_to((collider as Node2D).global_position)
+			# Chỉ tính là bị chắn khi NPC thật sự đang đi về phía Player;
+			# va chạm bên hông hoặc Player đi ngang qua không tích thời gian.
+			if movement_normalized.dot(to_player) >= PLAYER_BLOCK_DIRECTION_THRESHOLD:
+				blocked_player = collider as CollisionObject2D
+				break
+
+	if blocked_player == null:
+		_reset_player_block()
+		return
+
+	if _player_block_target != blocked_player or _player_block_direction.dot(movement_normalized) < PLAYER_BLOCK_DIRECTION_THRESHOLD:
+		_player_block_target = blocked_player
+		_player_block_elapsed = 0.0
+		_player_block_direction = movement_normalized
+	else:
+		_player_block_elapsed += delta
+
+	if _player_block_elapsed < PLAYER_BLOCK_PASS_DELAY:
+		return
+
+	# Player đã chắn liên tục đủ 2 giây: cho NPC đi xuyên đúng Player đang chặn.
+	_player_pass_target = blocked_player
+	_player_pass_elapsed = 0.0
+	add_collision_exception_with(_player_pass_target)
+	_reset_player_block()
+
+
+func _reset_player_block() -> void:
+	_player_block_target = null
+	_player_block_elapsed = 0.0
+	_player_block_direction = Vector2.ZERO
+
+
+func _clear_player_pass_through() -> void:
+	if _player_pass_target != null and is_instance_valid(_player_pass_target):
+		remove_collision_exception_with(_player_pass_target)
+	_player_pass_target = null
+	_player_pass_elapsed = 0.0
 
 
 ## Trả về điểm kế tiếp trên đường. Nếu map không có ColorRect đường thì helper
@@ -321,6 +461,11 @@ func on_route_arrived(arrived_scene_path: String) -> void:
 		velocity = Vector2.ZERO
 		_change_state(NPCState.WALKING)
 		return
+	var arrival_stand_offset := Vector2.ZERO
+	if arrived_index >= 0 and arrived_index < active_route.size():
+		var raw_arrival_offset: Variant = active_route[arrived_index].get("arrival_offset", Vector2.ZERO)
+		if raw_arrival_offset is Vector2:
+			arrival_stand_offset = raw_arrival_offset
 
 	# Đã tới waypoint cuối: xóa route cũ để không kéo NPC quay lại portal,
 	# sau đó chọn bước lịch trình phù hợp trong scene đích.
@@ -353,6 +498,11 @@ func on_route_arrived(arrived_scene_path: String) -> void:
 		var next_index: int = _next_step_index_in_scene(step_index, arrived_scene_path)
 		if next_index < 0 or next_index == step_index:
 			break
+		# Không chọn trước bước lịch trình tương lai chỉ vì NPC vừa tới đúng
+		# vị trí của nó. Ví dụ Marcus vừa rời shop lúc 12:00 vẫn phải chờ tới
+		# 14:30 mới bắt đầu route Town → Marcus Farm.
+		if float(schedule[next_index].get("time", 0.0)) > GameState.current_time:
+			break
 		step_index = next_index
 	var selected_step: Dictionary = schedule[step_index]
 	var selected_pos_value: Variant = selected_step.get("pos", global_position)
@@ -367,7 +517,13 @@ func on_route_arrived(arrived_scene_path: String) -> void:
 	# trí lịch trình — không chiếm chỗ ngay trước cửa/cổng. Physics tick tiếp
 	# theo sẽ tiếp tục di chuyển NPC tới _target_pos.
 	var to_target: Vector2 = arrival_pos.direction_to(_target_pos)
-	if to_target != Vector2.ZERO and arrival_pos.distance_to(_target_pos) > waypoint_reach_distance:
+	if arrival_stand_offset != Vector2.ZERO:
+		# Một số cửa cần điểm chờ riêng để không chặn portal. Route Shop ->
+		# Town đặt Marcus lệch 80 px sang phải cho tới mốc 14:30.
+		global_position = arrival_pos + arrival_stand_offset
+		_target_pos = global_position
+		_change_state(NPCState.IDLE)
+	elif to_target != Vector2.ZERO and arrival_pos.distance_to(_target_pos) > waypoint_reach_distance:
 		global_position = arrival_pos + to_target * PORTAL_ARRIVAL_OFFSET
 	velocity = Vector2.ZERO
 
@@ -568,6 +724,8 @@ func get_relationship() -> int:
 func stop_walking() -> void:
 	velocity = Vector2.ZERO
 	_invalidate_road_path()
+	_reset_player_block()
+	_clear_player_pass_through()
 	if navigation_agent != null:
 		navigation_agent.target_position = global_position
 	if current_state == NPCState.WALKING:
@@ -581,20 +739,113 @@ func apply_current_step() -> void:
 func get_schedule() -> Array:
 	return schedule
 
+
+# Simulate every remaining schedule action while the day-transition overlay is
+# fully black, then return the logical end-of-day location. This deliberately
+# does not animate movement or assign global_position: NPCManager performs one
+# atomic background handoff only after the trace has been evaluated.
+func fast_forward_schedule_to_day_end(from_time: float) -> Dictionary:
+	if schedule.is_empty() or not schedule_enabled:
+		return {}
+
+	var wrapped_time: float = fposmod(from_time, 24.0)
+	# 00:00-05:59 belongs to the tail of the current gameplay day. There are no
+	# daytime steps left to replay; the terminal sleeping/start position below
+	# remains authoritative.
+	var effective_time: float = wrapped_time + 24.0 if wrapped_time < 6.0 else wrapped_time
+	var simulated_steps: Array[Dictionary] = []
+	for index: int in range(schedule.size()):
+		var step: Dictionary = schedule[index]
+		var step_time: float = float(step.get("time", 0.0))
+		if step_time <= effective_time or step_time > 24.0:
+			continue
+		var trace_step: Dictionary = {
+			"index": index,
+			"time": step_time,
+			"state": int(step.get("state", NPCState.IDLE)),
+			"action": str(step.get("action", "")),
+			"scene": str(step.get("scene", "")),
+			"pos": step.get("pos", global_position),
+			"route_id": str(step.get("route_id", "")),
+		}
+		simulated_steps.append(trace_step)
+		# Execute parameter/state effects in chronological order. Physical route
+		# movement is intentionally omitted during the black transition.
+		var simulated_state: NPCState = int(step.get("state", NPCState.IDLE)) as NPCState
+		_change_state(simulated_state)
+		_execute_schedule_action(str(step.get("action", "")))
+
+	var terminal_index: int = _find_day_terminal_step_index()
+	if terminal_index < 0:
+		return {}
+	var terminal: Dictionary = schedule[terminal_index]
+	var terminal_scene: String = str(terminal.get("scene", ""))
+	var terminal_pos_value: Variant = terminal.get("pos", global_position)
+	var terminal_pos: Vector2 = terminal_pos_value as Vector2 if terminal_pos_value is Vector2 else global_position
+	var terminal_state: NPCState = int(terminal.get("state", NPCState.IDLE)) as NPCState
+
+	clear_route()
+	_reset_player_block()
+	_clear_player_pass_through()
+	current_schedule_step = terminal_index
+	_last_schedule_day = GameState.current_day
+	_last_schedule_time = float(terminal.get("time", wrapped_time))
+	_schedule_target_scene = terminal_scene
+	_arrived_schedule_scene = terminal_scene
+	_arrived_schedule_time = _last_schedule_time
+	_arrived_route_id = ""
+	_completed_route_id = ""
+	_target_pos = terminal_pos
+	velocity = Vector2.ZERO
+	_change_state(terminal_state)
+	var terminal_was_simulated: bool = not simulated_steps.is_empty() and int(simulated_steps[-1].get("index", -1)) == terminal_index
+	if not terminal_was_simulated:
+		_execute_schedule_action(str(terminal.get("action", "")))
+	set_meta("last_fast_forward_trace", simulated_steps.duplicate(true))
+
+	return {
+		"from_time": wrapped_time,
+		"effective_from_time": effective_time,
+		"steps": simulated_steps,
+		"final_step": terminal_index,
+		"final_time": float(terminal.get("time", wrapped_time)),
+		"final_state": int(current_state),
+		"final_action": str(terminal.get("action", "")),
+		"final_scene": terminal_scene,
+		"final_position": terminal_pos,
+	}
+
+
+# Prefer the final sleeping step (bed). NPCs without a sleep step, such as Vos
+# in the current prototype, return to their first/start-of-day schedule point.
+func _find_day_terminal_step_index() -> int:
+	var sleeping_index: int = -1
+	for index: int in range(schedule.size()):
+		if int(schedule[index].get("state", NPCState.IDLE)) == int(NPCState.SLEEPING):
+			sleeping_index = index
+	if sleeping_index >= 0:
+		return sleeping_index
+	return 0 if not schedule.is_empty() else -1
+
 # Stub: tick schedule với current_time. NPCManager gọi mỗi frame qua
 # time_changed signal (xem npc_manager.gd:582). Hiện tại no-op — sẽ implement
 # logic "tìm step khớp → cập nhật _target_pos → state WALKING" ở Milestone 1.
 func tick_schedule(current_time: float) -> void:
+	_last_observed_schedule_clock = current_time
 	if schedule.is_empty() or not schedule_enabled:
 		return
 	var current_day: int = GameState.current_day
 	var day_changed: bool = current_day != _last_schedule_day
-	var selected: Dictionary = schedule[0]
+	var selected: Dictionary = {}
 	for step: Dictionary in schedule:
 		if float(step.get("time", 0.0)) <= current_time:
 			selected = step
 		else:
 			break
+	# A schedule whose first entry is 07:00 must not start that route at 06:00.
+	# Keep the NPC's existing overnight/intro state until the first real step.
+	if selected.is_empty():
+		return
 	var selected_time: float = float(selected.get("time", 0.0))
 	var selected_scene: String = str(selected.get("scene", ""))
 	var selected_route_id: String = str(selected.get("route_id", ""))
@@ -677,6 +928,8 @@ func tick_schedule(current_time: float) -> void:
 func _on_attached_to_scene() -> void:
 	velocity = Vector2.ZERO
 	_avoid_timer = 0.0
+	_reset_player_block()
+	_clear_player_pass_through()
 	_invalidate_road_path()
 	# Ép đồng bộ lịch khi vừa được rehome; tránh guard của tick_schedule giữ
 	# trạng thái idle cũ sau khi đổi scene.

@@ -111,7 +111,7 @@
 		  "route_id": "shop_to_town"
 		},
 		{
-		  "time": 12.5,
+		  "time": 14.5,
 		  "state": "walking",
 		  "action": "return_to_farm",
 		  "scene": "res://scenes/maps/town_map.tscn",
@@ -119,7 +119,7 @@
 		  "route_id": "town_to_marcus_farm"
 		},
 		{
-		  "time": 13.0,
+		  "time": 15.0,
 		  "state": "working",
 		  "action": "work_at_farm",
 		  "scene": "res://scenes/maps/marcus_farm_map.tscn",
@@ -211,7 +211,7 @@
 		  "route_id": "shop_to_town"
 		},
 		{
-		  "time": 12.5,
+		  "time": 14.5,
 		  "state": "walking",
 		  "action": "return_to_marcus_farm",
 		  "scene": "res://scenes/maps/town_map.tscn",
@@ -219,7 +219,7 @@
 		  "route_id": "town_to_marcus_farm"
 		},
 		{
-		  "time": 13.0,
+		  "time": 15.0,
 		  "state": "working",
 		  "action": "work_at_marcus_farm",
 		  "scene": "res://scenes/maps/marcus_farm_map.tscn",

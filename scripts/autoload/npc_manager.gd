@@ -687,9 +687,10 @@ func _rehome_visible_npcs() -> void:
 		if entry.get("spawned", false) and inst.get_parent() == visible_scene:
 			inst.visible = true
 			inst.modulate = Color.WHITE
-			# NPC body dùng layer 2: vẫn va chạm với world layer 1 nhưng
-			# không thể đẩy/kéo Player (Player cũng dùng mask world layer 1).
-			# InteractionArea riêng vẫn ở layer 2 để raycast/[E] hoạt động.
+			# NPC body dùng layer 2: va chạm với world và Player trong trạng thái
+			# bình thường; npc.gd sẽ dừng ở mép Player và chỉ tạo exception sau
+			# 2 giây bị chắn liên tục. InteractionArea riêng vẫn ở layer 2 để
+			# raycast/[E] hoạt động.
 			inst.collision_layer = 2
 			inst.collision_mask = 1
 			if inst.has_node("InteractionArea"):
@@ -758,27 +759,58 @@ func _on_hour_elapsed(_hour: int) -> void:
 
 
 func reset_npcs_for_sleep() -> void:
-	# Ngủ là checkpoint cưỡng chế: mọi NPC phải kết thúc ngày tại nhà/giường.
+	# Compatibility entry point used by the bed flow. This is now a schedule
+	# simulation, not a Marcus-specific hard teleport.
+	fast_forward_npcs_to_day_end(GameState.current_time)
+
+
+# Replay each NPC's remaining daily schedule as background parameters while the
+# screen is black. Only the evaluated terminal bed/start point is committed to
+# the persistent world, so no visible teleport or route animation occurs.
+func fast_forward_npcs_to_day_end(from_time: float = -1.0) -> Dictionary:
+	var start_time: float = GameState.current_time if from_time < 0.0 else from_time
+	var reports: Dictionary = {}
+	var scene_manager: Node = get_node_or_null("/root/SceneManager")
+
 	for npc_id: String in _npcs:
-		var raw: Variant = _npcs[npc_id].get("instance", null)
-		if raw == null or not is_instance_valid(raw) or npc_id != "neighbor":
+		var entry: Dictionary = _npcs[npc_id]
+		var raw: Variant = entry.get("instance", null)
+		if raw == null or not is_instance_valid(raw):
 			continue
 		var npc: Node2D = raw as Node2D
-		var house_scene := "res://scenes/maps/marcus_house_map.tscn"
-		var manager: Node = get_node_or_null("/root/SceneManager")
-		if manager != null and manager.has_method("handoff_persistent_npc"):
-			if npc.get_parent() != null:
-				npc.get_parent().remove_child(npc)
-			manager.call("handoff_persistent_npc", npc, house_scene, "")
+		if not npc.has_method("fast_forward_schedule_to_day_end"):
+			continue
+		var report_value: Variant = npc.call("fast_forward_schedule_to_day_end", start_time)
+		if not (report_value is Dictionary) or report_value.is_empty():
+			continue
+		var report: Dictionary = report_value
+		var target_scene: String = str(report.get("final_scene", entry.get("default_scene", "")))
+		if target_scene == "":
+			target_scene = str(entry.get("default_scene", ""))
+		var target_pos_value: Variant = report.get("final_position", entry.get("start_pos", npc.global_position))
+		var target_pos: Vector2 = target_pos_value as Vector2 if target_pos_value is Vector2 else entry.get("start_pos", npc.global_position)
+
+		if target_scene != "" and scene_manager != null and scene_manager.has_method("handoff_persistent_npc"):
+			# Empty portal id marks an off-screen simulation handoff and prevents
+			# SceneManager from treating it as a visible portal arrival.
+			scene_manager.call("handoff_persistent_npc", npc, target_scene, "")
 		if npc.get_parent() != null:
-			npc.global_position = Vector2(80, 50)
-		if npc.has_method("clear_route"):
-			npc.call("clear_route")
-		if npc.has_method("stop_walking"):
-			npc.call("stop_walking")
-		npc.set_meta("world_scene_path", house_scene)
-		_npcs[npc_id]["current_scene"] = house_scene
-		_npcs[npc_id]["spawned"] = true
+			npc.global_position = target_pos
+		npc.set_meta("world_scene_path", target_scene)
+		entry["current_scene"] = target_scene
+		entry["spawned"] = npc.get_parent() != null
+		entry["route_id"] = ""
+		entry["route_index"] = -1
+		entry["route_progress"] = npc.call("get_route_progress") if npc.has_method("get_route_progress") else {}
+		entry["last_simulated_day"] = GameState.current_day
+		entry["last_simulated_time"] = 24.0
+		entry["last_fast_forward"] = report.duplicate(true)
+		_npcs[npc_id] = entry
+		reports[npc_id] = report.duplicate(true)
+		print("[NPCManager] Fast-forwarded '%s' from %.2f through %d remaining steps -> %s at %s." % [
+			npc_id, start_time, (report.get("steps", []) as Array).size(), target_scene, str(target_pos)
+		])
+	return reports
 
 func _on_day_changed(_new_day: int) -> void:
 	# Rebuild dynamic schedules (Day 1 intro state) before ticking new day.

@@ -178,8 +178,8 @@ func _schedule_daily_from_house() -> void:
 		{"time": 11.0, "state": NPCState.WALKING, "action": "walk_away_from_shop_portal", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(210, 200)},
 		{"time": 11.1, "state": NPCState.IDLE, "action": "shop_break", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(210, 200)},
 		{"time": 12.0, "state": NPCState.WALKING, "action": "leave_shop", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(20, 135), "route_id": "shop_to_town"},
-		{"time": 12.2, "state": NPCState.WALKING, "action": "leave_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
-		{"time": 13.2, "state": NPCState.WORKING, "action": "work", "scene": SCENE_MARCUS_FARM, "pos": open_area_position},
+		{"time": 14.5, "state": NPCState.WALKING, "action": "leave_town", "scene": SCENE_TOWN, "pos": town_position, "route_id": "town_to_marcus_farm"},
+		{"time": 15.0, "state": NPCState.WORKING, "action": "work", "scene": SCENE_MARCUS_FARM, "pos": open_area_position},
 		{"time": 17.0, "state": NPCState.WALKING, "action": "go_home", "scene": SCENE_MARCUS_FARM, "pos": home_position},
 		{"time": 20.0, "state": NPCState.WALKING, "action": "go_to_bed", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position, "route_id": "marcus_farm_to_house"},
 		{"time": 22.0, "state": NPCState.SLEEPING, "action": "sleep", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position},
@@ -207,9 +207,9 @@ func _schedule_after_intro_to_town() -> void:
 		{"time": 11.0, "state": NPCState.WALKING, "action": "walk_away_from_shop_portal", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(210, 200)},
 		{"time": 11.1, "state": NPCState.IDLE, "action": "rest_in_shop", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(210, 200)},
 		{"time": 12.0, "state": NPCState.WALKING, "action": "leave_shop", "scene": "res://scenes/maps/inside_shop_map.tscn", "pos": Vector2(20, 135), "route_id": "shop_to_town"},
-		{"time": 12.5, "state": NPCState.WALKING, "action": "return_to_marcus_farm", "scene": SCENE_TOWN, "pos": Vector2(95, 105), "route_id": "town_to_marcus_farm"},
-		# 13:00–20:00: ở Marcus Farm.
-		{"time": 13.0, "state": NPCState.WORKING, "action": "work_at_marcus_farm", "scene": SCENE_MARCUS_FARM, "pos": farm_work_position},
+		{"time": 14.5, "state": NPCState.WALKING, "action": "return_to_marcus_farm", "scene": SCENE_TOWN, "pos": Vector2(95, 105), "route_id": "town_to_marcus_farm"},
+		# 15:00–20:00: ở Marcus Farm sau khi hoàn tất đường về.
+		{"time": 15.0, "state": NPCState.WORKING, "action": "work_at_marcus_farm", "scene": SCENE_MARCUS_FARM, "pos": farm_work_position},
 		{"time": 20.0, "state": NPCState.WALKING, "action": "go_to_bed", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position, "route_id": "marcus_farm_to_house"},
 		# 22:00–06:00: ngủ trong Marcus House.
 		{"time": 22.0, "state": NPCState.SLEEPING, "action": "sleep", "scene": SCENE_MARCUS_HOUSE, "pos": house_sleep_position},

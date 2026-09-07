@@ -68,8 +68,8 @@ func _on_sleep_chosen() -> void:
 
 func _advance_day_while_black() -> void:
 	var npc_manager: Node = get_node_or_null("/root/NPCManager")
-	if npc_manager != null and npc_manager.has_method("reset_npcs_for_sleep"):
-		npc_manager.call("reset_npcs_for_sleep")
+	if npc_manager != null and npc_manager.has_method("fast_forward_npcs_to_day_end"):
+		npc_manager.call("fast_forward_npcs_to_day_end", GameState.current_time)
 	GameState.advance_day()
 	TimeManager.set_time(6.0)
 	TimeManager.resume()

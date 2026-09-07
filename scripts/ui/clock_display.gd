@@ -25,6 +25,20 @@ func _ready() -> void:
 	if not TimeManager.day_changed.is_connected(_on_day_changed):
 		TimeManager.day_changed.connect(_on_day_changed)
 
+func _exit_tree() -> void:
+	# Dọn kết nối khi scene bị thay thế để signal không giữ lại instance UI cũ.
+	if is_instance_valid(TimeManager):
+		if TimeManager.time_changed.is_connected(_on_time_changed):
+			TimeManager.time_changed.disconnect(_on_time_changed)
+		if TimeManager.day_changed.is_connected(_on_day_changed):
+			TimeManager.day_changed.disconnect(_on_day_changed)
+
+func _process(_delta: float) -> void:
+	# Signal là đường cập nhật chính. Đồng bộ thêm mỗi frame để UI không bị
+	# đứng ở giờ cũ nếu scene/UI bị reparent hoặc mất kết nối signal trong lúc
+	# chuyển scene; GameState.current_time luôn là nguồn sự thật duy nhất.
+	_update_text(GameState.current_time)
+
 func _on_time_changed(current_time: float, _is_day: bool) -> void:
 	_update_text(current_time)
 

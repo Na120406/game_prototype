@@ -124,6 +124,12 @@ func interact(_player_ref: Node) -> void:
 	if current_level >= max_capacity:
 		_show_feedback("Bình nước đã đầy!")
 		return
+	# Refill cần đúng 3 energy. Khi chỉ còn vừa đủ hoặc ít hơn, không cho
+	# thực hiện hành động: tránh gọi spend_energy() rồi kích hoạt knock-out,
+	# làm thời gian chuyển ngày trong khi bình vẫn chưa được đổ.
+	if GameState.energy <= REFILL_ENERGY_COST:
+		_show_feedback("Tôi đã kiệt sức rồi")
+		return
 	var energy_manager: Node = get_tree().root.get_node_or_null("EnergyManager") if get_tree() != null else null
 	if energy_manager != null and energy_manager.has_method("spend_energy"):
 		if not energy_manager.call("spend_energy", REFILL_ENERGY_COST):

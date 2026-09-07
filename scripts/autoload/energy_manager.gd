@@ -118,6 +118,13 @@ func _finish_knock_out(do_teleport: bool, reset_to_hour: float = 6.0) -> void:
 	# vẫn đồng bộ. Reset về reset_to_hour:
 	#   - AFK penalty (quá 1:00 chưa ngủ) → 6.0 (bắt đầu ngày mới)
 	#   - Kiệt sức (energy = 0) → 6.0 (sáng sớm, mặc định)
+	# The midpoint callback runs only after the transition is fully black. Finish
+	# every NPC's remaining schedule in the background before advancing the day,
+	# exactly like sleeping at the bed.
+	var npc_manager: Node = get_node_or_null("/root/NPCManager")
+	if npc_manager != null and npc_manager.has_method("fast_forward_npcs_to_day_end"):
+		npc_manager.call("fast_forward_npcs_to_day_end", GameState.current_time)
+
 	var days_passed: int = max(1, int(floor(GameState.current_time / 24.0)))
 	for i in range(days_passed):
 		GameState.advance_day(reset_to_hour)
