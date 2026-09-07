@@ -61,16 +61,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	# Mouse right → dùng CONSUMABLE đang select (NGOÀI farm zone).
-	# Trong farm zone, farm_plot._input đã handle TOOL/SEED qua mouse right;
-	# nếu item_type là CONSUMABLE thì _try_farm_action silent fail → event
-	# tiếp tục xuống _unhandled_input → dùng CONSUMABLE như thường.
-	if event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event
-		if mb.pressed and mb.button_index == MOUSE_BUTTON_RIGHT:
-			if _try_use_active_consumable():
-				get_viewport().set_input_as_handled()
-				return
+	# Chuột phải dùng consumable chỉ do Player._unhandled_input xử lý.
+	# Không xử lý lại ở đây: cùng một InputEvent đi qua nhiều node trong
+	# unhandled-input chain, nếu gọi ItemHandler lần nữa sẽ tiêu thụ 2 vật phẩm
+	# cho một click. Player vẫn giữ logic ngoại lệ khi Inventory đang mở
+	# (click vào slot consumable sẽ mở context menu Use).
 
 # =============================================================================
 # POPUP DETECTION
@@ -100,33 +95,4 @@ func _is_blocking_popup_open() -> bool:
 	var fallback := get_node_or_null("/root/Main/SleepPrompt")
 	if fallback != null and fallback is Control and (fallback as Control).visible:
 		return true
-	return false
-
-# =============================================================================
-# CONSUMABLE USAGE
-# =============================================================================
-
-# Thử dùng CONSUMABLE ở toolbar slot đang active.
-# Trả về true nếu đã dùng (slot có consumable).
-# Trả về false nếu slot rỗng / không phải consumable (để caller xử lý tiếp).
-func _try_use_active_consumable() -> bool:
-	if GameState.game_interacting:
-		return false
-	var hotbar: Node = get_tree().get_first_node_in_group("hotbar")
-	if hotbar == null:
-		return false
-	var active_idx: int = hotbar.get_active_slot()
-	if active_idx < 0 or active_idx >= GameState.toolbar.size():
-		return false
-	var slot: Dictionary = GameState.toolbar[active_idx]
-	if slot.get("id", "") == "":
-		return false
-	var db = get_node_or_null("/root/ItemDB")
-	if db == null:
-		return false
-	var data: ItemData = db.get_item(slot.get("id", ""))
-	if data == null or data.item_type != ItemData.Type.CONSUMABLE:
-		return false
-	if ItemHandler != null and ItemHandler.has_method("use_toolbar_slot"):
-		return ItemHandler.use_toolbar_slot(active_idx)
 	return false

@@ -432,7 +432,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		# lý để consume item hotbar active.
 		if _is_mouse_over_inventory_consumable_slot():
 			return
-		_try_use_active_consumable()
+		if _try_use_active_consumable():
+			# Player là nơi duy nhất tiêu thụ consumable từ chuột phải. Đánh dấu
+			# event đã xử lý để không rơi tiếp xuống các input handler khác.
+			get_viewport().set_input_as_handled()
 
 	if event.is_action_pressed("ui_cancel"):
 		if current_state == State.INTERACTING:
