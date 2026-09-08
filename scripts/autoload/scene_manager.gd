@@ -568,6 +568,11 @@ func _get_safe_portal_spawn_position(scene: Node, portal: Node2D) -> Vector2:
 	var bounds := _get_scene_play_bounds(scene)
 	var inward := _get_inward_portal_offset(base, bounds)
 	var offsets: Array[Vector2] = []
+	# Hai đầu shortcut đã được đặt đủ sâu trong biên map (Town x=20,
+	# Forest x=622). Ưu tiên đúng tâm portal để Player không bị lệch 28px so
+	# với lối đi; nếu có NPC chiếm tâm thì các offset an toàn bên dưới vẫn dùng.
+	if _portal_prefers_exact_spawn(portal):
+		offsets.append(Vector2.ZERO)
 	if inward != Vector2.ZERO:
 		# Luôn thử hướng vào trong trước. Đây là nhánh sửa lỗi portal phải:
 		# base=(460,135) → candidate=(432,135), không phải (482,135).
@@ -589,6 +594,13 @@ func _get_safe_portal_spawn_position(scene: Node, portal: Node2D) -> Vector2:
 	# trong cửa, thay vì fallback ra ngoài mép phải như trước.
 	var fallback_offset := inward if inward != Vector2.ZERO else Vector2.ZERO
 	return _clamp_spawn_to_bounds(base + fallback_offset, bounds)
+
+
+func _portal_prefers_exact_spawn(portal: Node) -> bool:
+	if portal == null or not ("portal_id" in portal):
+		return false
+	var id: String = str(portal.get("portal_id"))
+	return id == "portal_town_to_forest_short" or id == "portal_forest_short_to_town"
 
 
 func _get_scene_play_bounds(scene: Node) -> Rect2:

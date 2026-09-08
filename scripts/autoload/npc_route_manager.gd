@@ -6,7 +6,7 @@ extends Node
 const ROUTES: Dictionary = {
 	"shop_to_town": [
 		{"scene": "res://scenes/maps/inside_shop_map.tscn", "point": "portal_shop_to_town", "position": Vector2(20, 135), "portal_id": "portal_shop_to_town"},
-		{"scene": "res://scenes/maps/town_map.tscn", "point": "shop_exit", "position": Vector2(95, 105), "portal_id": "portal_town_to_shop", "arrival_offset": Vector2(80, 0)}
+		{"scene": "res://scenes/maps/town_map.tscn", "point": "shop_exit", "position": Vector2(95, 105), "portal_id": "portal_town_to_shop", "arrival_target_offset": Vector2(80, 0)}
 	],
 	"town_to_farm": [
 		{"scene": "res://scenes/maps/town_map.tscn", "point": "forest_exit_long", "position": Vector2(20, 400), "portal_id": "portal_town_to_forest_long"},

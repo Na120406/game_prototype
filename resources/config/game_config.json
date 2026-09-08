@@ -42,8 +42,8 @@
 	"axe_available_day": 3,
 	"axe_price": 120,
 	"watering_can_capacity": 5,
-	"forest_long_route_time": 1.5,
-	"forest_shortcut_time": 0.5,
+	"forest_long_route_time": 0.0,
+	"forest_shortcut_time": 0.0,
 	"gathering_quantity": 1,
 	"gathering_value": 5
   }

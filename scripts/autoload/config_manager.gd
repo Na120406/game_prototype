@@ -347,10 +347,10 @@ func get_watering_can_capacity() -> int:
 	return int(get_value("level_design.watering_can_capacity", 5))
 
 func get_forest_long_route_time() -> float:
-	return float(get_value("level_design.forest_long_route_time", 1.5))
+	return float(get_value("level_design.forest_long_route_time", 0.0))
 
 func get_forest_shortcut_time() -> float:
-	return float(get_value("level_design.forest_shortcut_time", 0.5))
+	return float(get_value("level_design.forest_shortcut_time", 0.0))
 
 func get_gathering_quantity() -> int:
 	return int(get_value("level_design.gathering_quantity", 1))

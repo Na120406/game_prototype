@@ -97,15 +97,6 @@ offset_right = 386.0
 offset_bottom = 289.0
 color = Color(0.56, 0.53, 0.47, 1)
 
-[node name="ForestLongRoadVertical2" type="ColorRect" parent="GroundBackdrop/ForestLongRoadVertical2"]
-z_index = 1
-layout_mode = 0
-offset_left = 358.0
-offset_top = 134.0
-offset_right = 386.0
-offset_bottom = 289.0
-color = Color(0.56, 0.53, 0.47, 1)
-
 [node name="MainRoadTopTrim7" type="ColorRect" parent="GroundBackdrop"]
 layout_mode = 0
 offset_left = 232.0
@@ -206,24 +197,6 @@ offset_bottom = 242.0
 rotation = 1.5707964
 color = Color(0.38, 0.36, 0.32, 1)
 
-[node name="MainRoadTopTrim22" type="ColorRect" parent="GroundBackdrop/MainRoadTopTrim22"]
-layout_mode = 0
-offset_left = 297.0
-offset_top = 308.26974
-offset_right = 403.73596
-offset_bottom = 310.26974
-rotation = 1.5707964
-color = Color(0.38, 0.36, 0.32, 1)
-
-[node name="MainRoadTopTrim14" type="ColorRect" parent="GroundBackdrop/MainRoadTopTrim22/MainRoadTopTrim22"]
-layout_mode = 0
-offset_left = 44.0
-offset_top = 155.86194
-offset_right = 179.13535
-offset_bottom = 157.86194
-rotation = 1.5707964
-color = Color(0.38, 0.36, 0.32, 1)
-
 [node name="MainRoadTopTrim23" type="ColorRect" parent="GroundBackdrop"]
 layout_mode = 0
 offset_left = 313.0
@@ -312,15 +285,6 @@ offset_top = 351.0
 offset_right = 278.0
 offset_bottom = 387.0
 color = Color(0.25981325, 0.74294806, 0.06478639, 1)
-
-[node name="ShopWindowRight" type="ColorRect" parent="GroundBackdrop/ShopWindowRight2"]
-z_index = 2
-layout_mode = 0
-offset_left = 164.0
-offset_top = 278.0
-offset_right = 198.0
-offset_bottom = 314.0
-color = Color(0.2242307, 0.6522417, 0.049304433, 1)
 
 [node name="ShopWindowRight3" type="ColorRect" parent="GroundBackdrop"]
 z_index = 2

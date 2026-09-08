@@ -196,7 +196,10 @@ func _move_along_schedule(delta: float) -> void:
 			move_and_slide()
 			return
 	if global_position.distance_to(_target_pos) <= waypoint_reach_distance:
-		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)
+		# Đã tới vùng chấp nhận thì dừng hẳn. Giảm tốc rồi vẫn gọi
+		# move_and_slide() làm NPC trôi vượt qua điểm chờ và có thể bỏ lỡ mốc
+		# schedule kế tiếp (Marcus từng trôi khỏi target sau khi ra Shop).
+		velocity = Vector2.ZERO
 		if current_state == NPCState.WALKING:
 			_change_state(NPCState.IDLE)
 		move_and_slide()
@@ -461,11 +464,11 @@ func on_route_arrived(arrived_scene_path: String) -> void:
 		velocity = Vector2.ZERO
 		_change_state(NPCState.WALKING)
 		return
-	var arrival_stand_offset := Vector2.ZERO
+	var arrival_target_offset := Vector2.ZERO
 	if arrived_index >= 0 and arrived_index < active_route.size():
-		var raw_arrival_offset: Variant = active_route[arrived_index].get("arrival_offset", Vector2.ZERO)
+		var raw_arrival_offset: Variant = active_route[arrived_index].get("arrival_target_offset", Vector2.ZERO)
 		if raw_arrival_offset is Vector2:
-			arrival_stand_offset = raw_arrival_offset
+			arrival_target_offset = raw_arrival_offset
 
 	# Đã tới waypoint cuối: xóa route cũ để không kéo NPC quay lại portal,
 	# sau đó chọn bước lịch trình phù hợp trong scene đích.
@@ -513,16 +516,15 @@ func on_route_arrived(arrived_scene_path: String) -> void:
 	_target_pos = selected_pos
 	var state_value: int = int(selected_step.get("state", NPCState.IDLE))
 	_change_state(state_value as NPCState)
-	# Xuất hiện ngay lập tức nhưng lệch hẳn ra khỏi cửa theo hướng đi tới vị
-	# trí lịch trình — không chiếm chỗ ngay trước cửa/cổng. Physics tick tiếp
-	# theo sẽ tiếp tục di chuyển NPC tới _target_pos.
+	# NPC luôn xuất hiện tại waypoint/cửa đích. Nếu route khai báo một target
+	# chờ riêng, physics sẽ cho NPC tự đi từ cửa tới target đó; tuyệt đối không
+	# thay global_position thành tọa độ lịch trình ngay trong handoff.
 	var to_target: Vector2 = arrival_pos.direction_to(_target_pos)
-	if arrival_stand_offset != Vector2.ZERO:
+	if arrival_target_offset != Vector2.ZERO:
 		# Một số cửa cần điểm chờ riêng để không chặn portal. Route Shop ->
-		# Town đặt Marcus lệch 80 px sang phải cho tới mốc 14:30.
-		global_position = arrival_pos + arrival_stand_offset
-		_target_pos = global_position
-		_change_state(NPCState.IDLE)
+		# Town cho Marcus đi 80 px sang phải rồi chờ tới mốc 14:30.
+		_target_pos = arrival_pos + arrival_target_offset
+		_change_state(NPCState.WALKING)
 	elif to_target != Vector2.ZERO and arrival_pos.distance_to(_target_pos) > waypoint_reach_distance:
 		global_position = arrival_pos + to_target * PORTAL_ARRIVAL_OFFSET
 	velocity = Vector2.ZERO

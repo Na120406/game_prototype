@@ -51,11 +51,13 @@ FarmTickManager="*res://scripts/autoload/farm_tick_manager.gd"
 FloatingWarning="*res://scripts/autoload/floating_warning.gd"
 HotkeyInputManager="*res://scripts/ui/hotkey_input_manager.gd"
 InputRouter="*res://scripts/autoload/input_router.gd"
+CaptureModeManager="*res://scripts/autoload/capture_mode_manager.gd"
 
 [display]
 
 window/size/viewport_width=320
 window/size/viewport_height=180
+window/size/mode=3
 window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
