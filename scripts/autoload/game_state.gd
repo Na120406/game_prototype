@@ -736,6 +736,19 @@ func get_flag(flag: String, default: Variant = false) -> Variant:
 
 
 # =============================================================================
+# MARCUS QUEST BOARD DIALOGUE — PERSISTENT ONE-SHOT
+# =============================================================================
+
+const MARCUS_BOARD_QUEST_DIALOGUE_SEEN_KEY: String = "marcus_board_quest_dialogue_seen"
+
+func has_seen_marcus_board_quest_dialogue() -> bool:
+	return bool(get_flag(MARCUS_BOARD_QUEST_DIALOGUE_SEEN_KEY, false))
+
+func mark_marcus_board_quest_dialogue_seen() -> void:
+	set_flag(MARCUS_BOARD_QUEST_DIALOGUE_SEEN_KEY, true)
+
+
+# =============================================================================
 # VOS MOUNTAIN EVENT — STATE KEYS & HELPERS
 # =============================================================================
 # State keys chuẩn cho chuỗi sự kiện Vos lên núi. Toàn bộ trạng thái bền vững

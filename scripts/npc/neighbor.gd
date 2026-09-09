@@ -37,6 +37,8 @@ extends "res://scripts/npc/npc.gd"
 #   - day >= 2: chọn dialogue dựa trên quest state (như cũ).
 # =============================================================================
 
+const BOARD_QUEST_DIALOGUE_ID: String = "neighbor_day2_plus"
+
 # Vị trí mặc định (sẽ được load từ ConfigManager)
 var home_position: Vector2 = Vector2(375, 200)
 var farm_work_position: Vector2 = Vector2(160, 200)
@@ -302,6 +304,10 @@ func interact(player: Node) -> void:
 		# cho lần nói chuyện kế tiếp.
 		if DialogueManager.dialogue_ended.is_connected(_on_dm_ended):
 			DialogueManager.dialogue_ended.disconnect(_on_dm_ended)
+	elif chosen_id == BOARD_QUEST_DIALOGUE_ID:
+		# Chỉ consume one-shot sau khi DialogueManager đã mở thoại thành công.
+		# Flag nằm trong GameState nên Marcus respawn/đổi scene cũng không lặp.
+		GameState.mark_marcus_board_quest_dialogue_seen()
 
 
 # Callback khi dialogue kết thúc. Day 1 lần đầu:
@@ -563,14 +569,17 @@ func _pick_dialogue_id() -> String:
 			return "neighbor_delivery"
 		return "neighbor_still_need"
 
-	var available: Array = QuestSystem.get_available_quests_for_npc(npc_id)
-	if not available.is_empty():
-		return "neighbor_day2_plus"
 
-	# Kiểm tra bảng tin có quest hôm nay không (CHỈ từ day 2 trở lên)
-	if GameState.current_day >= 2 and QuestSystem.has_quests_today(npc_id):
-		print("[Neighbor] Board has quests today → neighbor_day2_plus")
-		return "neighbor_day2_plus"
+	# Thoại nhắc bảng quest là one-shot toàn save: chỉ chạy ở lần nói chuyện
+	# đầu tiên khi bảng thực sự có quest. Quest chỉ "available" trong library
+	# không đủ điều kiện vì bảng có thể đã roll thất bại trong ngày đó.
+	if (
+		GameState.current_day >= 2
+		and not GameState.has_seen_marcus_board_quest_dialogue()
+		and QuestSystem.has_quests_today(npc_id)
+	):
+		print("[Neighbor] Board has quests today → first-time neighbor_day2_plus")
+		return BOARD_QUEST_DIALOGUE_ID
 
 	# Dialogue idle theo thời gian trong ngày
 	return _pick_idle_by_time()

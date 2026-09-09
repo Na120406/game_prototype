@@ -226,15 +226,19 @@ position = Vector2(521, 379)
 [node name="FarmBlockers" type="Node2D" parent="."]
 
 [node name="FarmBlocker1" parent="FarmBlockers" instance=ExtResource("11_blocker")]
-position = Vector2(72, 313)
+position = Vector2(75, 406)
+blocker_id = "farm_expansion_blocker_1"
+
+[node name="FarmBlocker1" parent="FarmBlockers/FarmBlocker1" instance=ExtResource("11_blocker")]
+position = Vector2(85, 383)
 blocker_id = "farm_expansion_blocker_1"
 
 [node name="FarmBlocker2" parent="FarmBlockers" instance=ExtResource("11_blocker")]
-position = Vector2(92, 395)
+position = Vector2(160, 393)
 blocker_id = "farm_expansion_blocker_2"
 
 [node name="FarmBlocker3" parent="FarmBlockers" instance=ExtResource("11_blocker")]
-position = Vector2(294, 323)
+position = Vector2(300, 357)
 blocker_id = "farm_expansion_blocker_3"
 
 [node name="Tree1" type="ColorRect" parent="."]
@@ -254,15 +258,15 @@ offset_bottom = 278.0
 color = Color(0.3, 0.5, 0.2, 1)
 
 [node name="FarmBlocker1" parent="." instance=ExtResource("11_blocker")]
-position = Vector2(157, 351)
+position = Vector2(214, 336)
 blocker_id = "farm_blocker_1"
 
 [node name="FarmBlocker2" parent="." instance=ExtResource("11_blocker")]
-position = Vector2(217, 306)
+position = Vector2(277, 304)
 blocker_id = "farm_blocker_2"
 
 [node name="FarmBlocker3" parent="." instance=ExtResource("11_blocker")]
-position = Vector2(208, 408)
+position = Vector2(230, 397)
 blocker_id = "farm_blocker_3"
 
 [node name="Tree4" type="ColorRect" parent="."]
@@ -438,9 +442,9 @@ color = Color(0.55, 0.5, 0.4, 1)
 [node name="Tree5" type="ColorRect" parent="."]
 z_index = -14
 offset_left = 22.0
-offset_top = 272.0
+offset_top = 442.0
 offset_right = 346.0
-offset_bottom = 436.0
+offset_bottom = 606.0
 color = Color(0.3850656, 0.35770756, 0.26651403, 0.73333335)
 
 [node name="Tree6" type="ColorRect" parent="."]
@@ -491,3 +495,31 @@ offset_top = 417.0
 offset_right = 348.0
 offset_bottom = 438.0
 color = Color(0.5, 0.35, 0.15, 1)
+
+[node name="FarmBlocker4" parent="." instance=ExtResource("11_blocker")]
+position = Vector2(154, 323)
+blocker_id = "farm_blocker_1"
+
+[node name="FarmBlocker5" parent="." instance=ExtResource("11_blocker")]
+position = Vector2(98, 356)
+blocker_id = "farm_expansion_blocker_1"
+
+[node name="FarmBlocker1" parent="FarmBlocker5" instance=ExtResource("11_blocker")]
+position = Vector2(85, 383)
+blocker_id = "farm_expansion_blocker_1"
+
+[node name="FarmBlocker5" parent="FarmBlocker5" instance=ExtResource("11_blocker")]
+position = Vector2(92, 352)
+blocker_id = "farm_expansion_blocker_1"
+
+[node name="FarmBlocker1" parent="FarmBlocker5/FarmBlocker5" instance=ExtResource("11_blocker")]
+position = Vector2(85, 383)
+blocker_id = "farm_expansion_blocker_1"
+
+[node name="FarmBlocker6" parent="." instance=ExtResource("11_blocker")]
+position = Vector2(66, 307)
+blocker_id = "farm_expansion_blocker_1"
+
+[node name="FarmBlocker1" parent="FarmBlocker6" instance=ExtResource("11_blocker")]
+position = Vector2(85, 383)
+blocker_id = "farm_expansion_blocker_1"
